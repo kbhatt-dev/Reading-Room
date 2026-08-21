@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#6f4e37" />
-  <title>My Reading Room</title>
+  <title>My Reading Room — V2</title>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="stylesheet" href="styles.css" />
   <link rel="apple-touch-icon" href="icon.svg" />
@@ -18,7 +18,14 @@
     <button class="primary" id="addBookBtn">+ Add Book</button>
   </header>
 
+  <nav class="app-tabs" aria-label="Reading Room sections">
+    <button class="tab-btn active" data-view="home">Library</button>
+    <button class="tab-btn" data-view="stats">Statistics</button>
+    <button class="tab-btn" data-view="sync">Sync</button>
+  </nav>
+
   <main>
+    <div id="homeView" class="view-panel active-view">
     <section class="hero-card">
       <div>
         <p class="eyebrow">Welcome back ✨</p>
@@ -57,15 +64,99 @@
             <option value="want">Want to Read</option>
             <option value="dnf">DNF</option>
           </select>
+          <select id="filterGenre">
+            <option value="all">All genres</option>
+          </select>
         </div>
       </div>
 
-      <div class="shelf-wrap">
-        <div class="decor">🪴 <span>✨</span> 🕯️</div>
-        <div id="bookShelf" class="book-shelf"></div>
-        <div class="shelf-board"></div>
-      </div>
+      <div id="yearShelves" class="year-shelves"></div>
       <div id="libraryEmpty" class="empty-state">Your shelf is waiting for its first book.</div>
+    </section>
+
+    </div>
+
+    <section id="statsView" class="view-panel hidden">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Your reading life</p>
+          <h2>Reading Statistics</h2>
+        </div>
+        <select id="statsYear"></select>
+      </div>
+
+      <div class="stats-grid">
+        <article class="stat-card"><span>📚</span><strong id="statBooks">0</strong><small>Books finished</small></article>
+        <article class="stat-card"><span>📄</span><strong id="statPages">0</strong><small>Pages read</small></article>
+        <article class="stat-card"><span>⭐</span><strong id="statRating">0</strong><small>Average rating</small></article>
+        <article class="stat-card"><span>🏷️</span><strong id="statGenre">—</strong><small>Top genre</small></article>
+      </div>
+
+      <div class="insight-grid">
+        <article class="insight-card">
+          <h3>Books by Month</h3>
+          <div id="monthlyBars" class="bar-chart"></div>
+        </article>
+        <article class="insight-card">
+          <h3>Genres</h3>
+          <div id="genreStats" class="genre-stats"></div>
+        </article>
+        <article class="insight-card">
+          <h3>Ratings</h3>
+          <div id="ratingStats" class="rating-stats"></div>
+        </article>
+        <article class="insight-card">
+          <h3>Formats</h3>
+          <div id="formatStats" class="genre-stats"></div>
+        </article>
+      </div>
+    </section>
+
+    <section id="syncView" class="view-panel hidden">
+      <div class="sync-card">
+        <p class="eyebrow">Across your devices</p>
+        <h2>Cloud Sync</h2>
+        <p class="muted">V2 is ready for optional Supabase sync. Until you connect it, your Reading Room continues using local storage exactly like V1.</p>
+
+        <div class="sync-status" id="syncStatus">
+          <span class="sync-dot local"></span>
+          <div>
+            <strong>Local mode</strong>
+            <p>Your books are saved on this device.</p>
+          </div>
+        </div>
+
+        <details class="sync-setup">
+          <summary>Connect Supabase</summary>
+          <div class="form-grid two sync-fields">
+            <label>Project URL
+              <input id="supabaseUrl" placeholder="https://xxxx.supabase.co">
+            </label>
+            <label>Anon key
+              <input id="supabaseKey" type="password" placeholder="Your anon public key">
+            </label>
+          </div>
+          <label>Sync ID
+            <input id="syncUserId" placeholder="Choose a private sync name, e.g. krishna-reading-room">
+          </label>
+          <div class="dialog-actions">
+            <button type="button" class="secondary" id="disconnectSync">Disconnect</button>
+            <span class="spacer"></span>
+            <button type="button" class="primary" id="saveSyncSettings">Save Sync Settings</button>
+          </div>
+          <p class="genre-note">The app never includes your Supabase credentials in the ZIP. You add them only on your own device.</p>
+        </details>
+
+        <div class="backup-card">
+          <h3>Backup</h3>
+          <p class="muted">Export your journal as JSON or restore it later.</p>
+          <div class="backup-actions">
+            <button class="secondary" id="exportBackup">Export Backup</button>
+            <button class="secondary" id="importBackupBtn">Import Backup</button>
+            <input id="importBackupInput" class="visually-hidden-file" type="file" accept=".json,application/json">
+          </div>
+        </div>
+      </div>
     </section>
   </main>
 

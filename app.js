@@ -1,6 +1,7 @@
 
 const KEY = "readingRoomBooksV1";
 const GENRE_KEY = "readingRoomGenresV1";
+const SYNC_KEY = "readingRoomSyncSettingsV2";
 const DEFAULT_GENRES = [
   "Thriller", "Mystery", "Horror", "Romance", "Fantasy",
   "Science Fiction", "Contemporary", "Historical Fiction",
@@ -8,6 +9,7 @@ const DEFAULT_GENRES = [
 ];
 let books = JSON.parse(localStorage.getItem(KEY) || "[]");
 let genres = JSON.parse(localStorage.getItem(GENRE_KEY) || "null") || [...DEFAULT_GENRES];
+let syncSettings = JSON.parse(localStorage.getItem(SYNC_KEY) || "null") || {url:"", key:"", userId:""};
 let selectedRating = 0;
 let workingCover = "";
 
@@ -18,14 +20,23 @@ const els = {
   current: $("#currentlyReading"), currentEmpty: $("#currentlyEmpty"),
   libraryEmpty: $("#libraryEmpty"), search: $("#searchInput"), filter: $("#filterStatus"),
   detailDialog: $("#detailDialog"), detail: $("#detailContent"), deleteBtn: $("#deleteBookBtn"),
-  genreDialog: $("#genreDialog"), genreList: $("#genreList")
+  genreDialog: $("#genreDialog"), genreList: $("#genreList"),
+  filterGenre: $("#filterGenre"), yearShelves: $("#yearShelves")
 };
 
-function save(){ localStorage.setItem(KEY, JSON.stringify(books)); render(); }
+function save(){
+  localStorage.setItem(KEY, JSON.stringify(books));
+  localStorage.setItem("readingRoomLastChangedV2", String(Date.now()));
+  render();
+  cloudSync();
+}
 function saveGenres(){
   localStorage.setItem(GENRE_KEY, JSON.stringify(genres));
+  localStorage.setItem("readingRoomLastChangedV2", String(Date.now()));
   renderGenreOptions($("#genre").value);
+  renderGenreFilter();
   renderGenreManager();
+  cloudSync();
 }
 function renderGenreOptions(selected=""){
   const select = $("#genre");
@@ -42,6 +53,173 @@ function renderGenreManager(){
       <button type="button" class="secondary small" onclick="renameGenre(${i})">Save</button>
       <button type="button" class="danger small" onclick="deleteGenre(${i})">Delete</button>
     </div>`).join("");
+}
+
+
+function bookYear(b){
+  const raw = b.dateFinished || b.dateStarted;
+  if(raw){
+    const y = new Date(raw + "T00:00:00").getFullYear();
+    if(!Number.isNaN(y)) return y;
+  }
+  return new Date().getFullYear();
+}
+function renderGenreFilter(){
+  const current = els.filterGenre?.value || "all";
+  if(!els.filterGenre) return;
+  els.filterGenre.innerHTML = `<option value="all">All genres</option>` +
+    genres.map(g=>`<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join("");
+  els.filterGenre.value = genres.includes(current) ? current : "all";
+}
+function filteredBooks(){
+  const q = els.search.value.trim().toLowerCase();
+  const f = els.filter.value;
+  const g = els.filterGenre?.value || "all";
+  return books.filter(b => {
+    const matchQ = !q || `${b.title} ${b.author} ${b.genre}`.toLowerCase().includes(q);
+    const matchF = f === "all" || b.status === f;
+    const matchG = g === "all" || b.genre === g;
+    return matchQ && matchF && matchG;
+  });
+}
+function renderYearShelves(visible){
+  if(!els.yearShelves) return;
+  const groups = {};
+  visible.forEach(b => {
+    const y = bookYear(b);
+    (groups[y] ||= []).push(b);
+  });
+  const years = Object.keys(groups).sort((a,b)=>Number(b)-Number(a));
+  els.yearShelves.innerHTML = years.map(year => `
+    <section class="year-block">
+      <h3>${year} Shelf</h3>
+      <div class="shelf-wrap">
+        <div class="decor">🪴 <span>✨</span> 🕯️</div>
+        <div class="book-shelf">
+          ${groups[year].map(b => `
+            <button class="shelf-book" onclick="openDetail('${b.id}')" title="${escapeHtml(b.title)}">
+              ${coverHTML(b)}
+              <span class="label">${escapeHtml(b.title)}</span>
+            </button>`).join("")}
+        </div>
+        <div class="shelf-board"></div>
+      </div>
+    </section>`).join("");
+}
+function renderStats(){
+  if(!$("#statsYear")) return;
+  const years = [...new Set(books.map(bookYear))].sort((a,b)=>b-a);
+  const currentYear = new Date().getFullYear();
+  if(!years.includes(currentYear)) years.unshift(currentYear);
+  const old = Number($("#statsYear").value) || currentYear;
+  $("#statsYear").innerHTML = years.map(y=>`<option value="${y}">${y}</option>`).join("");
+  $("#statsYear").value = years.includes(old) ? old : years[0];
+  const year = Number($("#statsYear").value);
+
+  const finished = books.filter(b=>b.status==="finished" && bookYear(b)===year);
+  const pages = finished.reduce((n,b)=>n+(Number(b.pages)||0),0);
+  const rated = finished.filter(b=>Number(b.rating)>0);
+  const avg = rated.length ? (rated.reduce((n,b)=>n+Number(b.rating),0)/rated.length).toFixed(1) : "—";
+
+  const countBy = key => finished.reduce((acc,b)=>{
+    const v = b[key] || "Unknown"; acc[v]=(acc[v]||0)+1; return acc;
+  },{});
+  const top = obj => Object.entries(obj).sort((a,b)=>b[1]-a[1])[0]?.[0] || "—";
+
+  $("#statBooks").textContent = finished.length;
+  $("#statPages").textContent = pages.toLocaleString();
+  $("#statRating").textContent = avg;
+  $("#statGenre").textContent = top(countBy("genre"));
+
+  const monthCounts = Array(12).fill(0);
+  finished.forEach(b=>{
+    if(b.dateFinished){
+      const d = new Date(b.dateFinished+"T00:00:00");
+      if(!Number.isNaN(d)) monthCounts[d.getMonth()]++;
+    }
+  });
+  const maxMonth = Math.max(1,...monthCounts);
+  const monthNames = ["J","F","M","A","M","J","J","A","S","O","N","D"];
+  $("#monthlyBars").innerHTML = monthCounts.map((n,i)=>`
+    <div class="bar-col">
+      <div class="bar-fill" style="height:${Math.max(2,(n/maxMonth)*100)}%"><span>${n||""}</span></div>
+      <div class="bar-label">${monthNames[i]}</div>
+    </div>`).join("");
+
+  function rows(target, obj){
+    const entries = Object.entries(obj).sort((a,b)=>b[1]-a[1]);
+    const max = Math.max(1,...entries.map(x=>x[1]));
+    $(target).innerHTML = entries.length ? entries.map(([name,n])=>`
+      <div class="stat-row">
+        <span>${escapeHtml(String(name))}</span>
+        <div class="stat-track"><span style="width:${(n/max)*100}%"></span></div>
+        <small>${n}</small>
+      </div>`).join("") : `<p class="muted">No data yet.</p>`;
+  }
+  rows("#genreStats", countBy("genre"));
+  rows("#formatStats", countBy("format"));
+
+  const ratingCounts = {};
+  rated.forEach(b=>{ const r=String(b.rating); ratingCounts[r]=(ratingCounts[r]||0)+1; });
+  rows("#ratingStats", ratingCounts);
+}
+function setView(name){
+  ["home","stats","sync"].forEach(v=>{
+    const panel = $("#"+v+"View");
+    panel.classList.toggle("hidden", v!==name);
+    document.querySelector(`[data-view="${v}"]`)?.classList.toggle("active", v===name);
+  });
+  if(name==="stats") renderStats();
+  if(name==="sync") renderSyncStatus();
+}
+function renderSyncStatus(){
+  const box=$("#syncStatus"); if(!box) return;
+  const configured = syncSettings.url && syncSettings.key && syncSettings.userId;
+  box.innerHTML = configured
+    ? `<span class="sync-dot connected"></span><div><strong>Sync configured</strong><p>Supabase settings are saved on this device. Use the same Sync ID on your other device.</p></div>`
+    : `<span class="sync-dot local"></span><div><strong>Local mode</strong><p>Your books are saved on this device.</p></div>`;
+  $("#supabaseUrl").value=syncSettings.url||"";
+  $("#supabaseKey").value=syncSettings.key||"";
+  $("#syncUserId").value=syncSettings.userId||"";
+}
+async function cloudSync(){
+  if(!(syncSettings.url && syncSettings.key && syncSettings.userId)) return;
+  try{
+    const endpoint = `${syncSettings.url.replace(/\/$/,"")}/rest/v1/reading_room_sync?user_id=eq.${encodeURIComponent(syncSettings.userId)}`;
+    const headers = {
+      "apikey": syncSettings.key,
+      "Authorization": `Bearer ${syncSettings.key}`,
+      "Content-Type": "application/json",
+      "Prefer": "return=representation"
+    };
+    const getRes = await fetch(endpoint, {headers});
+    if(!getRes.ok) throw new Error("Cloud read failed");
+    const rows = await getRes.json();
+    if(rows.length && rows[0].payload){
+      const remote = rows[0].payload;
+      const localStamp = Number(localStorage.getItem("readingRoomLastChangedV2")||0);
+      const remoteStamp = Number(rows[0].updated_at_ms||0);
+      if(remoteStamp > localStamp){
+        books = Array.isArray(remote.books) ? remote.books : books;
+        genres = Array.isArray(remote.genres) ? remote.genres : genres;
+        localStorage.setItem(KEY, JSON.stringify(books));
+        localStorage.setItem(GENRE_KEY, JSON.stringify(genres));
+        localStorage.setItem("readingRoomLastChangedV2", String(remoteStamp));
+        renderGenreOptions("");
+        renderGenreFilter();
+        render();
+        return;
+      }
+    }
+    const now = Date.now();
+    const payload = {user_id:syncSettings.userId, payload:{books,genres}, updated_at_ms:now};
+    const upsert = `${syncSettings.url.replace(/\/$/,"")}/rest/v1/reading_room_sync?on_conflict=user_id`;
+    const putRes = await fetch(upsert,{method:"POST",headers:{...headers,"Prefer":"resolution=merge-duplicates"},body:JSON.stringify(payload)});
+    if(!putRes.ok) throw new Error("Cloud write failed");
+    localStorage.setItem("readingRoomLastChangedV2",String(now));
+  }catch(err){
+    console.warn("Reading Room sync:", err.message);
+  }
 }
 
 function escapeHtml(v=""){
@@ -61,13 +239,7 @@ function coverHTML(b, cls="cover"){
   return `<div class="${cls} placeholder">${escapeHtml(b.title || "Book")}</div>`;
 }
 function render(){
-  const q = els.search.value.trim().toLowerCase();
-  const f = els.filter.value;
-  const visible = books.filter(b => {
-    const matchQ = !q || `${b.title} ${b.author} ${b.genre}`.toLowerCase().includes(q);
-    const matchF = f === "all" || b.status === f;
-    return matchQ && matchF;
-  });
+  const visible = filteredBooks();
 
   const current = books.filter(b => b.status === "reading");
   els.current.innerHTML = current.map(b => `
@@ -83,19 +255,16 @@ function render(){
     </article>`).join("");
   els.currentEmpty.classList.toggle("hidden", current.length > 0);
 
-  els.shelf.innerHTML = visible.map(b => `
-    <button class="shelf-book" onclick="openDetail('${b.id}')" title="${escapeHtml(b.title)}">
-      ${coverHTML(b)}
-      <span class="label">${escapeHtml(b.title)}</span>
-    </button>`).join("");
+  renderYearShelves(visible);
   els.libraryEmpty.classList.toggle("hidden", visible.length > 0);
 
-  const year = new Date().getFullYear();
   const finished = books.filter(b => b.status === "finished");
   $("#completedCount").textContent = finished.length;
   $("#yearSummary").textContent = finished.length
     ? `You have finished ${finished.length} ${finished.length===1?"book":"books"} in your library.`
     : "Start adding books to build your shelf.";
+
+  renderGenreFilter();
 }
 
 function buildRatingPicker(){
@@ -249,7 +418,50 @@ els.close.addEventListener("click",()=>els.dialog.close());
 els.cancel.addEventListener("click",()=>els.dialog.close());
 els.search.addEventListener("input",render);
 els.filter.addEventListener("change",render);
+els.filterGenre.addEventListener("change",render);
+$("#statsYear").addEventListener("change",renderStats);
+document.querySelectorAll(".tab-btn").forEach(btn=>btn.addEventListener("click",()=>setView(btn.dataset.view)));
+
+$("#saveSyncSettings").addEventListener("click",()=>{
+  syncSettings = {
+    url: $("#supabaseUrl").value.trim(),
+    key: $("#supabaseKey").value.trim(),
+    userId: $("#syncUserId").value.trim()
+  };
+  localStorage.setItem(SYNC_KEY, JSON.stringify(syncSettings));
+  renderSyncStatus();
+  cloudSync();
+});
+$("#disconnectSync").addEventListener("click",()=>{
+  syncSettings={url:"",key:"",userId:""};
+  localStorage.removeItem(SYNC_KEY);
+  renderSyncStatus();
+});
+$("#exportBackup").addEventListener("click",()=>{
+  const blob = new Blob([JSON.stringify({version:2, exportedAt:new Date().toISOString(), books, genres}, null, 2)],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download=`reading-room-backup-${new Date().toISOString().slice(0,10)}.json`; a.click();
+  URL.revokeObjectURL(a.href);
+});
+$("#importBackupBtn").addEventListener("click",()=>$("#importBackupInput").click());
+$("#importBackupInput").addEventListener("change",async e=>{
+  const file=e.target.files[0]; if(!file) return;
+  try{
+    const data=JSON.parse(await file.text());
+    if(!Array.isArray(data.books)) throw new Error("Invalid backup");
+    if(!confirm(`Restore ${data.books.length} books from this backup? This replaces current local data.`)) return;
+    books=data.books; if(Array.isArray(data.genres)) genres=data.genres;
+    localStorage.setItem(KEY,JSON.stringify(books)); localStorage.setItem(GENRE_KEY,JSON.stringify(genres));
+    localStorage.setItem("readingRoomLastChangedV2",String(Date.now()));
+    renderGenreOptions(""); renderGenreFilter(); render(); cloudSync();
+    alert("Backup restored.");
+  }catch(err){ alert("That file is not a valid Reading Room backup."); }
+  e.target.value="";
+});
 
 if("serviceWorker" in navigator){ window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{})); }
 renderGenreOptions("");
+renderGenreFilter();
 render();
+renderSyncStatus();
+cloudSync();

@@ -51,3 +51,46 @@ Once hosted on HTTPS:
 - Deleting a genre removes it from future choices without deleting books.
 - Replaced the large mobile file input with a compact "Choose Cover" button.
 - Reduced the cover preview size on phones.
+
+
+# V2
+
+## New in V2
+- Added Library / Statistics / Sync navigation.
+- Added yearly bookshelves based on finished/start date.
+- Added genre filter beside search and status filters.
+- Added Reading Statistics dashboard:
+  - finished books
+  - pages read
+  - average rating
+  - top genre
+  - books by month
+  - genre breakdown
+  - rating breakdown
+  - format breakdown
+- Added JSON backup export and restore.
+- Added optional Supabase sync configuration.
+- Local-only mode still works without any account or backend.
+
+## Optional Supabase cloud sync setup
+
+Create a Supabase project and add this table:
+
+```sql
+create table reading_room_sync (
+  user_id text primary key,
+  payload jsonb not null default '{}'::jsonb,
+  updated_at_ms bigint not null default 0
+);
+```
+
+For a private personal project, configure appropriate Row Level Security policies before using it publicly.
+
+Then open Reading Room → Sync and enter:
+- Project URL
+- anon public key
+- your private Sync ID
+
+Use the same values on your iPhone and computer.
+
+Important: V2 does not ship with anyone's credentials.
