@@ -169,3 +169,23 @@ The app does not store your password. Supabase session tokens are kept locally s
 - Added emoji-enhanced format and genre choices.
 - Improved mobile full-screen book editor.
 - Kept existing book data format compatible with earlier versions.
+
+
+## V2.3 — Automatic app updates
+
+This release fixes stale GitHub Pages / iPhone Home Screen builds.
+
+Changes:
+- Removed persistent service-worker app-shell caching.
+- The service worker now activates immediately with `skipWaiting()`.
+- Old Reading Room caches are automatically deleted during activation.
+- The app registers the service worker with `updateViaCache: "none"`.
+- Reading Room checks for a new service worker on launch and when returning to the app.
+- When a new build takes control, the page reloads once automatically.
+- You should no longer need Chrome DevTools → Application → Clear site data for normal releases.
+- Supabase/localStorage data are not cleared during an app update.
+
+Note:
+The very first upgrade from an older aggressively cached build may still require one hard refresh
+or reopening the installed app because the *old* service worker is the code currently controlling it.
+After V2.3 is installed, future releases use the new automatic update behavior.

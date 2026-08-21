@@ -1,3 +1,4 @@
+const READING_ROOM_VERSION = "2.3";
 
 const KEY = "readingRoomBooksV1";
 const GENRE_KEY = "readingRoomGenresV1";
@@ -633,12 +634,47 @@ $("#importBackupInput").addEventListener("change",async e=>{
   e.target.value="";
 });
 
-if("serviceWorker" in navigator){ window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{})); }
+if("serviceWorker" in navigator){
+  window.addEventListener("load", async()=>{
+    try{
+      const reg = await navigator.serviceWorker.register("./sw.js", {updateViaCache:"none"});
+
+      // Always ask the browser/GitHub Pages whether a newer service worker exists.
+      await reg.update();
+
+      reg.addEventListener("updatefound", ()=>{
+        const worker = reg.installing;
+        if(!worker) return;
+        worker.addEventListener("statechange", ()=>{
+          if(worker.state==="installed" && navigator.serviceWorker.controller){
+            // New SW is ready. It calls skipWaiting(), so controllerchange follows.
+          }
+        });
+      });
+
+      // Reload exactly once when a new service worker takes control.
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener("controllerchange", ()=>{
+        if(refreshing) return;
+        refreshing = true;
+        window.location.reload();
+      });
+
+      // Re-check when the user returns to the app after it has been in the background.
+      document.addEventListener("visibilitychange", ()=>{
+        if(document.visibilityState==="visible") reg.update().catch(()=>{});
+      });
+    }catch(err){
+      console.warn("Reading Room service worker:", err);
+    }
+  });
+}
 renderGenreOptions("");
 renderGenreFilter();
 render();
 renderSyncStatus();
 cloudSync();
+console.info(`Reading Room v${READING_ROOM_VERSION}`);
 
 /* Automatic cloud synchronization */
 window.addEventListener("focus",()=>{ if(isSignedIn()) cloudSync(); });

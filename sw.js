@@ -1,6 +1,23 @@
+const SW_VERSION = "reading-room-v2.3-auto-update";
 
-const CACHE="reading-room-v2-2-mobile";
-const ASSETS=["./","./index.html","./styles.css","./app.js","./manifest.webmanifest","./icon.svg"];
-self.addEventListener("install",e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS))));
-self.addEventListener("activate",e=>e.waitUntil(self.clients.claim()));
-self.addEventListener("fetch",e=>e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request))));
+self.addEventListener("install", event => {
+  self.skipWaiting();
+});
+
+self.addEventListener("activate", event => {
+  event.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(keys.map(key => caches.delete(key))))
+      .then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener("fetch", event => {
+  // Network-first/no persistent app-shell cache.
+  // If offline, the browser's normal HTTP cache may still help, but this service worker
+  // will never intentionally serve an old Reading Room build.
+  event.respondWith(
+    fetch(event.request, { cache: "no-store" })
+      .catch(() => fetch(event.request))
+  );
+});
