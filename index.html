@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#6f4e37" />
+  <title>My Reading Room</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="apple-touch-icon" href="icon.svg" />
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">Your private reading journal</p>
+      <h1>My Reading Room</h1>
+    </div>
+    <button class="primary" id="addBookBtn">+ Add Book</button>
+  </header>
+
+  <main>
+    <section class="hero-card">
+      <div>
+        <p class="eyebrow">Welcome back ✨</p>
+        <h2>Your library grows one story at a time.</h2>
+        <p class="muted" id="yearSummary">Start adding books to build your shelf.</p>
+      </div>
+      <div class="mini-stat">
+        <strong id="completedCount">0</strong>
+        <span>finished</span>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Now reading</p>
+          <h2>Currently Reading</h2>
+        </div>
+      </div>
+      <div id="currentlyReading" class="current-grid"></div>
+      <div id="currentlyEmpty" class="empty-state">No current book yet. Add one and choose <strong>Reading</strong>.</div>
+    </section>
+
+    <section>
+      <div class="section-heading library-heading">
+        <div>
+          <p class="eyebrow">Your collection</p>
+          <h2>My Library</h2>
+        </div>
+        <div class="controls">
+          <input id="searchInput" type="search" placeholder="Search title or author…" />
+          <select id="filterStatus">
+            <option value="all">All books</option>
+            <option value="reading">Reading</option>
+            <option value="finished">Finished</option>
+            <option value="want">Want to Read</option>
+            <option value="dnf">DNF</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="shelf-wrap">
+        <div class="decor">🪴 <span>✨</span> 🕯️</div>
+        <div id="bookShelf" class="book-shelf"></div>
+        <div class="shelf-board"></div>
+      </div>
+      <div id="libraryEmpty" class="empty-state">Your shelf is waiting for its first book.</div>
+    </section>
+  </main>
+
+  <dialog id="bookDialog">
+    <form id="bookForm" method="dialog" class="book-form">
+      <div class="dialog-head">
+        <div>
+          <p class="eyebrow">Reading journal</p>
+          <h2 id="dialogTitle">Add a Book</h2>
+        </div>
+        <button type="button" class="icon-btn" id="closeDialog">✕</button>
+      </div>
+
+      <input type="hidden" id="bookId" />
+
+      <div class="form-grid two">
+        <label>Book title
+          <input id="title" required maxlength="120" />
+        </label>
+        <label>Author
+          <input id="author" maxlength="120" />
+        </label>
+      </div>
+
+      <div class="form-grid two">
+        <label>Status
+          <select id="status">
+            <option value="want">Want to Read</option>
+            <option value="reading">Reading</option>
+            <option value="finished">Finished</option>
+            <option value="dnf">DNF</option>
+          </select>
+        </label>
+        <label>Genre
+          <input id="genre" placeholder="Thriller, Fantasy…" maxlength="80" />
+        </label>
+      </div>
+
+      <div class="form-grid three">
+        <label>Format
+          <select id="format">
+            <option>Paperback</option>
+            <option>Hardcover</option>
+            <option>Kindle</option>
+            <option>Audiobook</option>
+            <option>Other</option>
+          </select>
+        </label>
+        <label>Pages
+          <input id="pages" type="number" min="0" />
+        </label>
+        <label>Current page
+          <input id="currentPage" type="number" min="0" />
+        </label>
+      </div>
+
+      <div class="form-grid two">
+        <label>Date started
+          <input id="dateStarted" type="date" />
+        </label>
+        <label>Date finished
+          <input id="dateFinished" type="date" />
+        </label>
+      </div>
+
+      <label>Book cover
+        <input id="coverInput" type="file" accept="image/*" />
+      </label>
+      <div id="coverPreviewWrap" class="cover-preview-wrap hidden">
+        <img id="coverPreview" alt="Book cover preview" />
+        <button type="button" class="secondary small" id="removeCover">Remove cover</button>
+      </div>
+
+      <fieldset>
+        <legend>Overall rating</legend>
+        <div id="ratingPicker" class="rating-picker" aria-label="Rating"></div>
+        <input type="hidden" id="rating" value="0" />
+      </fieldset>
+
+      <label>My thoughts
+        <textarea id="review" rows="4" placeholder="What did you think about this book?"></textarea>
+      </label>
+
+      <label>Story memory / spoiler notes
+        <textarea id="spoilers" rows="5" placeholder="Write the full story summary or details you want to remember later…"></textarea>
+      </label>
+
+      <div class="form-grid two">
+        <label>Favourite character
+          <input id="favoriteCharacter" maxlength="120" />
+        </label>
+        <label>Favourite scene
+          <input id="favoriteScene" maxlength="160" />
+        </label>
+      </div>
+
+      <label>Favourite quote
+        <textarea id="favoriteQuote" rows="2"></textarea>
+      </label>
+
+      <div class="form-grid two">
+        <label>My prediction / theory
+          <textarea id="prediction" rows="2"></textarea>
+        </label>
+        <label>Was I right?
+          <select id="predictionResult">
+            <option value="">Not set</option>
+            <option value="yes">Yes 🎯</option>
+            <option value="no">No 😭</option>
+            <option value="partial">Partly</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="dialog-actions">
+        <button type="button" id="deleteBookBtn" class="danger hidden">Delete</button>
+        <span class="spacer"></span>
+        <button type="button" class="secondary" id="cancelBtn">Cancel</button>
+        <button type="submit" class="primary">Save Book</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="detailDialog">
+    <article id="detailContent" class="detail-card"></article>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
