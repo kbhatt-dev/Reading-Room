@@ -40,12 +40,30 @@ function saveGenres(){
   renderGenreManager();
   cloudSync();
 }
+
+function genreEmoji(name=""){
+  const g=name.toLowerCase();
+  if(g.includes("thriller")) return "🔪";
+  if(g.includes("mystery")) return "🕵️";
+  if(g.includes("horror")) return "👻";
+  if(g.includes("romance")) return "💗";
+  if(g.includes("fantasy")) return "🐉";
+  if(g.includes("science fiction")) return "🚀";
+  if(g.includes("historical")) return "🏛️";
+  if(g.includes("contemporary")) return "🌿";
+  if(g.includes("literary")) return "✒️";
+  if(g.includes("biography")) return "👤";
+  if(g.includes("self-help")) return "🌱";
+  if(g.includes("non-fiction") || g.includes("nonfiction")) return "🧠";
+  return "📚";
+}
+
 function renderGenreOptions(selected=""){
   const select = $("#genre");
   const choices = [...genres];
   if(selected && !choices.includes(selected)) choices.unshift(selected);
-  select.innerHTML = `<option value="">Choose genre…</option>` +
-    choices.map(g => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join("");
+  select.innerHTML = `<option value="">✨ Choose genre…</option>` +
+    choices.map(g => `<option value="${escapeHtml(g)}">${genreEmoji(g)} ${escapeHtml(g)}</option>`).join("");
   select.value = selected || "";
 }
 function renderGenreManager(){
@@ -69,8 +87,8 @@ function bookYear(b){
 function renderGenreFilter(){
   const current = els.filterGenre?.value || "all";
   if(!els.filterGenre) return;
-  els.filterGenre.innerHTML = `<option value="all">All genres</option>` +
-    genres.map(g=>`<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join("");
+  els.filterGenre.innerHTML = `<option value="all">🏷️ All genres</option>` +
+    genres.map(g=>`<option value="${escapeHtml(g)}">${genreEmoji(g)} ${escapeHtml(g)}</option>`).join("");
   els.filterGenre.value = genres.includes(current) ? current : "all";
 }
 function filteredBooks(){
@@ -286,6 +304,7 @@ async function cloudSync(force=false){
     }
     const rows=await getRes.json();
     const localStamp=Number(localStorage.getItem("readingRoomLastChangedV2")||0);
+    const lastSyncedStamp=Number(localStorage.getItem("readingRoomLastSyncedV2")||0);
 
     if(rows.length && rows[0].payload){
       const remote=rows[0].payload;
@@ -297,12 +316,18 @@ async function cloudSync(force=false){
         localStorage.setItem(KEY,JSON.stringify(books));
         localStorage.setItem(GENRE_KEY,JSON.stringify(genres));
         localStorage.setItem("readingRoomLastChangedV2",String(remoteStamp));
+        localStorage.setItem("readingRoomLastSyncedV2",String(remoteStamp));
         renderGenreOptions("");
         renderGenreFilter();
         render();
         setLastSync(`Downloaded latest library · ${new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}`);
         return true;
       }
+    }
+
+    if(rows.length && !force && localStamp <= lastSyncedStamp){
+      setLastSync(`Up to date · ${new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}`);
+      return true;
     }
 
     const now=Date.now();
@@ -318,7 +343,8 @@ async function cloudSync(force=false){
       throw new Error(`Cloud write failed (${putRes.status}): ${detail.slice(0,120)}`);
     }
     localStorage.setItem("readingRoomLastChangedV2",String(now));
-    setLastSync(`Synced · ${new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}`);
+    localStorage.setItem("readingRoomLastSyncedV2",String(now));
+    setLastSync(`Synced automatically · ${new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}`);
     return true;
   }catch(err){
     console.warn("Reading Room sync:",err);
@@ -458,8 +484,8 @@ window.openDetail = id => {
         <p class="eyebrow">${statusLabel(b.status)}</p>
         <h2>${escapeHtml(b.title)}</h2>
         <p class="muted">${escapeHtml(b.author || "Unknown author")}</p>
-        <span class="pill">${escapeHtml(b.genre || "No genre")}</span>
-        <span class="pill">${escapeHtml(b.format || "Format not set")}</span>
+        <span class="pill">${genreEmoji(b.genre)} ${escapeHtml(b.genre || "No genre")}</span>
+        <span class="pill">${b.format==="Kindle"?"📱 ":b.format==="Audiobook"?"🎧 ":b.format==="Hardcover"?"📕 ":b.format==="Paperback"?"📖 ":"✨ "}${escapeHtml(b.format || "Format not set")}</span>
         <span class="pill">${stars(Number(b.rating||0))}</span>
         ${b.pages ? `<p class="meta">${b.pages} pages${b.currentPage?` · currently page ${b.currentPage}`:""}</p>`:""}
       </div>
@@ -519,6 +545,7 @@ $("#newGenreInput").addEventListener("keydown",e=>{
 });
 
 els.add.addEventListener("click", openAdd);
+$("#floatingAddBookBtn")?.addEventListener("click", openAdd);
 els.close.addEventListener("click",()=>els.dialog.close());
 els.cancel.addEventListener("click",()=>els.dialog.close());
 els.search.addEventListener("input",render);
@@ -612,3 +639,12 @@ renderGenreFilter();
 render();
 renderSyncStatus();
 cloudSync();
+
+/* Automatic cloud synchronization */
+window.addEventListener("focus",()=>{ if(isSignedIn()) cloudSync(); });
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="visible" && isSignedIn()) cloudSync();
+});
+window.addEventListener("online",()=>{ if(isSignedIn()) cloudSync(); });
+setInterval(()=>{ if(document.visibilityState==="visible" && isSignedIn()) cloudSync(); }, 60000);
+

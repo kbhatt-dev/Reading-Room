@@ -192,16 +192,19 @@
 
   <dialog id="bookDialog">
     <form id="bookForm" method="dialog" class="book-form">
-      <div class="dialog-head">
+      <div class="dialog-head book-dialog-head">
         <div>
-          <p class="eyebrow">Reading journal</p>
+          <p class="eyebrow">📚 Reading journal</p>
           <h2 id="dialogTitle">Add a Book</h2>
+          <p class="dialog-subtitle">Capture the book, your progress, and the little details worth remembering.</p>
         </div>
-        <button type="button" class="icon-btn" id="closeDialog">✕</button>
+        <button type="button" class="icon-btn close-round" id="closeDialog">✕</button>
       </div>
 
       <input type="hidden" id="bookId" />
 
+      <section class="form-section">
+        <div class="form-section-title"><span>📖</span><div><strong>Book Details</strong><small>The basics</small></div></div>
       <div class="form-grid two">
         <label>Book title
           <input id="title" required maxlength="120" />
@@ -212,15 +215,15 @@
       </div>
 
       <div class="form-grid two">
-        <label>Status
+        <label>📌 Status
           <select id="status">
-            <option value="want">Want to Read</option>
-            <option value="reading">Reading</option>
-            <option value="finished">Finished</option>
-            <option value="dnf">DNF</option>
+            <option value="want">💭 Want to Read</option>
+            <option value="reading">📖 Reading</option>
+            <option value="finished">✅ Finished</option>
+            <option value="dnf">🌙 DNF</option>
           </select>
         </label>
-        <label>Genre
+        <label>🏷️ Genre
           <div class="genre-control">
             <select id="genre"></select>
             <button type="button" class="secondary small manage-genre-btn" id="manageGenresBtn">Manage</button>
@@ -229,32 +232,36 @@
       </div>
 
       <div class="form-grid three">
-        <label>Format
+        <label>📚 Format
           <select id="format">
-            <option>Paperback</option>
-            <option>Hardcover</option>
-            <option>Kindle</option>
-            <option>Audiobook</option>
-            <option>Other</option>
+            <option value="Paperback">📖 Paperback</option>
+            <option value="Hardcover">📕 Hardcover</option>
+            <option value="Kindle">📱 Kindle</option>
+            <option value="Audiobook">🎧 Audiobook</option>
+            <option value="Other">✨ Other</option>
           </select>
         </label>
-        <label>Pages
+        <label>📄 Pages
           <input id="pages" type="number" min="0" />
         </label>
-        <label>Current page
+        <label>🔖 Current page
           <input id="currentPage" type="number" min="0" />
         </label>
       </div>
 
       <div class="form-grid two">
-        <label>Date started
+        <label>🗓️ Date started
           <input id="dateStarted" type="date" />
         </label>
-        <label>Date finished
+        <label>✅ Date finished
           <input id="dateFinished" type="date" />
         </label>
       </div>
 
+      </section>
+
+      <section class="form-section">
+        <div class="form-section-title"><span>🖼️</span><div><strong>Book Cover</strong><small>Add the cover you love seeing on your shelf</small></div></div>
       <label>Book cover
         <div class="cover-upload">
           <input id="coverInput" class="visually-hidden-file" type="file" accept="image/*" />
@@ -267,38 +274,42 @@
         <button type="button" class="secondary small" id="removeCover">Remove cover</button>
       </div>
 
-      <fieldset>
+      </section>
+
+      <section class="form-section">
+        <div class="form-section-title"><span>⭐</span><div><strong>Rating & Journal</strong><small>Your personal reading memory</small></div></div>
+      <fieldset class="rating-fieldset">
         <legend>Overall rating</legend>
         <div id="ratingPicker" class="rating-picker" aria-label="Rating"></div>
         <input type="hidden" id="rating" value="0" />
       </fieldset>
 
-      <label>My thoughts
+      <label>💭 My thoughts
         <textarea id="review" rows="4" placeholder="What did you think about this book?"></textarea>
       </label>
 
-      <label>Story memory / spoiler notes
+      <label>🔒 Story memory / spoiler notes
         <textarea id="spoilers" rows="5" placeholder="Write the full story summary or details you want to remember later…"></textarea>
       </label>
 
       <div class="form-grid two">
-        <label>Favourite character
+        <label>❤️ Favourite character
           <input id="favoriteCharacter" maxlength="120" />
         </label>
-        <label>Favourite scene
+        <label>🎬 Favourite scene
           <input id="favoriteScene" maxlength="160" />
         </label>
       </div>
 
-      <label>Favourite quote
+      <label>💬 Favourite quote
         <textarea id="favoriteQuote" rows="2"></textarea>
       </label>
 
       <div class="form-grid two">
-        <label>My prediction / theory
+        <label>🔎 My prediction / theory
           <textarea id="prediction" rows="2"></textarea>
         </label>
-        <label>Was I right?
+        <label>🎯 Was I right?
           <select id="predictionResult">
             <option value="">Not set</option>
             <option value="yes">Yes 🎯</option>
@@ -308,7 +319,9 @@
         </label>
       </div>
 
-      <div class="dialog-actions">
+      </section>
+
+      <div class="dialog-actions sticky-save-bar">
         <button type="button" id="deleteBookBtn" class="danger hidden">Delete</button>
         <span class="spacer"></span>
         <button type="button" class="secondary" id="cancelBtn">Cancel</button>
@@ -342,6 +355,8 @@
     <article id="detailContent" class="detail-card"></article>
   </dialog>
 
+
+  <button id="floatingAddBookBtn" class="floating-add" aria-label="Add a new book">＋</button>
   <script src="app.js"></script>
 </body>
 </html>

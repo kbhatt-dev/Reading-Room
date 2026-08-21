@@ -151,3 +151,21 @@ The app does not store your password. Supabase session tokens are kept locally s
 - A new device downloads the newest cloud copy.
 - The **Sync Now** button is available for a manual refresh.
 - JSON export/import backup remains available.
+
+
+## V2.2 — Automatic sync + mobile form refresh
+
+- Cloud sync now runs automatically:
+  - after book/genre changes
+  - when the app starts
+  - when the browser/app returns to focus
+  - when the device comes back online
+  - every 60 seconds while the app is visible
+- Manual "Sync Now" remains as an optional fallback.
+- Added a floating Add Book button on mobile.
+- Reworked Add Book into visual sections.
+- Added sticky mobile Save Book action.
+- Prevented iPhone Safari input-focus zoom with 16px form controls.
+- Added emoji-enhanced format and genre choices.
+- Improved mobile full-screen book editor.
+- Kept existing book data format compatible with earlier versions.

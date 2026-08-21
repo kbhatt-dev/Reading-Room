@@ -159,3 +159,46 @@ fieldset{border:1px solid var(--line);border-radius:14px;padding:12px}legend{pad
   .account-actions{width:100%}
   .account-actions button{flex:1}
 }
+
+
+/* V2.2 Mobile-first UX */
+html{-webkit-text-size-adjust:100%}
+input,select,textarea{font-size:16px} /* prevents iPhone Safari focus zoom */
+.floating-add{
+  position:fixed;right:max(20px,env(safe-area-inset-right));bottom:max(22px,calc(env(safe-area-inset-bottom) + 18px));
+  width:58px;height:58px;border-radius:50%;border:0;background:var(--wood);color:#fff;
+  font-size:2rem;line-height:1;box-shadow:0 12px 30px rgba(79,53,38,.34);z-index:45;
+  display:grid;place-items:center;transition:transform .18s ease,box-shadow .18s ease
+}
+.floating-add:hover{transform:translateY(-2px);box-shadow:0 15px 34px rgba(79,53,38,.38)}
+.dialog-subtitle{color:var(--muted);font-size:.85rem;margin:3px 0 0;max-width:560px;line-height:1.45}
+.close-round{border-radius:50%;width:38px;height:38px;display:grid;place-items:center;background:#f2e8df}
+.form-section{background:rgba(247,240,232,.68);border:1px solid var(--line);border-radius:18px;padding:15px;margin:14px 0}
+.form-section-title{display:flex;gap:10px;align-items:center;margin:0 0 13px}
+.form-section-title>span{font-size:1.35rem;width:34px;height:34px;border-radius:10px;background:#eee3d7;display:grid;place-items:center}
+.form-section-title div{display:grid;gap:1px}.form-section-title strong{font-family:Georgia,serif;font-size:1.03rem}.form-section-title small{color:var(--muted);font-size:.72rem}
+.rating-fieldset{background:#fffaf5}
+.sticky-save-bar{position:sticky;bottom:-24px;background:rgba(255,250,243,.96);backdrop-filter:blur(10px);margin:18px -24px -24px;padding:14px 24px calc(14px + env(safe-area-inset-bottom));border-top:1px solid var(--line);z-index:12}
+.sticky-save-bar .primary{min-width:132px}
+input[type="date"]{min-height:46px;color-scheme:light}
+.genre-control select, .form-grid select{background-color:#fffdf9}
+.book-form{max-height:min(90vh,900px);overflow-y:auto;overscroll-behavior:contain}
+@media(max-width:650px){
+  .topbar #addBookBtn{display:none}
+  .floating-add{display:grid}
+  dialog#bookDialog{width:100%;max-width:100%;height:100dvh;max-height:100dvh;border-radius:0;margin:0}
+  .book-form{height:100dvh;max-height:100dvh;padding:16px 14px 0}
+  .book-dialog-head{position:sticky;top:0;background:rgba(255,250,243,.97);backdrop-filter:blur(10px);z-index:13;padding:8px 0 11px;margin-bottom:6px;border-bottom:1px solid rgba(223,212,200,.7)}
+  .dialog-subtitle{font-size:.78rem;padding-right:8px}
+  .form-section{padding:12px;border-radius:15px}
+  .sticky-save-bar{bottom:0;margin:14px -14px 0;padding:11px 14px calc(11px + env(safe-area-inset-bottom))}
+  .sticky-save-bar .secondary{display:none}
+  .sticky-save-bar .primary{width:100%;min-height:48px;font-size:1rem}
+  .sticky-save-bar .danger{position:absolute;left:14px;top:-48px;padding:8px 12px}
+  .cover-upload{flex-direction:row;align-items:center}
+  .cover-upload-btn{max-width:none}
+  .genre-control{grid-template-columns:minmax(0,1fr) auto}
+}
+@media(min-width:651px){
+  .floating-add{display:none}
+}
