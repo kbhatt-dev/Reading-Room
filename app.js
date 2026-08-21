@@ -1,6 +1,13 @@
 
 const KEY = "readingRoomBooksV1";
+const GENRE_KEY = "readingRoomGenresV1";
+const DEFAULT_GENRES = [
+  "Thriller", "Mystery", "Horror", "Romance", "Fantasy",
+  "Science Fiction", "Contemporary", "Historical Fiction",
+  "Literary Fiction", "Non-Fiction", "Biography", "Self-Help", "Other"
+];
 let books = JSON.parse(localStorage.getItem(KEY) || "[]");
+let genres = JSON.parse(localStorage.getItem(GENRE_KEY) || "null") || [...DEFAULT_GENRES];
 let selectedRating = 0;
 let workingCover = "";
 
@@ -10,10 +17,32 @@ const els = {
   close: $("#closeDialog"), cancel: $("#cancelBtn"), shelf: $("#bookShelf"),
   current: $("#currentlyReading"), currentEmpty: $("#currentlyEmpty"),
   libraryEmpty: $("#libraryEmpty"), search: $("#searchInput"), filter: $("#filterStatus"),
-  detailDialog: $("#detailDialog"), detail: $("#detailContent"), deleteBtn: $("#deleteBookBtn")
+  detailDialog: $("#detailDialog"), detail: $("#detailContent"), deleteBtn: $("#deleteBookBtn"),
+  genreDialog: $("#genreDialog"), genreList: $("#genreList")
 };
 
 function save(){ localStorage.setItem(KEY, JSON.stringify(books)); render(); }
+function saveGenres(){
+  localStorage.setItem(GENRE_KEY, JSON.stringify(genres));
+  renderGenreOptions($("#genre").value);
+  renderGenreManager();
+}
+function renderGenreOptions(selected=""){
+  const select = $("#genre");
+  const choices = [...genres];
+  if(selected && !choices.includes(selected)) choices.unshift(selected);
+  select.innerHTML = `<option value="">Choose genre…</option>` +
+    choices.map(g => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join("");
+  select.value = selected || "";
+}
+function renderGenreManager(){
+  els.genreList.innerHTML = genres.map((g, i) => `
+    <div class="genre-row">
+      <input value="${escapeHtml(g)}" aria-label="Genre name" data-genre-index="${i}" />
+      <button type="button" class="secondary small" onclick="renameGenre(${i})">Save</button>
+      <button type="button" class="danger small" onclick="deleteGenre(${i})">Delete</button>
+    </div>`).join("");
+}
 
 function escapeHtml(v=""){
   return v.replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));
@@ -87,6 +116,8 @@ buildRatingPicker();
 
 function resetForm(){
   els.form.reset(); $("#bookId").value=""; selectedRating=0; workingCover="";
+  renderGenreOptions("");
+  $("#coverFileName").textContent="No file selected";
   $("#coverPreviewWrap").classList.add("hidden");
   [...$("#ratingPicker").children].forEach(x=>x.classList.remove("active"));
   els.deleteBtn.classList.add("hidden");
@@ -96,7 +127,8 @@ function openAdd(){ resetForm(); els.dialog.showModal(); }
 
 function fillForm(b){
   resetForm(); $("#dialogTitle").textContent="Edit Book"; els.deleteBtn.classList.remove("hidden");
-  const fields = ["title","author","status","genre","format","pages","currentPage","dateStarted","dateFinished","review","spoilers","favoriteCharacter","favoriteScene","favoriteQuote","prediction","predictionResult"];
+  renderGenreOptions(b.genre || "");
+  const fields = ["title","author","status","format","pages","currentPage","dateStarted","dateFinished","review","spoilers","favoriteCharacter","favoriteScene","favoriteQuote","prediction","predictionResult"];
   fields.forEach(k => { const e=$("#"+k); if(e) e.value=b[k] ?? ""; });
   $("#bookId").value=b.id; selectedRating=Number(b.rating||0); $("#rating").value=selectedRating;
   [...$("#ratingPicker").children].forEach(x=>x.classList.toggle("active", Number(x.textContent)===selectedRating));
@@ -106,13 +138,18 @@ function fillForm(b){
 }
 window.editBook = id => { const b=books.find(x=>x.id===id); if(b){ els.detailDialog.close(); fillForm(b); } };
 
+$("#chooseCoverBtn").addEventListener("click",()=>$("#coverInput").click());
 $("#coverInput").addEventListener("change", e => {
   const file=e.target.files[0]; if(!file) return;
+  $("#coverFileName").textContent=file.name;
   const reader=new FileReader();
   reader.onload=ev=>{ workingCover=ev.target.result; $("#coverPreview").src=workingCover; $("#coverPreviewWrap").classList.remove("hidden"); };
   reader.readAsDataURL(file);
 });
-$("#removeCover").addEventListener("click",()=>{workingCover=""; $("#coverInput").value=""; $("#coverPreviewWrap").classList.add("hidden");});
+$("#removeCover").addEventListener("click",()=>{
+  workingCover=""; $("#coverInput").value=""; $("#coverFileName").textContent="No file selected";
+  $("#coverPreviewWrap").classList.add("hidden");
+});
 
 els.form.addEventListener("submit", e => {
   e.preventDefault();
@@ -166,6 +203,47 @@ window.openDetail = id => {
   els.detailDialog.showModal();
 };
 
+
+function normalizeGenreName(value){ return value.trim().replace(/\s+/g," "); }
+
+window.renameGenre = index => {
+  const input = document.querySelector(`[data-genre-index="${index}"]`);
+  const next = normalizeGenreName(input?.value || "");
+  const old = genres[index];
+  if(!next) return alert("Genre name cannot be empty.");
+  if(genres.some((g,i)=>i!==index && g.toLowerCase()===next.toLowerCase())) return alert("That genre already exists.");
+  genres[index] = next;
+  books = books.map(b => b.genre === old ? {...b, genre: next} : b);
+  localStorage.setItem(KEY, JSON.stringify(books));
+  saveGenres();
+  render();
+};
+
+window.deleteGenre = index => {
+  const name = genres[index];
+  if(!confirm(`Remove "${name}" from your genre choices? Existing books will keep this genre.`)) return;
+  genres.splice(index,1);
+  saveGenres();
+};
+
+$("#manageGenresBtn").addEventListener("click",()=>{
+  renderGenreManager();
+  els.genreDialog.showModal();
+});
+$("#closeGenreDialog").addEventListener("click",()=>els.genreDialog.close());
+$("#addGenreBtn").addEventListener("click",()=>{
+  const input=$("#newGenreInput");
+  const value=normalizeGenreName(input.value);
+  if(!value) return;
+  if(genres.some(g=>g.toLowerCase()===value.toLowerCase())) return alert("That genre already exists.");
+  genres.push(value);
+  input.value="";
+  saveGenres();
+});
+$("#newGenreInput").addEventListener("keydown",e=>{
+  if(e.key==="Enter"){ e.preventDefault(); $("#addGenreBtn").click(); }
+});
+
 els.add.addEventListener("click", openAdd);
 els.close.addEventListener("click",()=>els.dialog.close());
 els.cancel.addEventListener("click",()=>els.dialog.close());
@@ -173,4 +251,5 @@ els.search.addEventListener("input",render);
 els.filter.addEventListener("change",render);
 
 if("serviceWorker" in navigator){ window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{})); }
+renderGenreOptions("");
 render();

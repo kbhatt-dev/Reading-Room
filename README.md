@@ -42,3 +42,12 @@ Once hosted on HTTPS:
 2. Tap Share.
 3. Choose "Add to Home Screen".
 4. Launch it from the new Reading Room icon.
+
+
+## V1.1 update
+- Genre is now a dropdown instead of free text.
+- Added a Genre Manager to add, rename, and delete custom genres.
+- Renaming a genre updates existing books using that genre.
+- Deleting a genre removes it from future choices without deleting books.
+- Replaced the large mobile file input with a compact "Choose Cover" button.
+- Reduced the cover preview size on phones.

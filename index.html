@@ -100,7 +100,10 @@
           </select>
         </label>
         <label>Genre
-          <input id="genre" placeholder="Thriller, Fantasy…" maxlength="80" />
+          <div class="genre-control">
+            <select id="genre"></select>
+            <button type="button" class="secondary small manage-genre-btn" id="manageGenresBtn">Manage</button>
+          </div>
         </label>
       </div>
 
@@ -132,7 +135,11 @@
       </div>
 
       <label>Book cover
-        <input id="coverInput" type="file" accept="image/*" />
+        <div class="cover-upload">
+          <input id="coverInput" class="visually-hidden-file" type="file" accept="image/*" />
+          <button type="button" class="secondary cover-upload-btn" id="chooseCoverBtn">📷 Choose Cover</button>
+          <span id="coverFileName" class="cover-file-name">No file selected</span>
+        </div>
       </label>
       <div id="coverPreviewWrap" class="cover-preview-wrap hidden">
         <img id="coverPreview" alt="Book cover preview" />
@@ -187,6 +194,27 @@
         <button type="submit" class="primary">Save Book</button>
       </div>
     </form>
+  </dialog>
+
+
+  <dialog id="genreDialog" class="small-dialog">
+    <section class="genre-manager">
+      <div class="dialog-head">
+        <div>
+          <p class="eyebrow">Personalize your journal</p>
+          <h2>Manage Genres</h2>
+        </div>
+        <button type="button" class="icon-btn" id="closeGenreDialog">✕</button>
+      </div>
+
+      <div class="genre-add-row">
+        <input id="newGenreInput" maxlength="50" placeholder="Add a genre…" />
+        <button type="button" class="primary" id="addGenreBtn">Add</button>
+      </div>
+
+      <div id="genreList" class="genre-list"></div>
+      <p class="genre-note">Renaming a genre updates books already using it. Deleting a genre only removes it from future choices.</p>
+    </section>
   </dialog>
 
   <dialog id="detailDialog">
