@@ -116,7 +116,7 @@
       <div class="sync-card">
         <p class="eyebrow">Across your devices</p>
         <h2>Cloud Sync</h2>
-        <p class="muted">V2 is ready for optional Supabase sync. Until you connect it, your Reading Room continues using local storage exactly like V1.</p>
+        <p class="muted">Connect this Reading Room to your Supabase project, then sign in with the user you created in Supabase Authentication.</p>
 
         <div class="sync-status" id="syncStatus">
           <span class="sync-dot local"></span>
@@ -126,26 +126,56 @@
           </div>
         </div>
 
-        <details class="sync-setup">
-          <summary>Connect Supabase</summary>
+        <section class="sync-block">
+          <h3>1. Supabase Connection</h3>
           <div class="form-grid two sync-fields">
             <label>Project URL
-              <input id="supabaseUrl" placeholder="https://xxxx.supabase.co">
+              <input id="supabaseUrl" placeholder="https://xxxx.supabase.co" autocomplete="off">
             </label>
-            <label>Anon key
-              <input id="supabaseKey" type="password" placeholder="Your anon public key">
+            <label>Publishable key
+              <input id="supabaseKey" type="password" placeholder="sb_publishable_..." autocomplete="off">
             </label>
           </div>
-          <label>Sync ID
-            <input id="syncUserId" placeholder="Choose a private sync name, e.g. krishna-reading-room">
-          </label>
           <div class="dialog-actions">
-            <button type="button" class="secondary" id="disconnectSync">Disconnect</button>
+            <button type="button" class="secondary" id="clearSyncSettings">Clear</button>
             <span class="spacer"></span>
-            <button type="button" class="primary" id="saveSyncSettings">Save Sync Settings</button>
+            <button type="button" class="primary" id="saveSyncSettings">Save Connection</button>
           </div>
-          <p class="genre-note">The app never includes your Supabase credentials in the ZIP. You add them only on your own device.</p>
-        </details>
+          <p class="genre-note">Use only the Project URL and Publishable key. Never place a secret/service-role key in this browser app.</p>
+        </section>
+
+        <section class="sync-block">
+          <h3>2. Reading Room Login</h3>
+          <div id="signedOutPanel">
+            <div class="form-grid two sync-fields">
+              <label>Email
+                <input id="syncEmail" type="email" placeholder="you@example.com" autocomplete="username">
+              </label>
+              <label>Password
+                <input id="syncPassword" type="password" placeholder="Your Reading Room password" autocomplete="current-password">
+              </label>
+            </div>
+            <div class="dialog-actions">
+              <span class="spacer"></span>
+              <button type="button" class="primary" id="signInBtn">Sign In & Sync</button>
+            </div>
+            <p class="genre-note">Your password is sent directly to Supabase for sign-in and is not saved in Reading Room.</p>
+          </div>
+
+          <div id="signedInPanel" class="hidden">
+            <div class="account-card">
+              <div>
+                <span class="sync-dot connected"></span>
+                <strong id="signedInEmail">Signed in</strong>
+                <p id="lastSyncText">Ready to sync.</p>
+              </div>
+              <div class="account-actions">
+                <button type="button" class="secondary" id="syncNowBtn">☁️ Sync Now</button>
+                <button type="button" class="secondary" id="signOutBtn">Sign Out</button>
+              </div>
+            </div>
+          </div>
+        </section>
 
         <div class="backup-card">
           <h3>Backup</h3>

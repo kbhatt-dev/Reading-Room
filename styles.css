@@ -141,3 +141,21 @@ fieldset{border:1px solid var(--line);border-radius:14px;padding:12px}legend{pad
   .stat-card strong{font-size:1.45rem}
   .bar-chart{gap:4px}
 }
+
+
+/* V2.1 authenticated Supabase sync */
+.sync-block{border-top:1px solid var(--line);padding-top:18px;margin-top:18px}
+.sync-block h3{font-family:Georgia,serif;margin-bottom:12px}
+.account-card{display:flex;align-items:center;justify-content:space-between;gap:16px;background:#f5eee6;border:1px solid var(--line);border-radius:16px;padding:14px}
+.account-card>div:first-child{position:relative;padding-left:22px}
+.account-card .sync-dot{position:absolute;left:0;top:3px}
+.account-card p{margin:4px 0 0;color:var(--muted);font-size:.82rem}
+.account-actions{display:flex;gap:8px;flex-wrap:wrap}
+.sync-message{margin-top:10px;font-size:.8rem;font-weight:700}
+.sync-message.ok{color:#667d61}
+.sync-message.error{color:#9a4f48}
+@media(max-width:650px){
+  .account-card{align-items:flex-start;flex-direction:column}
+  .account-actions{width:100%}
+  .account-actions button{flex:1}
+}

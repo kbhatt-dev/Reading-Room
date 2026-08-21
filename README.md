@@ -94,3 +94,60 @@ Then open Reading Room → Sync and enter:
 Use the same values on your iPhone and computer.
 
 Important: V2 does not ship with anyone's credentials.
+
+
+## V2.1 — Secure authenticated device sync
+
+Cloud sync now uses Supabase Authentication instead of a manually chosen Sync ID.
+
+### Required Supabase setup
+The `reading_room_sync` table should use:
+
+```sql
+create table reading_room_sync (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  payload jsonb not null default '{}'::jsonb,
+  updated_at_ms bigint not null default 0
+);
+
+alter table reading_room_sync enable row level security;
+```
+
+RLS policies:
+
+```sql
+create policy "Users can read their own reading room"
+on reading_room_sync for select to authenticated
+using ((select auth.uid()) = user_id);
+
+create policy "Users can insert their own reading room"
+on reading_room_sync for insert to authenticated
+with check ((select auth.uid()) = user_id);
+
+create policy "Users can update their own reading room"
+on reading_room_sync for update to authenticated
+using ((select auth.uid()) = user_id)
+with check ((select auth.uid()) = user_id);
+
+create policy "Users can delete their own reading room"
+on reading_room_sync for delete to authenticated
+using ((select auth.uid()) = user_id);
+```
+
+### In the app
+1. Open **Sync**.
+2. Paste your Supabase **Project URL**.
+3. Paste your **Publishable key** (`sb_publishable_...`).
+4. Click **Save Connection**.
+5. Enter the email/password for the user created in Supabase Authentication.
+6. Click **Sign In & Sync**.
+7. Use the same Project URL, Publishable key, email and password on your second device.
+
+The app does not store your password. Supabase session tokens are kept locally so you stay signed in.
+
+### Sync behavior
+- Books still save immediately to localStorage.
+- When signed in, changes are also synced to Supabase.
+- A new device downloads the newest cloud copy.
+- The **Sync Now** button is available for a manual refresh.
+- JSON export/import backup remains available.

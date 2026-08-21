@@ -2,6 +2,7 @@
 const KEY = "readingRoomBooksV1";
 const GENRE_KEY = "readingRoomGenresV1";
 const SYNC_KEY = "readingRoomSyncSettingsV2";
+const SESSION_KEY = "readingRoomSupabaseSessionV2";
 const DEFAULT_GENRES = [
   "Thriller", "Mystery", "Horror", "Romance", "Fantasy",
   "Science Fiction", "Contemporary", "Historical Fiction",
@@ -9,7 +10,8 @@ const DEFAULT_GENRES = [
 ];
 let books = JSON.parse(localStorage.getItem(KEY) || "[]");
 let genres = JSON.parse(localStorage.getItem(GENRE_KEY) || "null") || [...DEFAULT_GENRES];
-let syncSettings = JSON.parse(localStorage.getItem(SYNC_KEY) || "null") || {url:"", key:"", userId:""};
+let syncSettings = JSON.parse(localStorage.getItem(SYNC_KEY) || "null") || {url:"", key:""};
+let syncSession = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
 let selectedRating = 0;
 let workingCover = "";
 
@@ -172,53 +174,156 @@ function setView(name){
   if(name==="stats") renderStats();
   if(name==="sync") renderSyncStatus();
 }
+function isSyncConfigured(){
+  return !!(syncSettings.url && syncSettings.key);
+}
+function isSignedIn(){
+  return !!(syncSession && syncSession.access_token && syncSession.user && syncSession.user.id);
+}
+function authHeaders(useAccessToken=false){
+  const h = {
+    "apikey": syncSettings.key,
+    "Content-Type": "application/json"
+  };
+  if(useAccessToken && isSignedIn()) h["Authorization"] = `Bearer ${syncSession.access_token}`;
+  return h;
+}
+function setLastSync(message){
+  const el=$("#lastSyncText");
+  if(el) el.textContent=message;
+}
 function renderSyncStatus(){
   const box=$("#syncStatus"); if(!box) return;
-  const configured = syncSettings.url && syncSettings.key && syncSettings.userId;
-  box.innerHTML = configured
-    ? `<span class="sync-dot connected"></span><div><strong>Sync configured</strong><p>Supabase settings are saved on this device. Use the same Sync ID on your other device.</p></div>`
-    : `<span class="sync-dot local"></span><div><strong>Local mode</strong><p>Your books are saved on this device.</p></div>`;
   $("#supabaseUrl").value=syncSettings.url||"";
   $("#supabaseKey").value=syncSettings.key||"";
-  $("#syncUserId").value=syncSettings.userId||"";
+
+  const configured=isSyncConfigured();
+  const signedIn=isSignedIn();
+
+  if(signedIn){
+    box.innerHTML=`<span class="sync-dot connected"></span><div><strong>Cloud sync active</strong><p>Signed in securely with Supabase Authentication.</p></div>`;
+  }else if(configured){
+    box.innerHTML=`<span class="sync-dot"></span><div><strong>Connection saved</strong><p>Sign in below to start cross-device synchronization.</p></div>`;
+  }else{
+    box.innerHTML=`<span class="sync-dot local"></span><div><strong>Local mode</strong><p>Your books are saved on this device.</p></div>`;
+  }
+
+  $("#signedOutPanel")?.classList.toggle("hidden", signedIn);
+  $("#signedInPanel")?.classList.toggle("hidden", !signedIn);
+  if(signedIn){
+    $("#signedInEmail").textContent=syncSession.user.email || "Reading Room account";
+  }
 }
-async function cloudSync(){
-  if(!(syncSettings.url && syncSettings.key && syncSettings.userId)) return;
+async function refreshSessionIfNeeded(){
+  if(!syncSession?.refresh_token || !isSyncConfigured()) return false;
+  const expiresAt = Number(syncSession.expires_at || 0) * 1000;
+  if(expiresAt && Date.now() < expiresAt - 60000) return true;
+
   try{
-    const endpoint = `${syncSettings.url.replace(/\/$/,"")}/rest/v1/reading_room_sync?user_id=eq.${encodeURIComponent(syncSettings.userId)}`;
-    const headers = {
-      "apikey": syncSettings.key,
-      "Authorization": `Bearer ${syncSettings.key}`,
-      "Content-Type": "application/json",
-      "Prefer": "return=representation"
-    };
-    const getRes = await fetch(endpoint, {headers});
-    if(!getRes.ok) throw new Error("Cloud read failed");
-    const rows = await getRes.json();
+    const url=`${syncSettings.url.replace(/\/$/,"")}/auth/v1/token?grant_type=refresh_token`;
+    const res=await fetch(url,{
+      method:"POST",
+      headers:authHeaders(false),
+      body:JSON.stringify({refresh_token:syncSession.refresh_token})
+    });
+    if(!res.ok) throw new Error("Session refresh failed");
+    const data=await res.json();
+    syncSession=data;
+    localStorage.setItem(SESSION_KEY,JSON.stringify(syncSession));
+    renderSyncStatus();
+    return true;
+  }catch(err){
+    console.warn("Reading Room auth refresh:",err);
+    syncSession=null;
+    localStorage.removeItem(SESSION_KEY);
+    renderSyncStatus();
+    return false;
+  }
+}
+async function signInToSupabase(email,password){
+  if(!isSyncConfigured()) throw new Error("Save your Supabase Project URL and Publishable key first.");
+  const url=`${syncSettings.url.replace(/\/$/,"")}/auth/v1/token?grant_type=password`;
+  const res=await fetch(url,{
+    method:"POST",
+    headers:authHeaders(false),
+    body:JSON.stringify({email,password})
+  });
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.error_description || data.msg || data.error || "Sign in failed.");
+  syncSession=data;
+  localStorage.setItem(SESSION_KEY,JSON.stringify(syncSession));
+  renderSyncStatus();
+  return data;
+}
+async function signOutFromSupabase(){
+  if(isSignedIn()){
+    try{
+      await fetch(`${syncSettings.url.replace(/\/$/,"")}/auth/v1/logout`,{
+        method:"POST",
+        headers:authHeaders(true)
+      });
+    }catch{}
+  }
+  syncSession=null;
+  localStorage.removeItem(SESSION_KEY);
+  renderSyncStatus();
+}
+async function cloudSync(force=false){
+  if(!isSyncConfigured() || !isSignedIn()) return false;
+  if(!(await refreshSessionIfNeeded())) return false;
+
+  try{
+    const uid=syncSession.user.id;
+    const base=`${syncSettings.url.replace(/\/$/,"")}/rest/v1/reading_room_sync`;
+    const endpoint=`${base}?user_id=eq.${encodeURIComponent(uid)}&select=user_id,payload,updated_at_ms`;
+    const headers=authHeaders(true);
+
+    setLastSync("Checking cloud…");
+    const getRes=await fetch(endpoint,{headers});
+    if(!getRes.ok){
+      const detail=await getRes.text();
+      throw new Error(`Cloud read failed (${getRes.status}): ${detail.slice(0,120)}`);
+    }
+    const rows=await getRes.json();
+    const localStamp=Number(localStorage.getItem("readingRoomLastChangedV2")||0);
+
     if(rows.length && rows[0].payload){
-      const remote = rows[0].payload;
-      const localStamp = Number(localStorage.getItem("readingRoomLastChangedV2")||0);
-      const remoteStamp = Number(rows[0].updated_at_ms||0);
-      if(remoteStamp > localStamp){
-        books = Array.isArray(remote.books) ? remote.books : books;
-        genres = Array.isArray(remote.genres) ? remote.genres : genres;
-        localStorage.setItem(KEY, JSON.stringify(books));
-        localStorage.setItem(GENRE_KEY, JSON.stringify(genres));
-        localStorage.setItem("readingRoomLastChangedV2", String(remoteStamp));
+      const remote=rows[0].payload;
+      const remoteStamp=Number(rows[0].updated_at_ms||0);
+
+      if(!force && remoteStamp > localStamp){
+        books=Array.isArray(remote.books)?remote.books:books;
+        genres=Array.isArray(remote.genres)?remote.genres:genres;
+        localStorage.setItem(KEY,JSON.stringify(books));
+        localStorage.setItem(GENRE_KEY,JSON.stringify(genres));
+        localStorage.setItem("readingRoomLastChangedV2",String(remoteStamp));
         renderGenreOptions("");
         renderGenreFilter();
         render();
-        return;
+        setLastSync(`Downloaded latest library · ${new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}`);
+        return true;
       }
     }
-    const now = Date.now();
-    const payload = {user_id:syncSettings.userId, payload:{books,genres}, updated_at_ms:now};
-    const upsert = `${syncSettings.url.replace(/\/$/,"")}/rest/v1/reading_room_sync?on_conflict=user_id`;
-    const putRes = await fetch(upsert,{method:"POST",headers:{...headers,"Prefer":"resolution=merge-duplicates"},body:JSON.stringify(payload)});
-    if(!putRes.ok) throw new Error("Cloud write failed");
+
+    const now=Date.now();
+    const payload={user_id:uid,payload:{books,genres},updated_at_ms:now};
+    const upsert=`${base}?on_conflict=user_id`;
+    const putRes=await fetch(upsert,{
+      method:"POST",
+      headers:{...headers,"Prefer":"resolution=merge-duplicates,return=minimal"},
+      body:JSON.stringify(payload)
+    });
+    if(!putRes.ok){
+      const detail=await putRes.text();
+      throw new Error(`Cloud write failed (${putRes.status}): ${detail.slice(0,120)}`);
+    }
     localStorage.setItem("readingRoomLastChangedV2",String(now));
+    setLastSync(`Synced · ${new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}`);
+    return true;
   }catch(err){
-    console.warn("Reading Room sync:", err.message);
+    console.warn("Reading Room sync:",err);
+    setLastSync("Sync failed — check connection settings or Supabase policies.");
+    return false;
   }
 }
 
@@ -423,20 +528,62 @@ $("#statsYear").addEventListener("change",renderStats);
 document.querySelectorAll(".tab-btn").forEach(btn=>btn.addEventListener("click",()=>setView(btn.dataset.view)));
 
 $("#saveSyncSettings").addEventListener("click",()=>{
-  syncSettings = {
-    url: $("#supabaseUrl").value.trim(),
-    key: $("#supabaseKey").value.trim(),
-    userId: $("#syncUserId").value.trim()
-  };
-  localStorage.setItem(SYNC_KEY, JSON.stringify(syncSettings));
+  const url=$("#supabaseUrl").value.trim().replace(/\/$/,"");
+  const key=$("#supabaseKey").value.trim();
+  if(!url || !key){
+    alert("Enter both the Supabase Project URL and Publishable key.");
+    return;
+  }
+  if(!/^https:\/\/.+\.supabase\.co$/i.test(url)){
+    if(!confirm("This URL does not look like a standard Supabase project URL. Save it anyway?")) return;
+  }
+  syncSettings={url,key};
+  localStorage.setItem(SYNC_KEY,JSON.stringify(syncSettings));
   renderSyncStatus();
-  cloudSync();
+  alert("Supabase connection saved. Now sign in below.");
 });
-$("#disconnectSync").addEventListener("click",()=>{
-  syncSettings={url:"",key:"",userId:""};
+
+$("#clearSyncSettings").addEventListener("click",()=>{
+  if(!confirm("Clear the Supabase connection from this device?")) return;
+  syncSettings={url:"",key:""};
+  syncSession=null;
   localStorage.removeItem(SYNC_KEY);
+  localStorage.removeItem(SESSION_KEY);
   renderSyncStatus();
 });
+
+$("#signInBtn").addEventListener("click",async()=>{
+  const email=$("#syncEmail").value.trim();
+  const password=$("#syncPassword").value;
+  if(!email || !password){ alert("Enter your email and password."); return; }
+  const btn=$("#signInBtn");
+  const old=btn.textContent;
+  btn.disabled=true; btn.textContent="Signing in…";
+  try{
+    await signInToSupabase(email,password);
+    $("#syncPassword").value="";
+    setLastSync("Signed in. Synchronizing…");
+    await cloudSync();
+    alert("Signed in successfully. Reading Room cloud sync is active.");
+  }catch(err){
+    alert(err.message);
+  }finally{
+    btn.disabled=false; btn.textContent=old;
+  }
+});
+
+$("#signOutBtn").addEventListener("click",async()=>{
+  await signOutFromSupabase();
+});
+
+$("#syncNowBtn").addEventListener("click",async()=>{
+  const btn=$("#syncNowBtn");
+  const old=btn.textContent;
+  btn.disabled=true; btn.textContent="Syncing…";
+  await cloudSync();
+  btn.disabled=false; btn.textContent=old;
+});
+
 $("#exportBackup").addEventListener("click",()=>{
   const blob = new Blob([JSON.stringify({version:2, exportedAt:new Date().toISOString(), books, genres}, null, 2)],{type:"application/json"});
   const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
