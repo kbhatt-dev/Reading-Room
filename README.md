@@ -1,4 +1,4 @@
-# Reading Room V6.8.6 — Full Library Sync Hardening
+# Reading Room V6.8.7 — Extra-Tiny Cover Hardening
 
 - Audited every persistent Reading Room storage key. Supabase sync now carries all meaningful app data: the complete books array (TBR, Reading, Finished, DNF, journal fields, predictions, Hall of Fame flag, reading sessions, dates/progress and covers), custom genres, shelf themes/customization, yearly goals and monthly challenges.
 - Temporary/device-only state remains local: Supabase credentials/session, backup-health timestamp, route/dialog/search state and other UI-only state.
