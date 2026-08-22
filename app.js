@@ -1,4 +1,4 @@
-const APP_VERSION="6.7.1";
+const APP_VERSION="6.7.2";
 const icon=n=>`<svg class="ui-icon" aria-hidden="true"><use href="#i-${n}"></use></svg>`;
 const BOOK_KEY="readingRoomBooksV1";
 const GENRE_KEY="readingRoomGenresV1";
@@ -107,7 +107,7 @@ function coverHTML(b,cls="cover"){return b.cover?`<img class="${cls}" src="${b.c
 /* V6.7.1 Ultra-Light Covers.
    New and existing embedded covers are converted to compact WebP thumbnails.
    Goal: roughly 25–40 KB for typical book covers while keeping shelf text/art readable. */
-const COVER_MAX_W=360,COVER_MAX_H=540,COVER_QUALITY=.68,COVER_TARGET_BYTES=36*1024,COVER_SOFT_MAX_BYTES=40*1024,COVER_HARD_INPUT_BYTES=12*1024*1024;
+const COVER_MAX_W=280,COVER_MAX_H=420,COVER_QUALITY=.58,COVER_TARGET_BYTES=8*1024,COVER_SOFT_MAX_BYTES=10*1024,COVER_HARD_INPUT_BYTES=12*1024*1024;
 function dataUrlBytes(s=""){const i=s.indexOf(",");return i<0?0:Math.ceil((s.length-i-1)*3/4);}
 function readBlobAsDataURL(blob){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(blob);});}
 function loadImage(src){return new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(new Error("This image format could not be processed."));img.src=src;});}
@@ -123,7 +123,7 @@ async function compressCoverSource(src,{force=false}={}){
       best=src,
       bestBytes=originalBytes||Number.MAX_SAFE_INTEGER;
 
-  for(let pass=0;pass<9;pass++){
+  for(let pass=0;pass<12;pass++){
     const c=document.createElement("canvas");
     c.width=w;c.height=h;
     const ctx=c.getContext("2d",{alpha:false});
@@ -138,10 +138,10 @@ async function compressCoverSource(src,{force=false}={}){
     }
     if(blob.size<=COVER_TARGET_BYTES)break;
 
-    quality=Math.max(.42,quality-.055);
+    quality=Math.max(.30,quality-.045);
     if(pass>=2){
-      w=Math.max(240,Math.round(w*.91));
-      h=Math.max(360,Math.round(h*.91));
+      w=Math.max(170,Math.round(w*.90));
+      h=Math.max(255,Math.round(h*.90));
     }
   }
   return bestBytes<originalBytes?best:src;
@@ -182,7 +182,7 @@ function unpackBooksFromStorage(payload){
   const list=Array.isArray(payload?.books)?payload.books:[];const covers=payload?.covers&&typeof payload.covers==="object"?payload.covers:{};
   return list.map(b=>b.coverRef?{...b,cover:covers[b.coverRef]||""}:{...b});
 }
-function persistentSyncPayload(){const packed=packBooksForStorage(books);return {books:packed.books,covers:packed.covers,genres,decorSettings,goalSettings,storageVersion:2};}
+function persistentSyncPayload(){const packed=packBooksForStorage(books);return {books:packed.books,covers:packed.covers,genres,decorSettings,goalSettings,storageVersion:3};}
 
 function markChanged(){localStorage.setItem(CHANGE_KEY,String(Date.now()));}
 function saveBooks({sync=true}={}){
@@ -512,7 +512,7 @@ function buildRatingPicker(){
 buildRatingPicker();
 
 function formatBytes(n){if(!n)return "";return n<1024?`${n} B`:n<1024*1024?`${Math.round(n/1024)} KB`:`${(n/1024/1024).toFixed(1)} MB`;}
-function updateCoverStorageInfo(){const el=$("#coverStorageInfo");if(el)el.textContent=workingCover?`Ultra-light cover · ${formatBytes(dataUrlBytes(workingCover))}`:"";}
+function updateCoverStorageInfo(){const el=$("#coverStorageInfo");if(el)el.textContent=workingCover?`Tiny cover · ${formatBytes(dataUrlBytes(workingCover))}`:"";}
 function clearCover(){
   workingCover="";$("#coverInput").value="";$("#coverFileName").textContent="No file selected";$("#coverPreview").removeAttribute("src");$("#coverPreviewWrap").classList.add("hidden");updateCoverStorageInfo();
 }
@@ -948,6 +948,36 @@ async function refreshSession(){
 async function signIn(email,password){
   const r=await fetch(`${syncSettings.url.replace(/\/$/,"")}/auth/v1/token?grant_type=password`,{method:"POST",headers:authHeaders(),body:JSON.stringify({email,password})});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.msg||d.error_description||"Sign in failed.");syncSession=d;localStorage.setItem(SESSION_KEY,JSON.stringify(d));renderSyncStatus();
 }
+
+function resetLocalReadingData(){
+  books=[];
+  genres=[...DEFAULT_GENRES];
+  decorSettings={themes:{home:"classic",tbr:"classic",finished:"classic"}};
+  goalSettings={yearly:{},monthly:{}};
+  localStorage.setItem(BOOK_KEY,JSON.stringify(books));
+  localStorage.setItem(GENRE_KEY,JSON.stringify(genres));
+  localStorage.setItem(DECOR_KEY,JSON.stringify(decorSettings));
+  localStorage.setItem(GOAL_KEY,JSON.stringify(goalSettings));
+  localStorage.removeItem(LAST_BACKUP_KEY);
+  markChanged();
+  renderGenreOptions();renderAll();applyDecorations();renderSyncStatus();
+}
+async function overwriteCloudWithCurrentLibrary(){
+  if(!configured()||!signedIn())return false;
+  if(!(await refreshSession()))throw Error("Your Supabase session could not be refreshed.");
+  const uid=syncSession.user.id,base=`${syncSettings.url.replace(/\/$/,"")}/rest/v1/reading_room_sync`,now=Date.now();
+  const payload={user_id:uid,payload:persistentSyncPayload(),updated_at_ms:now};
+  const r=await fetch(`${base}?on_conflict=user_id`,{method:"POST",headers:{...authHeaders(true),Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(payload)});
+  if(!r.ok)throw Error("The local reset succeeded, but the empty library could not be written to Supabase.");
+  localStorage.setItem(CHANGE_KEY,String(now));localStorage.setItem(SYNCED_KEY,String(now));
+  return true;
+}
+async function resetReadingRoomData(){
+  const wasSignedIn=configured()&&signedIn();
+  resetLocalReadingData();
+  if(wasSignedIn)await overwriteCloudWithCurrentLibrary();
+  return wasSignedIn;
+}
 async function cloudSync(force=false){
   if(!configured()||!signedIn())return false;if(!(await refreshSession()))return false;
   try{
@@ -1002,6 +1032,24 @@ $("#pickNextBook").onclick=()=>{chooseRandomTbr();if(randomPickedBookId){$("#ran
 $("#pickAgain").onclick=chooseRandomTbr;
 $("#closeRandomPick").onclick=()=>$("#randomPickDialog").close();
 $("#openRandomPickBook").onclick=()=>{if(!randomPickedBookId)return;$("#randomPickDialog").close();openBook(randomPickedBookId);};
+$("#dangerZoneDetails")?.addEventListener("toggle",e=>{const hint=e.currentTarget.querySelector(".danger-zone-hint");if(hint)hint.textContent=e.currentTarget.open?"Close":"Open";});
+$("#openResetReadingData").onclick=()=>{$("#resetReadingDataConfirm").value="";$("#confirmResetReadingData").disabled=true;$("#resetReadingDataDialog").showModal();setDialogOpen(true);};
+$("#closeResetReadingData").onclick=()=>$("#resetReadingDataDialog").close();
+$("#resetReadingDataConfirm").addEventListener("input",e=>{$("#confirmResetReadingData").disabled=e.target.value.trim()!=="RESET";});
+$("#resetExportFirst").onclick=()=>$("#exportBackup").click();
+$("#confirmResetReadingData").onclick=async()=>{
+  if($("#resetReadingDataConfirm").value.trim()!=="RESET")return;
+  const btn=$("#confirmResetReadingData"),old=btn.textContent;btn.disabled=true;btn.textContent="Resetting…";
+  try{
+    const cloud=await resetReadingRoomData();
+    $("#resetReadingDataDialog").close();
+    alert(cloud?"Reading Room data was cleared on this device and the synced cloud library was reset. Your account remains active.":"Reading Room data was cleared on this device. Your account/connection was not removed.");
+    routeTo("home");
+  }catch(e){
+    $("#resetReadingDataDialog").close();
+    alert(`${e.message}\n\nYour local Reading Room is empty. Do not run normal Sync until the cloud reset succeeds, or older cloud data may download again.`);
+  }finally{btn.textContent=old;}
+};
 $("#storageUsageDetails")?.addEventListener("toggle",e=>{if(e.currentTarget.open)renderStorageUsage();});
 $("#refreshStorageUsage")?.addEventListener("click",renderStorageUsage);
 $("#openAdvancedSearch").onclick=()=>{populateAdvancedSearchFilters();renderAdvancedSearch();$("#advancedSearchDialog").showModal();setDialogOpen(true);setTimeout(()=>$("#advancedSearchQuery").focus(),50);};

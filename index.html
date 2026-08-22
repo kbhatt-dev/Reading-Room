@@ -471,6 +471,19 @@
           </div>
           <p class="note">The JSON backup can restore the app. The Reading Journal export is a standalone HTML file for viewing, printing, or archiving your memories.</p>
         </section>
+
+        <section class="sync-block danger-zone-block">
+          <details id="dangerZoneDetails" class="danger-zone-details">
+            <summary><span><strong>Data Management</strong><small>Reset test/library data</small></span><span class="danger-zone-hint">Open</span></summary>
+            <div class="danger-zone-content">
+              <h3>Reset Reading Room Data</h3>
+              <p class="muted">Use this when you are finished testing and want a clean library. Your Supabase account, login/profile, and saved connection stay intact.</p>
+              <div class="danger-zone-warning"><strong>This permanently clears:</strong><p>Books and covers, TBR/Reading/Finished/DNF data, reading sessions, journal memories, quotes, predictions, goals/challenges, Hall of Fame/library state, custom genres, and shelf customization.</p></div>
+              <p class="note">If you are signed in, the reset also replaces your synced Reading Room cloud payload with the empty library so old dummy books do not download again.</p>
+              <button type="button" id="openResetReadingData" class="danger">Reset Reading Data…</button>
+            </div>
+          </details>
+        </section>
       </div>
     </section>
   </main>
@@ -486,6 +499,17 @@
   </nav>
 
   <button id="floatingAddBook" class="floating-add"><svg class="fab-icon" aria-hidden="true"><use href="#i-plus"></use></svg> Add Book</button>
+
+  <!-- RESET READING DATA -->
+  <dialog id="resetReadingDataDialog" class="small-dialog reset-data-dialog">
+    <section class="small-dialog-card">
+      <div class="dialog-header"><div><p class="eyebrow">Protected action</p><h2>Reset Reading Room?</h2></div><button type="button" id="closeResetReadingData" class="round-btn">✕</button></div>
+      <p>This removes your library and reading data from this device${signedIn?.name?" and, when signed in, your synced cloud library":""}. It does <strong>not</strong> delete your account/profile or Supabase connection.</p>
+      <div class="reset-backup-prompt"><strong>Recommended:</strong> Export a JSON backup first if there is anything you may want later.</div>
+      <label>Type <strong>RESET</strong> to continue<input id="resetReadingDataConfirm" autocomplete="off" placeholder="RESET"></label>
+      <div class="button-row end"><button type="button" id="resetExportFirst" class="secondary">Export Backup First</button><button type="button" id="confirmResetReadingData" class="danger" disabled>Reset Data</button></div>
+    </section>
+  </dialog>
 
   <!-- MONTHLY CHALLENGE -->
   <dialog id="monthlyChallengeDialog" class="small-dialog">

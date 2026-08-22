@@ -1,4 +1,4 @@
-const VERSION="reading-room-v6-7-1-ultra-light-covers";
+const VERSION="reading-room-v6-7-2-clean-start-tiny-covers";
 self.addEventListener("install",()=>self.skipWaiting());
 self.addEventListener("activate",event=>{
   event.waitUntil(caches.keys().then(keys=>Promise.all(keys.map(k=>caches.delete(k)))).then(()=>self.clients.claim()));

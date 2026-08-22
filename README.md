@@ -1,5 +1,17 @@
 # My Reading Room — V5
 
+## V6.7.2 — Clean Start & Tiny Covers
+
+- New and existing embedded covers now target about 6–10 KB, with an 8 KB target and ~10 KB soft maximum.
+- Covers are converted to WebP and adaptively reduced to approximately 280 × 420 px maximum, with further quality/resolution reduction only when needed.
+- Existing WebP covers already at or below ~10 KB are skipped; larger embedded covers are re-optimized and replaced in-place when the result is smaller.
+- Added a collapsed Data Management section on Sync with a protected Reset Reading Data action.
+- Reset requires typing RESET and offers Export Backup First.
+- Reset clears library/test data, covers, sessions, journal data, goals/challenges, custom genres, and shelf customization while preserving Supabase connection settings and the signed-in account/session.
+- When signed in, reset explicitly overwrites the user's existing `reading_room_sync` row with the new empty payload, preventing old dummy cloud data from being downloaded again.
+- No Supabase Auth user/account deletion is performed.
+
+
 ## V6.7.1 — Ultra-Light Covers
 
 - New book-cover uploads now target roughly 25–40 KB using compact WebP thumbnails.
