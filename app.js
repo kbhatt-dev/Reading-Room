@@ -1,4 +1,4 @@
-const APP_VERSION="6.8.0";
+const APP_VERSION="6.8.3";
 const icon=n=>`<svg class="ui-icon" aria-hidden="true"><use href="#i-${n}"></use></svg>`;
 const BOOK_KEY="readingRoomBooksV1";
 const GENRE_KEY="readingRoomGenresV1";
@@ -22,6 +22,9 @@ let lastRoute="home";
 let justFinishedBookId=null;
 let activeFullBookId=null;
 let sessionsManagerBookId=null;
+let calendarSelectedDate=null;
+let sessionOpenedFromCalendar=false;
+let sessionReturnCalendarDate=null;
 let decorSettings=JSON.parse(localStorage.getItem(DECOR_KEY)||"null");
 let goalSettings=JSON.parse(localStorage.getItem(GOAL_KEY)||"null")||{yearly:{}};
 if(!goalSettings.yearly || typeof goalSettings.yearly!=="object")goalSettings.yearly={};
@@ -740,23 +743,42 @@ function renderFullBookDetail(b){
 
 $("#bookDetailBack").onclick=()=>routeTo("finished");
 
-window.openSession=(id,index=-1)=>{
+window.openSession=(id,index=-1,preferredDate="")=>{
   const b=books.find(x=>x.id===id);if(!b)return;
   const sessions=Array.isArray(b.sessions)?b.sessions:[];
   const existing=index>=0?sessions[index]:null;
+  const fromCalendar=Boolean(preferredDate);
 
+  sessionOpenedFromCalendar=fromCalendar;
+  sessionReturnCalendarDate=fromCalendar?preferredDate:null;
   $("#sessionBookId").value=id;
   $("#sessionIndex").value=String(index);
   $("#sessionDialogTitle").textContent=index>=0?"Edit Reading Session":"Add Reading Session";
-  $("#sessionStart").value=existing?.startPage ?? b.currentPage ?? 0;
+  $("#sessionDate").value=sessionDateValue(existing)||preferredDate||todayISO();
+  $("#sessionStart").value=existing?.startPage ?? (fromCalendar?"":(b.currentPage ?? 0));
   $("#sessionEnd").value=existing?.endPage ?? "";
   $("#sessionMinutes").value=existing?.minutes ?? "";
   $("#sessionMood").value=normalizeMoodValue(existing?.mood||"");
 
-  $("#detailDialog").close();
+  const bookWrap=$("#calendarSessionBookWrap");
+  if(fromCalendar&&index<0){
+    const eligible=books.filter(x=>x.status==="reading"||x.status==="finished");
+    $("#calendarSessionBook").innerHTML=eligible.map(x=>`<option value="${escapeHtml(x.id)}" ${x.id===id?"selected":""}>${escapeHtml(x.title)} · ${statusLabel(x.status)}</option>`).join("");
+    bookWrap.classList.remove("hidden");
+  }else bookWrap.classList.add("hidden");
+
+  if($("#detailDialog").open)$("#detailDialog").close();
   if($("#sessionsDialog").open)$("#sessionsDialog").close();
+  if($("#calendarDayDialog").open)$("#calendarDayDialog").close();
   $("#sessionDialog").showModal();
   setDialogOpen(true);
+};
+
+window.openCalendarSession=date=>{
+  const eligible=books.filter(b=>b.status==="reading"||b.status==="finished");
+  if(!eligible.length)return alert("Add a Currently Reading or Finished book before logging a calendar session.");
+  const preferred=eligible.find(b=>b.status==="reading")||eligible[0];
+  window.openSession(preferred.id,-1,date);
 };
 
 function normalizeMoodValue(value=""){
@@ -806,8 +828,22 @@ window.deleteReadingSession=(id,index)=>{
 $("#closeSessionsDialog").onclick=()=>$("#sessionsDialog").close();
 $("#addSessionFromManager").onclick=()=>{if(sessionsManagerBookId)openSession(sessionsManagerBookId,-1);};
 
-$("#closeSessionDialog").onclick=()=>$("#sessionDialog").close();
-$("#cancelSessionBtn").onclick=()=>$("#sessionDialog").close();
+function closeSessionEditor(){
+  const returnDate=sessionOpenedFromCalendar?sessionReturnCalendarDate:null;
+  sessionOpenedFromCalendar=false;
+  sessionReturnCalendarDate=null;
+  $("#sessionDialog").close();
+  if(returnDate)setTimeout(()=>openCalendarDay(returnDate),40);
+}
+$("#closeSessionDialog").onclick=closeSessionEditor;
+$("#cancelSessionBtn").onclick=closeSessionEditor;
+$("#calendarSessionBook").addEventListener("change",e=>{
+  if(!sessionOpenedFromCalendar||Number($("#sessionIndex").value)>=0)return;
+  const b=books.find(x=>x.id===e.target.value);if(!b)return;
+  $("#sessionBookId").value=b.id;
+  $("#sessionStart").value="";
+  $("#sessionEnd").value="";
+});
 
 $("#sessionForm").addEventListener("submit",e=>{
   e.preventDefault();
@@ -817,12 +853,14 @@ $("#sessionForm").addEventListener("submit",e=>{
   const endPage=Number($("#sessionEnd").value)||0;
   const minutes=Number($("#sessionMinutes").value)||0;
   const mood=$("#sessionMood").value;
+  const date=$("#sessionDate").value||todayISO();
 
   if(endPage && endPage<startPage)return alert("End page should be greater than or equal to start page.");
   if(!startPage&&!endPage&&!minutes)return alert("Add a page or reading minutes.");
 
-  const session={startPage,endPage,minutes,mood,date:index>=0?(b.sessions?.[index]?.date||todayISO()):todayISO()};
   b.sessions=Array.isArray(b.sessions)?b.sessions:[];
+  const previous=index>=0&&b.sessions[index]?b.sessions[index]:{};
+  const session={...previous,startPage,endPage,minutes,mood,date};
 
   if(index>=0 && b.sessions[index]) b.sessions[index]=session;
   else b.sessions.push(session);
@@ -831,12 +869,15 @@ $("#sessionForm").addEventListener("submit",e=>{
   const position=endPage||startPage;
   if(position)b.currentPage=position;
 
+  const returnToCalendar=sessionOpenedFromCalendar;
+  const selected=date||sessionReturnCalendarDate||calendarSelectedDate;
+  sessionOpenedFromCalendar=false;
+  sessionReturnCalendarDate=null;
+
   saveBooks();
   $("#sessionDialog").close();
 
-  if(sessionOpenedFromCalendar){
-    sessionOpenedFromCalendar=false;
-    const selected=date;
+  if(returnToCalendar&&selected){
     statsCalendarMonth={year:Number(selected.slice(0,4)),month:Number(selected.slice(5,7))-1};
     renderStats();
     setTimeout(()=>openCalendarDay(selected),60);

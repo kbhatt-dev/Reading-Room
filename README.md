@@ -1,5 +1,14 @@
 # My Reading Room — V5
 
+## V6.8.3 — Reading Session Date Hotfix
+
+- Fixed Reading Session date handling so Add Session saves the date shown in the form instead of always using the current date.
+- Editing a Reading Session now loads its stored date into the date field and saves any date change correctly.
+- Restored the calendar Add Session flow for empty/filled dates, including the Currently Reading / Finished book selector.
+- Calendar-created and calendar-edited sessions now return to the correct saved date after Save and refresh Stats/calendar immediately.
+- Preserved the existing session data structure and Supabase/local-storage sync format.
+
+
 ## V6.8.2 — Calendar Stability Hotfix
 
 - Fixed Add Session from empty calendar dates and made the action use the calendar-session flow directly.
