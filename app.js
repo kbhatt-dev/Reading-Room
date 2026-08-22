@@ -1,4 +1,4 @@
-const APP_VERSION="6.8.3";
+const APP_VERSION="6.8.4";
 const icon=n=>`<svg class="ui-icon" aria-hidden="true"><use href="#i-${n}"></use></svg>`;
 const BOOK_KEY="readingRoomBooksV1";
 const GENRE_KEY="readingRoomGenresV1";
@@ -1092,41 +1092,62 @@ async function resetReadingRoomData(){
   if(wasSignedIn)await overwriteCloudWithCurrentLibrary();
   return wasSignedIn;
 }
-async function cloudSync(force=false){
+async function cloudSync(forceUpload=false){
   if(!configured()||!signedIn())return false;if(!(await refreshSession()))return false;
   try{
     const uid=syncSession.user.id,base=`${syncSettings.url.replace(/\/$/,"")}/rest/v1/reading_room_sync`,ep=`${base}?user_id=eq.${encodeURIComponent(uid)}&select=user_id,payload,updated_at_ms`;
     $("#lastSyncText")&&($("#lastSyncText").textContent="Checking cloud…");
     const gr=await fetch(ep,{headers:authHeaders(true)});if(!gr.ok)throw Error("Cloud read failed");const rows=await gr.json();
     const local=Number(localStorage.getItem(CHANGE_KEY)||0),last=Number(localStorage.getItem(SYNCED_KEY)||0);
-    if(rows.length&&rows[0].payload){
-      const remote=Number(rows[0].updated_at_ms||0);
-      if(!force&&remote>local){
-        books=Array.isArray(rows[0].payload.books)?unpackBooksFromStorage(rows[0].payload):books;
-        genres=Array.isArray(rows[0].payload.genres)?rows[0].payload.genres:genres;
-        if(rows[0].payload.decorSettings?.themes){
-          decorSettings=rows[0].payload.decorSettings;
-          localStorage.setItem(DECOR_KEY,JSON.stringify(decorSettings));
-        }
-        if(rows[0].payload.goalSettings?.yearly){
-          goalSettings=rows[0].payload.goalSettings;
-          localStorage.setItem(GOAL_KEY,JSON.stringify(goalSettings));
-        }
-        localStorage.setItem(BOOK_KEY,JSON.stringify(books));localStorage.setItem(GENRE_KEY,JSON.stringify(genres));localStorage.setItem(CHANGE_KEY,String(remote));localStorage.setItem(SYNCED_KEY,String(remote));renderGenreOptions();renderAll();applyDecorations();if(lastRoute==="stats")renderStats();
-        $("#lastSyncText")&&($("#lastSyncText").textContent=`Downloaded latest · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);return true;
+    const remote=rows.length?Number(rows[0].updated_at_ms||0):0;
+    const localChanged=local>last;
+    const remoteChanged=remote>last;
+
+    /* Normal sync is two-way: if this device has not changed since its last
+       successful sync, a newer cloud copy must win. This is what lets edits
+       made on desktop appear on iPhone (and vice versa). */
+    if(!forceUpload&&rows.length&&rows[0].payload&&remoteChanged&&!localChanged){
+      books=Array.isArray(rows[0].payload.books)?unpackBooksFromStorage(rows[0].payload):books;
+      genres=Array.isArray(rows[0].payload.genres)?rows[0].payload.genres:genres;
+      if(rows[0].payload.decorSettings?.themes){
+        decorSettings=rows[0].payload.decorSettings;
+        localStorage.setItem(DECOR_KEY,JSON.stringify(decorSettings));
       }
+      if(rows[0].payload.goalSettings?.yearly){
+        goalSettings=rows[0].payload.goalSettings;
+        localStorage.setItem(GOAL_KEY,JSON.stringify(goalSettings));
+      }
+      localStorage.setItem(BOOK_KEY,JSON.stringify(books));localStorage.setItem(GENRE_KEY,JSON.stringify(genres));localStorage.setItem(CHANGE_KEY,String(remote));localStorage.setItem(SYNCED_KEY,String(remote));renderGenreOptions();renderAll();applyDecorations();if(lastRoute==="stats")renderStats();
+      $("#lastSyncText")&&($("#lastSyncText").textContent=`Downloaded latest · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);return true;
     }
-    if(rows.length&&!force&&local<=last){$("#lastSyncText")&&($("#lastSyncText").textContent=`Up to date · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);return true;}
+
+    /* Nothing changed on either side. */
+    if(rows.length&&!forceUpload&&!localChanged&&!remoteChanged){$("#lastSyncText")&&($("#lastSyncText").textContent=`Up to date · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);return true;}
+
+    /* If both sides changed since the last common sync, keep the newer copy
+       instead of blindly overwriting the cloud. */
+    if(!forceUpload&&rows.length&&rows[0].payload&&remoteChanged&&localChanged&&remote>local){
+      books=Array.isArray(rows[0].payload.books)?unpackBooksFromStorage(rows[0].payload):books;
+      genres=Array.isArray(rows[0].payload.genres)?rows[0].payload.genres:genres;
+      if(rows[0].payload.decorSettings?.themes){decorSettings=rows[0].payload.decorSettings;localStorage.setItem(DECOR_KEY,JSON.stringify(decorSettings));}
+      if(rows[0].payload.goalSettings?.yearly){goalSettings=rows[0].payload.goalSettings;localStorage.setItem(GOAL_KEY,JSON.stringify(goalSettings));}
+      localStorage.setItem(BOOK_KEY,JSON.stringify(books));localStorage.setItem(GENRE_KEY,JSON.stringify(genres));localStorage.setItem(CHANGE_KEY,String(remote));localStorage.setItem(SYNCED_KEY,String(remote));renderGenreOptions();renderAll();applyDecorations();if(lastRoute==="stats")renderStats();
+      $("#lastSyncText")&&($("#lastSyncText").textContent=`Downloaded newer cloud copy · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);return true;
+    }
+
     const now=Date.now(),payload={user_id:uid,payload:persistentSyncPayload(),updated_at_ms:now};
     const pr=await fetch(`${base}?on_conflict=user_id`,{method:"POST",headers:{...authHeaders(true),Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(payload)});if(!pr.ok)throw Error("Cloud write failed");
-    localStorage.setItem(CHANGE_KEY,String(now));localStorage.setItem(SYNCED_KEY,String(now));$("#lastSyncText")&&($("#lastSyncText").textContent=`Synced automatically · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);return true;
+    /* Do not rewrite CHANGE_KEY here. A local edit can happen while the network
+       request is in flight; preserving its timestamp keeps that edit dirty so
+       the next automatic sync cannot accidentally skip it. */
+    localStorage.setItem(SYNCED_KEY,String(now));$("#lastSyncText")&&($("#lastSyncText").textContent=`Synced automatically · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);return true;
   }catch(e){console.warn("Reading Room sync:",e);$("#lastSyncText")&&($("#lastSyncText").textContent="Sync failed — check connection or policies.");return false;}
 }
 $("#saveSyncSettings").onclick=()=>{const url=$("#supabaseUrl").value.trim().replace(/\/$/,""),key=$("#supabaseKey").value.trim();if(!url||!key)return alert("Enter Project URL and Publishable key.");syncSettings={url,key};localStorage.setItem(SYNC_KEY,JSON.stringify(syncSettings));renderSyncStatus();alert("Supabase connection saved.");};
 $("#clearSyncSettings").onclick=()=>{if(!confirm("Clear Supabase connection from this device?"))return;syncSettings={url:"",key:""};syncSession=null;localStorage.removeItem(SYNC_KEY);localStorage.removeItem(SESSION_KEY);renderSyncStatus();};
 $("#signInBtn").onclick=async()=>{const email=$("#syncEmail").value.trim(),password=$("#syncPassword").value;if(!email||!password)return alert("Enter email and password.");const b=$("#signInBtn"),t=b.textContent;b.disabled=true;b.textContent="Signing in…";try{await signIn(email,password);$("#syncPassword").value="";await cloudSync();alert("Signed in successfully. Automatic cloud sync is active.");}catch(e){alert(e.message);}finally{b.disabled=false;b.textContent=t;}};
 $("#signOutBtn").onclick=async()=>{if(signedIn()){try{await fetch(`${syncSettings.url.replace(/\/$/,"")}/auth/v1/logout`,{method:"POST",headers:authHeaders(true)});}catch{}}syncSession=null;localStorage.removeItem(SESSION_KEY);renderSyncStatus();};
-$("#syncNowBtn").onclick=()=>cloudSync(true);
+$("#syncNowBtn").onclick=()=>cloudSync();
 
 $("#exportBackup").onclick=()=>{
   const packed=packBooksForStorage(books),data={version:6.6,storageVersion:1,exportedAt:new Date().toISOString(),books:packed.books,covers:packed.covers,genres,decorSettings,goalSettings};

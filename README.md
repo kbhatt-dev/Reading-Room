@@ -1,3 +1,12 @@
+# Reading Room V6.8.4 — Cross-Device Sync Hotfix
+
+- Fixed two-way Supabase synchronization so a device with no new local changes downloads a newer cloud library instead of treating its stale copy as current.
+- Fixed **Sync Now** so it performs a normal two-way reconciliation instead of blindly forcing the current device copy over the cloud.
+- Preserved the local change timestamp after cloud uploads so an edit made while a sync request is still in flight remains marked as unsynced and is picked up by the next sync.
+- Added safer handling when both local and cloud copies changed, while keeping the existing single-payload Supabase schema unchanged.
+- Reading Sessions, session dates, books, journal data, goals, shelf themes, covers, backups, offline mode, and PWA behavior remain compatible.
+- No Supabase table/schema changes are required.
+
 # My Reading Room — V5
 
 ## V6.8.3 — Reading Session Date Hotfix
