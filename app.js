@@ -1,4 +1,4 @@
-const APP_VERSION="6.5.1";
+const APP_VERSION="6.5.2";
 const icon=n=>`<svg class="ui-icon" aria-hidden="true"><use href="#i-${n}"></use></svg>`;
 const BOOK_KEY="readingRoomBooksV1";
 const GENRE_KEY="readingRoomGenresV1";
@@ -300,9 +300,10 @@ function renderJournalCollections(){
 }
 
 function renderFinished(){
-  renderJournalCollections();
+  if($("#journalTools")?.open)renderJournalCollections();
   const q=$("#finishedSearch").value.trim().toLowerCase(),g=$("#finishedGenre").value,y=$("#finishedYear").value;
 $("#quoteSearch").addEventListener("input",renderJournalCollections);$("#memorySearch").addEventListener("input",renderJournalCollections);
+$("#journalTools")?.addEventListener("toggle",e=>{const hint=e.currentTarget.querySelector(".journal-tools-hint");if(hint)hint.textContent=e.currentTarget.open?"Close":"Open";if(e.currentTarget.open)renderJournalCollections();});
   const all=books.filter(b=>b.status==="finished");
   const years=[...new Set(all.map(bookYear))].sort((a,b)=>b-a);
   const old=$("#finishedYear").value||"all";

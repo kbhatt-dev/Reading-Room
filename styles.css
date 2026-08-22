@@ -745,3 +745,40 @@ body.customizing-shelf .year-block .full-bookcase::after{
   .storage-detail-row{grid-template-columns:1fr}
   .storage-detail-row>div{font-size:.9rem}
 }
+
+
+/* V6.5.2 — keep optional journal utilities collapsed */
+.journal-tools{
+  margin:20px 0 26px;
+  border:1px solid var(--line,#e4d5c7);
+  border-radius:18px;
+  background:rgba(255,255,255,.30);
+  overflow:hidden;
+}
+.journal-tools>summary{
+  list-style:none;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  padding:14px 16px;
+}
+.journal-tools>summary::-webkit-details-marker{display:none}
+.journal-tools>summary>span:first-child{display:flex;flex-direction:column;gap:2px}
+.journal-tools>summary strong{display:flex;align-items:center;gap:8px}
+.journal-tools>summary small{color:var(--muted,#786b61)}
+.journal-tools-hint{
+  font-size:.82rem;
+  font-weight:700;
+  color:var(--muted,#786b61);
+}
+.journal-tools .journal-collections{
+  margin:0;
+  padding:0 14px 14px;
+}
+@media(max-width:760px){
+  .journal-tools{margin:16px 0 20px}
+  .journal-tools>summary{padding:13px 14px}
+  .journal-tools .journal-collections{padding:0 10px 10px}
+}

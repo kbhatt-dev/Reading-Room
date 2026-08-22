@@ -1,5 +1,14 @@
 # My Reading Room — V5
 
+## V6.5.2 — Collapsed Journal Tools
+
+- Quotes Collection and Story Memories Search are now hidden inside one collapsed Journal Tools section on the Finished page.
+- The Finished page stays clean on desktop and especially on iPhone.
+- Journal tools are rendered only when expanded.
+- No journal data was removed.
+- No additional Supabase storage is introduced; both tools continue to derive results from existing saved book/journal fields.
+
+
 ## V6.5.1 — Storage Monitor
 
 - Added a collapsed Storage Usage panel only on the Sync page.
