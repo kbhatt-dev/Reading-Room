@@ -1,4 +1,4 @@
-const APP_VERSION="6.8.4";
+const APP_VERSION="6.8.5";
 const icon=n=>`<svg class="ui-icon" aria-hidden="true"><use href="#i-${n}"></use></svg>`;
 const BOOK_KEY="readingRoomBooksV1";
 const GENRE_KEY="readingRoomGenresV1";
@@ -107,10 +107,12 @@ function progressHTML(b){
 function coverHTML(b,cls="cover"){return b.cover?`<img class="${cls}" src="${b.cover}" alt="${escapeHtml(b.title)} cover">`:`<div class="${cls} placeholder">${escapeHtml(b.title||"Book")}</div>`;}
 
 
-/* V6.7.1 Ultra-Light Covers.
+/* V6.8.5 Tiny Cover Hardening.
    New and existing embedded covers are converted to compact WebP thumbnails.
-   Goal: roughly 25–40 KB for typical book covers while keeping shelf text/art readable. */
-const COVER_MAX_W=280,COVER_MAX_H=420,COVER_QUALITY=.58,COVER_TARGET_BYTES=8*1024,COVER_SOFT_MAX_BYTES=10*1024,COVER_HARD_INPUT_BYTES=12*1024*1024;
+   Target: about 8 KB, with 10 KB treated as the practical maximum.
+   High-detail phone photos/screenshots are allowed to reduce further because covers
+   are displayed as small thumbnails throughout the Reading Room. */
+const COVER_MAX_W=240,COVER_MAX_H=360,COVER_QUALITY=.52,COVER_TARGET_BYTES=8*1024,COVER_SOFT_MAX_BYTES=10*1024,COVER_HARD_INPUT_BYTES=12*1024*1024;
 function dataUrlBytes(s=""){const i=s.indexOf(",");return i<0?0:Math.ceil((s.length-i-1)*3/4);}
 function readBlobAsDataURL(blob){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(blob);});}
 function loadImage(src){return new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(new Error("This image format could not be processed."));img.src=src;});}
@@ -126,13 +128,21 @@ async function compressCoverSource(src,{force=false}={}){
       best=src,
       bestBytes=originalBytes||Number.MAX_SAFE_INTEGER;
 
-  for(let pass=0;pass<12;pass++){
+  const encode=async(width,height,q)=>{
     const c=document.createElement("canvas");
-    c.width=w;c.height=h;
+    c.width=width;c.height=height;
     const ctx=c.getContext("2d",{alpha:false});
     ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality="high";
-    ctx.fillStyle="#f7f0e7";ctx.fillRect(0,0,w,h);ctx.drawImage(img,0,0,w,h);
-    const blob=await new Promise(resolve=>c.toBlob(resolve,"image/webp",quality));
+    ctx.fillStyle="#f7f0e7";ctx.fillRect(0,0,width,height);ctx.drawImage(img,0,0,width,height);
+    const blob=await new Promise(resolve=>c.toBlob(resolve,"image/webp",q));
+    return blob;
+  };
+
+  /* First reduce WebP quality, then progressively reduce thumbnail dimensions.
+     Unlike the older loop, this does not stop at 170x255 / quality .30, which
+     could leave detailed iPhone images at 40–90 KB. */
+  for(let pass=0;pass<22;pass++){
+    const blob=await encode(w,h,quality);
     if(!blob)break;
 
     if(blob.size<bestBytes){
@@ -141,12 +151,27 @@ async function compressCoverSource(src,{force=false}={}){
     }
     if(blob.size<=COVER_TARGET_BYTES)break;
 
-    quality=Math.max(.30,quality-.045);
-    if(pass>=2){
-      w=Math.max(170,Math.round(w*.90));
-      h=Math.max(255,Math.round(h*.90));
+    if(quality>.18) quality=Math.max(.18,quality-.055);
+    else{
+      w=Math.max(96,Math.round(w*.84));
+      h=Math.max(144,Math.round(h*.84));
+      quality=.24;
     }
   }
+
+  /* Hard fallback for exceptionally detailed screenshots/photos. Keep stepping
+     down until the encoded cover is under 10 KB (or reaches the tiny floor). */
+  while(bestBytes>COVER_SOFT_MAX_BYTES&&(w>80||h>120)){
+    w=Math.max(80,Math.round(w*.82));
+    h=Math.max(120,Math.round(h*.82));
+    const blob=await encode(w,h,.14);
+    if(!blob)break;
+    if(blob.size<bestBytes){
+      best=await readBlobAsDataURL(blob);
+      bestBytes=blob.size;
+    }
+  }
+
   return bestBytes<originalBytes?best:src;
 }
 async function optimizeCoverFile(file){

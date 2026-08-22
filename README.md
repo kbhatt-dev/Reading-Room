@@ -1,3 +1,12 @@
+# Reading Room V6.8.5 — Tiny Cover Hardening
+
+- Strengthened book-cover optimization for high-detail iPhone photos and screenshots that could remain around 40–90 KB after the previous compressor stopped reducing quality/resolution.
+- New uploads still target about 8 KB, with ~10 KB treated as the practical maximum.
+- The compressor can now reduce both WebP quality and thumbnail dimensions further when needed, with a small-thumbnail fallback for unusually complex images.
+- Existing embedded covers above ~10 KB are automatically re-optimized on startup and replaced in-place rather than duplicated.
+- Existing covers already at or below ~10 KB are left untouched to avoid unnecessary quality loss.
+- No book, journal, session, goal, shelf, backup, authentication, or Supabase schema changes were made.
+
 # Reading Room V6.8.4 — Cross-Device Sync Hotfix
 
 - Fixed two-way Supabase synchronization so a device with no new local changes downloads a newer cloud library instead of treating its stale copy as current.
