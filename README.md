@@ -1,5 +1,16 @@
 # My Reading Room — V5
 
+## V6.8.1 — Calendar Session Hub
+
+- Every real date in the monthly Reading Calendar is now interactive, including days with no existing reading.
+- Tapping a date opens a dedicated day view showing all Reading Sessions logged on that date.
+- Existing day sessions can be edited or deleted directly from the calendar day view.
+- Add Session from a calendar date automatically pre-fills that date and lets the user choose from Currently Reading books.
+- The standard Reading Session editor now includes an editable Session Date field.
+- Saving, editing, or deleting a calendar session refreshes Stats and the monthly calendar immediately.
+- No separate calendar records are stored or synced; the calendar continues to derive everything from the existing Reading Sessions array.
+
+
 ## V6.8.0 — Clean Stats & Calendar
 
 - Removed the Detective Score tile from Stats as unnecessary visual clutter.

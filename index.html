@@ -670,6 +670,23 @@
   <!-- BOOK DETAIL -->
   <dialog id="detailDialog" class="detail-dialog"><article id="detailContent"></article></dialog>
 
+  <!-- CALENDAR DAY SESSIONS -->
+  <dialog id="calendarDayDialog" class="small-dialog calendar-day-dialog">
+    <section class="small-form">
+      <header class="dialog-header">
+        <div><p class="eyebrow">Reading calendar</p><h2 id="calendarDayTitle">Reading Day</h2></div>
+        <button type="button" id="closeCalendarDayDialog" class="round-btn">✕</button>
+      </header>
+      <div id="calendarDaySummary" class="sessions-summary"></div>
+      <div id="calendarDaySessionList" class="sessions-manager-list"></div>
+      <div class="button-row end">
+        <button type="button" id="addCalendarDaySession" class="primary">
+          <svg class="ui-icon" aria-hidden="true"><use href="#i-session"></use></svg> Add Session
+        </button>
+      </div>
+    </section>
+  </dialog>
+
   <!-- READING SESSION -->
   <dialog id="sessionDialog" class="small-dialog">
     <form id="sessionForm" class="small-form">
@@ -678,12 +695,20 @@
         <button type="button" id="closeSessionDialog" class="round-btn">✕</button>
       </header>
       <input id="sessionBookId" type="hidden"><input id="sessionIndex" type="hidden" value="-1">
+      <div id="calendarSessionBookWrap" class="hidden">
+        <label>Book
+          <select id="calendarSessionBook"></select>
+        </label>
+      </div>
+      <div class="form-grid two">
+        <label>Session date<input id="sessionDate" type="date"></label>
+        <label>Minutes<input id="sessionMinutes" type="number" min="0"></label>
+      </div>
       <div class="form-grid two">
         <label>Start page<input id="sessionStart" type="number" min="0"></label>
         <label>End page<input id="sessionEnd" type="number" min="0"></label>
       </div>
-      <div class="form-grid two">
-        <label>Minutes<input id="sessionMinutes" type="number" min="0"></label>
+      <div class="form-grid one">
         <label>Mood
           <select id="sessionMood">
             <option value="">Choose mood…</option>

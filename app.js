@@ -463,11 +463,11 @@ let statsCalendarMonth=null;
 
 function calendarSessionRows(year,month){
   const rows=[];
-  books.forEach(b=>(Array.isArray(b.sessions)?b.sessions:[]).forEach(s=>{
+  books.forEach(b=>(Array.isArray(b.sessions)?b.sessions:[]).forEach((s,index)=>{
     const date=sessionDateValue(s);
     if(!/^\d{4}-\d{2}-\d{2}$/.test(date))return;
     const d=new Date(date+"T12:00:00");
-    if(d.getFullYear()===year&&d.getMonth()===month)rows.push({...s,_date:date,_book:b});
+    if(d.getFullYear()===year&&d.getMonth()===month)rows.push({...s,_date:date,_book:b,_index:index});
   }));
   return rows;
 }
@@ -490,22 +490,54 @@ function renderMonthlyReadingCalendar(year){
           minutes=sessions.reduce((n,s)=>n+(Number(s.minutes)||0),0),
           isToday=date===todayISO(),
           active=sessions.length>0;
-    cells.push(`<button type="button" class="calendar-day ${active?"has-reading":""} ${isToday?"today":""}" data-calendar-date="${date}" ${active?"":'disabled'}>
+    cells.push(`<button type="button" class="calendar-day ${active?"has-reading":""} ${isToday?"today":""}" data-calendar-date="${date}">
       <span class="calendar-date-number">${day}</span>
-      ${active?`<span class="calendar-minutes">${minutes} min</span><span class="calendar-session-count">${sessions.length} ${sessions.length===1?"session":"sessions"}</span>`:""}
+      ${active?`<span class="calendar-minutes">${minutes} min</span><span class="calendar-session-count">${sessions.length} ${sessions.length===1?"session":"sessions"}</span>`:`<span class="calendar-add-hint">+</span>`}
     </button>`);
   }
   $("#readingCalendarGrid").innerHTML=cells.join("");
-  $("#calendarDayDetails").textContent=rows.length?"Tap a highlighted day to see what you read.":"No reading sessions logged in this month.";
-  $$("[data-calendar-date]").forEach(btn=>btn.addEventListener("click",()=>{
-    const date=btn.dataset.calendarDate,sessions=byDate[date]||[],minutes=sessions.reduce((n,s)=>n+(Number(s.minutes)||0),0);
-    const bookGroups={};
-    sessions.forEach(s=>{const title=s._book?.title||"Unknown book";bookGroups[title]=(bookGroups[title]||0)+(Number(s.minutes)||0);});
-    const booksText=Object.entries(bookGroups).map(([title,mins])=>`${title} · ${mins} min`).join(" • ");
-    $("#calendarDayDetails").innerHTML=`<strong>${new Date(date+"T12:00:00").toLocaleDateString([],{weekday:"long",month:"long",day:"numeric"})}</strong><span>${sessions.length} ${sessions.length===1?"session":"sessions"} · ${minutes} min</span>${booksText?`<span>${escapeHtml(booksText)}</span>`:""}`;
-    $$(".calendar-day.selected").forEach(x=>x.classList.remove("selected"));btn.classList.add("selected");
-  }));
+  $("#calendarDayDetails").textContent=rows.length?"Tap any date to view or add reading sessions.":"Tap any date to add your first reading session for that month.";
+  $$("[data-calendar-date]").forEach(btn=>btn.addEventListener("click",()=>openCalendarDay(btn.dataset.calendarDate)));
 }
+
+function calendarDaySessions(date){
+  const rows=[];
+  books.forEach(b=>(Array.isArray(b.sessions)?b.sessions:[]).forEach((s,index)=>{
+    if(sessionDateValue(s)===date)rows.push({...s,_book:b,_index:index});
+  }));
+  return rows;
+}
+function openCalendarDay(date){
+  calendarSelectedDate=date;
+  const rows=calendarDaySessions(date),minutes=rows.reduce((n,s)=>n+(Number(s.minutes)||0),0);
+  $("#calendarDayTitle").textContent=new Date(date+"T12:00:00").toLocaleDateString([],{weekday:"long",month:"long",day:"numeric",year:"numeric"});
+  $("#calendarDaySummary").innerHTML=`<strong>${rows.length} ${rows.length===1?"session":"sessions"} · ${minutes} min</strong><p class="meta">${rows.length?"Edit, delete, or add another session for this date.":"No reading logged yet. Add a session for this date."}</p>`;
+  $("#calendarDaySessionList").innerHTML=rows.length?rows.map(s=>`
+    <article class="session-manager-item">
+      <div>
+        <strong>${escapeHtml(s._book.title)} · ${escapeHtml(moodLabel(s.mood))}</strong>
+        <div class="session-manager-meta">Page ${s.startPage||0} → ${s.endPage||s.startPage||0} · ${s.minutes||0} min</div>
+      </div>
+      <div class="session-manager-actions">
+        <button type="button" class="secondary compact" onclick="editCalendarDaySession('${s._book.id}',${s._index},'${date}')">${icon("edit")} Edit</button>
+        <button type="button" class="danger compact" onclick="deleteCalendarDaySession('${s._book.id}',${s._index},'${date}')">${icon("trash")} Delete</button>
+      </div>
+    </article>`).join(""):`<div class="session-manager-empty">Nothing logged on this date yet.</div>`;
+  $("#calendarDayDialog").showModal();setDialogOpen(true);
+}
+window.openCalendarDay=openCalendarDay;
+window.editCalendarDaySession=(bookId,index,date)=>openSession(bookId,index,date);
+window.deleteCalendarDaySession=(bookId,index,date)=>{
+  const b=books.find(x=>x.id===bookId);if(!b||!Array.isArray(b.sessions)||!b.sessions[index])return;
+  if(!confirm("Delete this reading session?"))return;
+  b.sessions.splice(index,1);
+  const positions=b.sessions.map(s=>Number(s.endPage)||Number(s.startPage)||0).filter(Boolean);
+  b.currentPage=positions.length?positions[positions.length-1]:0;
+  saveBooks();
+  renderStats();
+  openCalendarDay(date);
+};
+
 
 function renderStats(){
   const years=[...new Set(books.filter(b=>b.status==="finished").map(bookYear))].sort((a,b)=>b-a);const current=new Date().getFullYear();if(!years.includes(current))years.unshift(current);
@@ -804,7 +836,13 @@ $("#sessionForm").addEventListener("submit",e=>{
   saveBooks();
   $("#sessionDialog").close();
 
-  if(sessionsManagerBookId===id){
+  if(sessionOpenedFromCalendar){
+    sessionOpenedFromCalendar=false;
+    const selected=date;
+    statsCalendarMonth={year:Number(selected.slice(0,4)),month:Number(selected.slice(5,7))-1};
+    renderStats();
+    setTimeout(()=>openCalendarDay(selected),60);
+  }else if(sessionsManagerBookId===id){
     renderSessionsManager(b);
     $("#sessionsDialog").showModal();
     setDialogOpen(true);
@@ -1087,6 +1125,8 @@ $("#confirmResetReadingData").onclick=async()=>{
     alert(`${e.message}\n\nYour local Reading Room is empty. Do not run normal Sync until the cloud reset succeeds, or older cloud data may download again.`);
   }finally{btn.textContent=old;}
 };
+$("#closeCalendarDayDialog")?.addEventListener("click",()=>$("#calendarDayDialog").close());
+$("#addCalendarDaySession")?.addEventListener("click",()=>{if(calendarSelectedDate)openCalendarSession(calendarSelectedDate);});
 $("#calendarPrevMonth")?.addEventListener("click",()=>{const year=Number($("#statsYear").value)||new Date().getFullYear();if(!statsCalendarMonth||statsCalendarMonth.year!==year)statsCalendarMonth={year,month:0};statsCalendarMonth.month--;if(statsCalendarMonth.month<0){statsCalendarMonth.month=11;statsCalendarMonth.year--;}renderMonthlyReadingCalendar(statsCalendarMonth.year);});
 $("#calendarNextMonth")?.addEventListener("click",()=>{const year=Number($("#statsYear").value)||new Date().getFullYear();if(!statsCalendarMonth||statsCalendarMonth.year!==year)statsCalendarMonth={year,month:0};statsCalendarMonth.month++;if(statsCalendarMonth.month>11){statsCalendarMonth.month=0;statsCalendarMonth.year++;}renderMonthlyReadingCalendar(statsCalendarMonth.year);});
 $("#statsYear")?.addEventListener("change",()=>{statsCalendarMonth=null;renderStats();});

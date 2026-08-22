@@ -876,3 +876,29 @@ body.customizing-shelf .year-block .full-bookcase::after{
   .calendar-day.today .calendar-date-number{width:21px;height:21px}
   .calendar-day-details{font-size:.84rem}
 }
+
+
+/* V6.8.1 — calendar day session hub */
+.calendar-day:not(.blank){cursor:pointer}
+.calendar-day:not(.blank):hover{border-color:#a7b59f;background:rgba(227,234,223,.55)}
+.calendar-day.has-reading{cursor:pointer}
+.calendar-add-hint{
+  margin-top:auto;
+  align-self:flex-end;
+  width:22px;height:22px;border-radius:50%;
+  display:grid;place-items:center;
+  font-weight:700;font-size:.9rem;
+  color:var(--muted,#786b61);
+  background:rgba(120,144,111,.10);
+  opacity:.55;
+}
+.calendar-day:hover .calendar-add-hint{opacity:1;background:rgba(120,144,111,.18)}
+.calendar-day-dialog{width:min(650px,calc(100% - 28px))}
+#calendarSessionBookWrap{margin-bottom:12px}
+#calendarSessionBookWrap label{display:grid;gap:7px}
+@media(max-width:700px){
+  .calendar-add-hint{width:18px;height:18px;font-size:.75rem}
+  .calendar-day-dialog .session-manager-item{align-items:flex-start}
+  .calendar-day-dialog .session-manager-actions{width:100%}
+  .calendar-day-dialog .session-manager-actions button{flex:1}
+}
