@@ -108,3 +108,37 @@ No storage keys or Supabase schema were changed.
 - Restored page rendering and all button/navigation behavior.
 - Added the missing dynamic genre icon helper.
 - No feature, data, layout, or Supabase schema changes.
+
+
+## V5.3 — Usability bug-fix release
+
+Fixed the five reported issues:
+
+1. **Reading progress**
+   - clearer progress bar and percentage
+   - displays `Page X of Y` when total pages are known
+   - displays current page clearly when total pages are not set
+   - session start/end pages update the current reading position
+
+2. **Finished book details**
+   - compact finished-book preview no longer contains the entire journal
+   - added a dedicated `Read More` page for full thoughts, memories, quote, prediction, spoilers, sessions, and Hall of Fame status
+
+3. **Dropdown icons**
+   - removed emoji from native dropdown values and placeholders
+   - mood values are now text-based
+   - legacy emoji mood values remain readable through compatibility mapping
+
+4. **Icon consistency**
+   - removed remaining static emoji-style icons from statistics, filters, and dynamic finished shelves
+   - continued using the custom SVG icon system
+
+5. **Reading Sessions**
+   - added Sessions button on each Currently Reading card
+   - added sessions manager showing every session
+   - added edit session
+   - added delete session
+   - session manager shows total minutes and current page
+   - editing/deleting a session automatically refreshes the book progress
+
+Existing book data, Supabase schema, automatic sync, and PWA behavior remain compatible.
