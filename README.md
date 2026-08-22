@@ -1,5 +1,14 @@
 # My Reading Room — V5
 
+## V6.5.0 — Journal Collections & Cover Tools
+
+- Added Quotes Collection, derived from existing favourite-quote fields; no duplicate quote records are stored or synced.
+- Added Story Memories Search across existing thoughts, spoiler/story memory, characters, scenes, predictions and quotes; the search index is generated in the browser and is not synced.
+- Improved cover workflow with Replace and Remove controls plus the approximate optimized cover size.
+- Keeps V6.3.1 cover compression/deduplication: replacing a cover stores only the new optimized cover in the book record and normal sync payload.
+- No new Supabase tables, columns, quote collection data, search index, or duplicated memory records are introduced.
+
+
 ## V6.4.0 — Reading Insights
 
 - Expanded Stats with session-based active days, session count, average session length, and existing yearly reading metrics.

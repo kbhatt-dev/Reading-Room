@@ -222,6 +222,21 @@
         <select id="finishedYear"><option value="all">All years</option></select>
       </div>
 
+      <section class="journal-collections">
+        <article class="collection-card">
+          <div class="collection-heading"><div><p class="eyebrow">Collected words</p><h2>Quotes Collection</h2></div><span id="quoteCount" class="count-pill">0 quotes</span></div>
+          <input id="quoteSearch" type="search" placeholder="Search quotes, books, or authors…" />
+          <div id="quotesCollection" class="quotes-collection"></div>
+          <p id="quotesEmpty" class="muted collection-empty">Favourite quotes from finished books will appear here.</p>
+        </article>
+        <article class="collection-card memories-search-card">
+          <div class="collection-heading"><div><p class="eyebrow">Find an old story</p><h2>Story Memories Search</h2></div></div>
+          <input id="memorySearch" type="search" placeholder="Search thoughts, characters, scenes, predictions, memories…" />
+          <div id="memoryResults" class="memory-results"></div>
+          <p id="memorySearchHint" class="muted collection-empty">Search across the journal information you already saved.</p>
+        </article>
+      </section>
+
       <div id="finishedYearShelves" class="year-shelves"></div>
       <div id="finishedEmpty" class="empty-card">Finished books will appear here.</div>
     </section>
@@ -422,7 +437,7 @@
         </label>
         <div id="coverPreviewWrap" class="cover-preview-wrap hidden">
           <img id="coverPreview" alt="Book cover preview">
-          <button type="button" id="removeCover" class="secondary compact">Remove</button>
+          <div class="cover-preview-actions"><span id="coverStorageInfo" class="cover-storage-info"></span><button type="button" id="replaceCover" class="secondary compact">Replace</button><button type="button" id="removeCover" class="secondary compact">Remove</button></div>
         </div>
       </section>
 

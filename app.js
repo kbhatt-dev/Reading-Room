@@ -1,4 +1,4 @@
-const APP_VERSION="6.4.0";
+const APP_VERSION="6.5.0";
 const icon=n=>`<svg class="ui-icon" aria-hidden="true"><use href="#i-${n}"></use></svg>`;
 const BOOK_KEY="readingRoomBooksV1";
 const GENRE_KEY="readingRoomGenresV1";
@@ -287,8 +287,22 @@ function renderReading(){
   $("#readingGrid").innerHTML=list.map(readingCard).join("");
   $("#readingEmpty").classList.toggle("hidden",list.length>0);
 }
+function journalSearchText(b){return [b.title,b.author,b.review,b.spoilers,b.favoriteCharacter,b.favoriteScene,b.favoriteQuote,b.prediction,b.predictionResult].filter(Boolean).join(" ").toLowerCase();}
+function renderJournalCollections(){
+  const finished=books.filter(b=>b.status==="finished");
+  const qq=($("#quoteSearch")?.value||"").trim().toLowerCase(),quotes=finished.filter(b=>b.favoriteQuote&&(!qq||`${b.favoriteQuote} ${b.title} ${b.author}`.toLowerCase().includes(qq)));
+  $("#quoteCount").textContent=`${quotes.length} ${quotes.length===1?"quote":"quotes"}`;
+  $("#quotesCollection").innerHTML=quotes.map(b=>`<button class="quote-collection-item" onclick="openFullBook('${b.id}')"><blockquote>“${escapeHtml(b.favoriteQuote)}”</blockquote><span>${escapeHtml(b.title)} · ${escapeHtml(b.author||"Unknown author")}</span></button>`).join("");
+  $("#quotesEmpty").classList.toggle("hidden",quotes.length>0);
+  const mq=($("#memorySearch")?.value||"").trim().toLowerCase(),results=mq?finished.filter(b=>journalSearchText(b).includes(mq)):[];
+  $("#memoryResults").innerHTML=results.map(b=>{const pieces=[b.review,b.spoilers,b.favoriteCharacter,b.favoriteScene,b.prediction,b.favoriteQuote].filter(Boolean);const match=pieces.find(x=>String(x).toLowerCase().includes(mq))||pieces[0]||"Open this book to view its journal.";return `<button class="memory-result" onclick="openFullBook('${b.id}')"><strong>${escapeHtml(b.title)}</strong><small>${escapeHtml(b.author||"Unknown author")}</small><p>${escapeHtml(String(match).slice(0,180))}${String(match).length>180?"…":""}</p></button>`;}).join("");
+  $("#memorySearchHint").textContent=mq?(results.length?`${results.length} ${results.length===1?"book":"books"} found.`:"No saved memories matched that search."):"Search across the journal information you already saved.";
+}
+
 function renderFinished(){
+  renderJournalCollections();
   const q=$("#finishedSearch").value.trim().toLowerCase(),g=$("#finishedGenre").value,y=$("#finishedYear").value;
+$("#quoteSearch").addEventListener("input",renderJournalCollections);$("#memorySearch").addEventListener("input",renderJournalCollections);
   const all=books.filter(b=>b.status==="finished");
   const years=[...new Set(all.map(bookYear))].sort((a,b)=>b-a);
   const old=$("#finishedYear").value||"all";
@@ -378,8 +392,10 @@ function buildRatingPicker(){
 }
 buildRatingPicker();
 
+function formatBytes(n){if(!n)return "";return n<1024?`${n} B`:n<1024*1024?`${Math.round(n/1024)} KB`:`${(n/1024/1024).toFixed(1)} MB`;}
+function updateCoverStorageInfo(){const el=$("#coverStorageInfo");if(el)el.textContent=workingCover?`Optimized cover · ${formatBytes(dataUrlBytes(workingCover))}`:"";}
 function clearCover(){
-  workingCover="";$("#coverInput").value="";$("#coverFileName").textContent="No file selected";$("#coverPreview").removeAttribute("src");$("#coverPreviewWrap").classList.add("hidden");
+  workingCover="";$("#coverInput").value="";$("#coverFileName").textContent="No file selected";$("#coverPreview").removeAttribute("src");$("#coverPreviewWrap").classList.add("hidden");updateCoverStorageInfo();
 }
 function resetBookForm(){
   $("#bookForm").reset();$("#bookId").value="";selectedRating=0;clearCover();$("#deleteBookBtn").classList.add("hidden");$("#dialogTitle").textContent="Add a Book";$("#status").value="want";
@@ -405,8 +421,8 @@ $("#status").addEventListener("change",()=>{
   if(s==="finished"){if(!$("#finishDateStarted").value)$("#finishDateStarted").value=$("#dateStarted").value||todayISO();if(!$("#dateFinished").value)$("#dateFinished").value=todayISO();}
   updateStatusFields();
 });
-$("#chooseCoverBtn").onclick=()=>$("#coverInput").click();
-$("#coverInput").onchange=async e=>{const f=e.target.files[0];if(!f)return;$("#coverFileName").textContent="Optimizing cover…";try{workingCover=await optimizeCoverFile(f);$("#coverPreview").src=workingCover;$("#coverPreviewWrap").classList.remove("hidden");$("#coverFileName").textContent=`${f.name} · optimized`;}catch(err){workingCover="";$("#coverInput").value="";$("#coverFileName").textContent="No file selected";alert(err.message||"Could not optimize this cover image.");}};
+$("#chooseCoverBtn").onclick=()=>$("#coverInput").click();$("#replaceCover").onclick=()=>$("#coverInput").click();
+$("#coverInput").onchange=async e=>{const f=e.target.files[0];if(!f)return;$("#coverFileName").textContent="Optimizing cover…";try{workingCover=await optimizeCoverFile(f);$("#coverPreview").src=workingCover;$("#coverPreviewWrap").classList.remove("hidden");$("#coverFileName").textContent=`${f.name} · optimized`;updateCoverStorageInfo();}catch(err){workingCover="";$("#coverInput").value="";$("#coverFileName").textContent="No file selected";alert(err.message||"Could not optimize this cover image.");}};
 $("#removeCover").onclick=clearCover;
 
 window.editBook=id=>{
@@ -415,7 +431,7 @@ window.editBook=id=>{
   ["title","author","status","format","pages","currentPage","dateStarted","dateFinished","prediction","review","spoilers","favoriteCharacter","favoriteScene","favoriteQuote","predictionResult"].forEach(k=>{const el=$("#"+k);if(el)el.value=b[k]??"";});
   $("#finishDateStarted").value=b.dateStarted||"";renderGenreOptions(b.genre||"");selectedRating=Number(b.rating)||0;$("#rating").value=selectedRating;
   $$(".rating-chip").forEach(x=>x.classList.toggle("active",Number(x.textContent)===selectedRating));$("#favoriteBook").checked=!!b.favoriteBook;
-  workingCover=b.cover||"";if(workingCover){$("#coverPreview").src=workingCover;$("#coverPreviewWrap").classList.remove("hidden");$("#coverFileName").textContent="Saved cover";}
+  workingCover=b.cover||"";if(workingCover){$("#coverPreview").src=workingCover;$("#coverPreviewWrap").classList.remove("hidden");$("#coverFileName").textContent="Saved cover";updateCoverStorageInfo();}
   updateStatusFields({auto:false});$("#detailDialog").close();$("#bookDialog").showModal();setDialogOpen(true);
 };
 
