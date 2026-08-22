@@ -1,4 +1,5 @@
-const APP_VERSION="5.0";
+const APP_VERSION="5.1";
+const icon=n=>`<svg class="ui-icon" aria-hidden="true"><use href="#i-${n}"></use></svg>`;
 const BOOK_KEY="readingRoomBooksV1";
 const GENRE_KEY="readingRoomGenresV1";
 const SYNC_KEY="readingRoomSyncSettingsV2";
@@ -31,7 +32,7 @@ function genreEmoji(name=""){
   if(g.includes("biography"))return"👤"; if(g.includes("self-help"))return"🌱"; if(g.includes("non-fiction")||g.includes("nonfiction"))return"🧠";
   return"📚";
 }
-function formatEmoji(f=""){return ({Paperback:"📖",Hardcover:"📕",Kindle:"📱",Audiobook:"🎧",Other:"✨"})[f]||"✨";}
+function formatIcon(){return"format";})[f]||"✨";}
 function stars(r){r=Number(r)||0;if(!r)return"Not rated";return `${"★".repeat(Math.floor(r))}${r%1?"½":""} ${r}/5`;}
 function pct(b){if(!b.pages||!b.currentPage)return 0;return Math.min(100,Math.round((Number(b.currentPage)/Number(b.pages))*100));}
 function bookYear(b){const raw=b.dateFinished||b.dateStarted;if(raw){const y=new Date(raw+"T00:00:00").getFullYear();if(!Number.isNaN(y))return y;}return new Date().getFullYear();}
@@ -68,12 +69,12 @@ function renderGenreOptions(selected){
     const current=selected!==undefined?selected:bookSelect.value;
     const list=[...genres];
     if(current&&!list.includes(current))list.unshift(current);
-    bookSelect.innerHTML=`<option value="">✨ Choose genre…</option>`+list.map(g=>`<option value="${escapeHtml(g)}">${genreEmoji(g)} ${escapeHtml(g)}</option>`).join("");
+    bookSelect.innerHTML=`<option value="">✨ Choose genre…</option>`+list.map(g=>`<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join("");
     bookSelect.value=current||"";
   }
   ["tbrGenre","finishedGenre"].forEach(id=>{
     const el=$("#"+id);if(!el)return;const current=el.value||"all";
-    el.innerHTML=`<option value="all">🏷️ All genres</option>`+genres.map(g=>`<option value="${escapeHtml(g)}">${genreEmoji(g)} ${escapeHtml(g)}</option>`).join("");
+    el.innerHTML=`<option value="all">🏷️ All genres</option>`+genres.map(g=>`<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join("");
     el.value=genres.includes(current)?current:"all";
   });
 }
@@ -124,7 +125,7 @@ function readingCard(b){return `<article class="reading-card">
   <div class="reading-card-top">${coverHTML(b)}<div><p class="eyebrow">Reading</p><h3>${escapeHtml(b.title)}</h3><p class="meta">${escapeHtml(b.author||"Unknown author")}</p>
   <div class="progress"><span style="width:${pct(b)}%"></span></div><p class="meta">${b.currentPage||0}${b.pages?` / ${b.pages}`:""} pages · ${pct(b)}%</p>
   <p class="meta">Started ${b.dateStarted||"not set"} · ${sessionMinutes(b)} min logged</p></div></div>
-  <div class="card-actions"><button class="secondary" onclick="editBook('${b.id}')">✏️ Edit Book</button><button class="primary" onclick="openSession('${b.id}')">⏱️ Add Session</button></div>
+  <div class="card-actions"><button class="secondary" onclick="editBook('${b.id}')">${icon("edit")} Edit Book</button><button class="primary" onclick="openSession('${b.id}')">${icon("session")} Add Session</button></div>
 </article>`;}
 function renderReading(){
   const list=books.filter(b=>b.status==="reading");
@@ -248,21 +249,21 @@ window.openBook=id=>{
   const mins=sessionMinutes(b),days=dateDiffDays(b.dateStarted,b.dateFinished),sessions=Array.isArray(b.sessions)?b.sessions:[];
   let extra="",actions="";
   if(b.status==="want"){
-    extra=`<div class="reading-time-card"><strong>📚 TBR</strong><p class="meta">Move this book to Reading when you start it.</p></div>`;
-    actions=`<button class="primary" onclick="editBook('${b.id}')">📖 Start / Edit</button>`;
+    extra=`<div class="reading-time-card"><strong>${icon("tbr")} TBR</strong><p class="meta">Move this book to Reading when you start it.</p></div>`;
+    actions=`<button class="primary" onclick="editBook('${b.id}')">${icon("reading")} Start / Edit</button>`;
   }else if(b.status==="reading"){
     extra=`<div class="reading-time-card"><strong>Reading progress</strong><p class="meta">${b.currentPage||0}${b.pages?` / ${b.pages}`:""} pages · ${pct(b)}%</p><p class="meta">Started ${b.dateStarted||"—"} · ${mins} min logged</p></div>
-      ${b.prediction?`<div class="detail-section"><h3>🔎 My Prediction</h3><p>${escapeHtml(b.prediction)}</p></div>`:""}
+      ${b.prediction?`<div class="detail-section"><h3>${icon("note")} My Prediction</h3><p>${escapeHtml(b.prediction)}</p></div>`:""}
       ${sessions.length?`<div class="detail-section"><h3>Reading Sessions</h3><div class="session-list">${sessions.map(s=>`<div class="session-item">${s.mood||"📖"} ${s.startPage||0} → ${s.endPage||0} · ${s.minutes||0} min · ${s.date||""}</div>`).join("")}</div></div>`:""}`;
-    actions=`<button class="secondary" onclick="editBook('${b.id}')">✏️ Edit Book</button><button class="primary" onclick="openSession('${b.id}')">⏱️ Add Session</button>`;
+    actions=`<button class="secondary" onclick="editBook('${b.id}')">${icon("edit")} Edit Book</button><button class="primary" onclick="openSession('${b.id}')">${icon("session")} Add Session</button>`;
   }else{
     extra=`<div class="reading-time-card"><strong>Reading time</strong><p class="meta">${days===null?"—":days+" "+(days===1?"day":"days")} · ${mins} min logged</p><p class="meta">${b.dateStarted||"—"} → ${b.dateFinished||"—"}</p></div>
       ${b.review?`<div class="detail-section"><h3>My Thoughts</h3><p>${escapeHtml(b.review).replace(/\n/g,"<br>")}</p></div>`:""}
       ${b.spoilers?`<div class="detail-section"><h3>Story Memory</h3><button class="secondary compact" onclick="this.nextElementSibling.classList.toggle('hidden')">🔒 Reveal / Hide</button><p class="hidden">${escapeHtml(b.spoilers).replace(/\n/g,"<br>")}</p></div>`:""}`;
-    actions=`<button class="secondary" onclick="editBook('${b.id}')">✏️ Edit Journal</button>`;
+    actions=`<button class="secondary" onclick="editBook('${b.id}')">${icon("edit")} Edit Journal</button>`;
   }
   $("#detailContent").innerHTML=`<div class="detail-top">${coverHTML(b)}<div><p class="eyebrow">${statusLabel(b.status)}</p><h2>${escapeHtml(b.title)}</h2><p class="muted">${escapeHtml(b.author||"Unknown author")}</p>
-    <div class="pills"><span class="pill">${genreEmoji(b.genre)} ${escapeHtml(b.genre||"No genre")}</span><span class="pill">${formatEmoji(b.format)} ${escapeHtml(b.format||"No format")}</span>${b.status==="finished"?`<span class="pill">${stars(b.rating)}</span>`:""}</div>
+    <div class="pills"><span class="pill">${icon(genreIcon(b.genre))} ${escapeHtml(b.genre||"No genre")}</span><span class="pill">${icon(formatIcon())} ${escapeHtml(b.format||"No format")}</span>${b.status==="finished"?`<span class="pill">${stars(b.rating)}</span>`:""}</div>
     ${b.status==="finished"&&b.pages?`<p class="meta">${b.pages} pages</p>`:""}</div></div>${extra}<div class="detail-actions">${actions}<button class="secondary" onclick="document.getElementById('detailDialog').close()">Close</button></div>`;
   $("#detailDialog").showModal();setDialogOpen(true);
 };
@@ -285,10 +286,10 @@ $("#addGenreBtn").onclick=()=>{const i=$("#newGenreInput"),v=i.value.trim().repl
 
 function showFinish(b){
   justFinishedBookId=b.id;$("#finishTitle").textContent=`You finished ${b.title}!`;$("#finishSubtitle").textContent=b.rating?`${stars(b.rating)} · Welcome to the finished shelf.`:"Another story has joined your library.";
-  $("#finishCoverWrap").innerHTML=coverHTML(b);$("#finishFavoriteBtn").textContent=b.favoriteBook?"❤️ In Hall of Fame":"❤️ Hall of Fame";$("#finishDialog").showModal();setDialogOpen(true);
+  $("#finishCoverWrap").innerHTML=coverHTML(b);$("#finishFavoriteBtn").textContent=b.favoriteBook?"${icon("heart")} In Hall of Fame":"${icon("heart")} Hall of Fame";$("#finishDialog").showModal();setDialogOpen(true);
 }
 $("#finishCloseBtn").onclick=()=>$("#finishDialog").close();
-$("#finishFavoriteBtn").onclick=()=>{const b=books.find(x=>x.id===justFinishedBookId);if(!b)return;b.favoriteBook=true;saveBooks();$("#finishFavoriteBtn").textContent="❤️ In Hall of Fame";};
+$("#finishFavoriteBtn").onclick=()=>{const b=books.find(x=>x.id===justFinishedBookId);if(!b)return;b.favoriteBook=true;saveBooks();$("#finishFavoriteBtn").textContent="${icon("heart")} In Hall of Fame";};
 
 $("#tbrSearch").oninput=renderTbr;$("#tbrGenre").onchange=renderTbr;$("#finishedSearch").oninput=renderFinished;$("#finishedGenre").onchange=renderFinished;$("#finishedYear").onchange=renderFinished;$("#statsYear").onchange=renderStats;
 

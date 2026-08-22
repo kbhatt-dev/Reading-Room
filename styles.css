@@ -160,3 +160,26 @@ textarea{resize:vertical;min-height:74px}
   .hero-card{align-items:flex-start}.hero-count{width:78px;height:78px;min-width:78px}
   .stats-grid{grid-template-columns:1fr 1fr;gap:9px}.stat-card{padding:13px}.stat-card strong{font-size:1.35rem}
 }
+
+
+/* V5.1 custom icon system */
+.icon-sprite{position:absolute;width:0;height:0;overflow:hidden;pointer-events:none}
+.ui-icon,.brand-icon,.mobile-icon,.fab-icon,.decor-icon,.confetti-icon{
+  width:1em;height:1em;display:inline-block;vertical-align:-.16em;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round
+}
+.brand-icon{width:24px;height:24px;color:var(--wood)}
+.desktop-nav .ui-icon{width:16px;height:16px;margin-right:3px}
+.desktop-nav button{display:inline-flex;align-items:center;gap:4px}
+.mobile-icon{width:20px;height:20px}
+.mobile-nav button{gap:3px}
+.fab-icon{width:18px;height:18px}
+.brand-mark{color:var(--wood);background:linear-gradient(145deg,#efe4d9,#e6d7c8)}
+.bookcase-top-decor span{
+  width:34px;height:34px;border-radius:10px;background:rgba(255,250,243,.55);
+  display:grid;place-items:center;border:1px solid rgba(117,80,56,.08)
+}
+.decor-icon{width:18px;height:18px;color:var(--wood)}
+.custom-confetti{display:flex;justify-content:center;gap:14px;color:var(--wood)}
+.confetti-icon{width:26px;height:26px}
+button .ui-icon{margin-right:5px}
+.form-card h3 .ui-icon,.dialog-header .eyebrow .ui-icon{margin-right:6px}

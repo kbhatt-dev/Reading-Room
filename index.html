@@ -14,24 +14,54 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
+
+  <svg class="icon-sprite" aria-hidden="true">
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/><path d="M9.5 20v-6h5v6"/></symbol>
+    <symbol id="i-tbr" viewBox="0 0 24 24"><path d="M4 5.5c3.5-1 6.2-.5 8 1.4v13c-1.8-1.9-4.5-2.4-8-1.4z"/><path d="M20 5.5c-3.5-1-6.2-.5-8 1.4v13c1.8-1.9 4.5-2.4 8-1.4z"/></symbol>
+    <symbol id="i-reading" viewBox="0 0 24 24"><path d="M4 6h6a3 3 0 0 1 3 3v10H7a3 3 0 0 0-3 3z"/><path d="M20 6h-6a3 3 0 0 0-3 3v10h6a3 3 0 0 1 3 3z"/></symbol>
+    <symbol id="i-finished" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="m8.5 12 2.3 2.3 4.8-5"/></symbol>
+    <symbol id="i-stats" viewBox="0 0 24 24"><path d="M5 19V9"/><path d="M10 19V5"/><path d="M15 19v-7"/><path d="M20 19V3"/></symbol>
+    <symbol id="i-sync" viewBox="0 0 24 24"><path d="M7 7a7 7 0 0 1 11.2 1.8L20 11"/><path d="M20 6v5h-5"/><path d="M17 17A7 7 0 0 1 5.8 15.2L4 13"/><path d="M4 18v-5h5"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4l11-11-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></symbol>
+    <symbol id="i-session" viewBox="0 0 24 24"><circle cx="12" cy="13" r="7"/><path d="M12 10v4l3 2"/><path d="M9 3h6"/></symbol>
+    <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7.5 18H18a4 4 0 0 0 .8-7.9A6.5 6.5 0 0 0 6.4 8.2 4.8 4.8 0 0 0 7.5 18Z"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V5"/><path d="m8 9 4-4 4 4"/><path d="M5 19h14"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 5v11"/><path d="m8 12 4 4 4-4"/><path d="M5 19h14"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24"><path d="M5 8h3l1.5-2h5L16 8h3a2 2 0 0 1 2 2v8H3v-8a2 2 0 0 1 2-2Z"/><circle cx="12" cy="13" r="3"/></symbol>
+    <symbol id="i-genre" viewBox="0 0 24 24"><path d="M4 5h7l2 3h7v11H4z"/><path d="M8 12h8"/><path d="M8 15h6"/></symbol>
+    <symbol id="i-format" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 7h6"/><path d="M9 11h6"/><path d="M9 15h4"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M8 3v4"/><path d="M16 3v4"/><path d="M4 9h16"/></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7-4.3-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.7-7 10-7 10Z"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></symbol>
+    <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M7 4h10v16l-5-3-5 3z"/></symbol>
+    <symbol id="i-pages" viewBox="0 0 24 24"><path d="M6 4h11a2 2 0 0 1 2 2v12H8a2 2 0 0 0-2 2z"/><path d="M6 4v16"/><path d="M9 8h6"/><path d="M9 12h6"/></symbol>
+    <symbol id="i-note" viewBox="0 0 24 24"><path d="M5 4h14v16H5z"/><path d="M8 8h8"/><path d="M8 12h8"/><path d="M8 16h5"/></symbol>
+    <symbol id="i-plant" viewBox="0 0 24 24"><path d="M12 13v5"/><path d="M12 11c-4 0-6-2-6-5 4 0 6 2 6 5Z"/><path d="M12 11c4 0 6-2 6-5-4 0-6 2-6 5Z"/><path d="M8 18h8l-1 3H9z"/></symbol>
+    <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3c.8 4 2 5.2 6 6-4 .8-5.2 2-6 6-.8-4-2-5.2-6-6 4-.8 5.2-2 6-6Z"/><path d="M19 15c.4 2 1 2.6 3 3-2 .4-2.6 1-3 3-.4-2-1-2.6-3-3 2-.4 2.6-1 3-3Z"/></symbol>
+    <symbol id="i-candle" viewBox="0 0 24 24"><path d="M9 10h6v10H9z"/><path d="M12 10c-2-2-1-4 0-6 2 2 2 4 0 6Z"/></symbol>
+    <symbol id="i-coffee" viewBox="0 0 24 24"><path d="M5 8h11v8a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4z"/><path d="M16 10h2a3 3 0 0 1 0 6h-2"/><path d="M8 4c1 1 1 2 0 3"/><path d="M12 4c1 1 1 2 0 3"/></symbol>
+  </svg>
+
   <header class="app-header">
     <button class="brand" data-route="home" aria-label="Go to Reading Room home">
-      <span class="brand-mark">📚</span>
+      <span class="brand-mark"><svg class="brand-icon" aria-hidden="true"><use href="#i-reading"></use></svg></span>
       <span>
         <small>Your private reading journal</small>
         <strong>My Reading Room</strong>
       </span>
     </button>
-    <button id="headerAddBook" class="primary desktop-add">＋ Add Book</button>
+    <button id="headerAddBook" class="primary desktop-add"><svg class="ui-icon" aria-hidden="true"><use href="#i-plus"></use></svg> Add Book</button>
   </header>
 
   <nav class="desktop-nav" aria-label="Main navigation">
-    <button data-route="home">🏠 <span>Room</span></button>
-    <button data-route="tbr">📚 <span>TBR</span></button>
-    <button data-route="reading">📖 <span>Reading</span></button>
-    <button data-route="finished">✅ <span>Finished</span></button>
-    <button data-route="stats">📊 <span>Stats</span></button>
-    <button data-route="sync">☁️ <span>Sync</span></button>
+    <button data-route="home"><svg class="ui-icon" aria-hidden="true"><use href="#i-home"></use></svg> <span>Room</span></button>
+    <button data-route="tbr"><svg class="ui-icon" aria-hidden="true"><use href="#i-tbr"></use></svg> <span>TBR</span></button>
+    <button data-route="reading"><svg class="ui-icon" aria-hidden="true"><use href="#i-reading"></use></svg> <span>Reading</span></button>
+    <button data-route="finished"><svg class="ui-icon" aria-hidden="true"><use href="#i-finished"></use></svg> <span>Finished</span></button>
+    <button data-route="stats"><svg class="ui-icon" aria-hidden="true"><use href="#i-stats"></use></svg> <span>Stats</span></button>
+    <button data-route="sync"><svg class="ui-icon" aria-hidden="true"><use href="#i-sync"></use></svg> <span>Sync</span></button>
   </nav>
 
   <main id="appMain">
@@ -69,7 +99,7 @@
           </div>
         </div>
         <div class="decorative-bookcase">
-          <div class="bookcase-top-decor"><span>🪴</span><span>✨</span><span>🕯️</span></div>
+          <div class="bookcase-top-decor"><span><svg class="decor-icon" aria-hidden="true"><use href="#i-plant"></use></svg></span><span><svg class="decor-icon" aria-hidden="true"><use href="#i-sparkle"></use></svg></span><span><svg class="decor-icon" aria-hidden="true"><use href="#i-candle"></use></svg></span></div>
           <div class="bookcase-label">Recent Finished Books</div>
           <div id="homeFinishedShelf" class="wood-shelf-books"></div>
           <div class="wood-board"></div>
@@ -108,7 +138,7 @@
       </div>
 
       <div class="full-bookcase">
-        <div class="bookcase-top-decor"><span>🌿</span><span>☕</span><span>✨</span></div>
+        <div class="bookcase-top-decor"><span><svg class="decor-icon" aria-hidden="true"><use href="#i-plant"></use></svg></span><span><svg class="decor-icon" aria-hidden="true"><use href="#i-coffee"></use></svg></span><span><svg class="decor-icon" aria-hidden="true"><use href="#i-sparkle"></use></svg></span></div>
         <div id="tbrShelf" class="large-shelf-grid"></div>
         <div class="wood-board"></div>
       </div>
@@ -219,7 +249,7 @@
           <div id="signedInPanel" class="hidden">
             <div class="account-card">
               <div><span class="status-dot good"></span><strong id="signedInEmail">Signed in</strong><p id="lastSyncText">Ready to sync.</p></div>
-              <div class="button-row"><button id="syncNowBtn" class="secondary">☁️ Sync Now</button><button id="signOutBtn" class="secondary">Sign Out</button></div>
+              <div class="button-row"><button id="syncNowBtn" class="secondary"><svg class="ui-icon" aria-hidden="true"><use href="#i-sync"></use></svg> Sync Now</button><button id="signOutBtn" class="secondary">Sign Out</button></div>
             </div>
           </div>
         </section>
@@ -228,8 +258,8 @@
           <h3>Backup</h3>
           <p class="muted">Export your journal as JSON or restore it later.</p>
           <div class="button-row start">
-            <button id="exportBackup" class="secondary">Export Backup</button>
-            <button id="importBackupBtn" class="secondary">Import Backup</button>
+            <button id="exportBackup" class="secondary"><svg class="ui-icon" aria-hidden="true"><use href="#i-download"></use></svg> Export Backup</button>
+            <button id="importBackupBtn" class="secondary"><svg class="ui-icon" aria-hidden="true"><use href="#i-upload"></use></svg> Import Backup</button>
             <input id="importBackupInput" class="visually-hidden-file" type="file" accept=".json,application/json">
           </div>
         </section>
@@ -239,58 +269,58 @@
 
   <!-- MOBILE BOTTOM NAV -->
   <nav class="mobile-nav" aria-label="Mobile navigation">
-    <button data-route="home"><span>🏠</span><small>Room</small></button>
-    <button data-route="tbr"><span>📚</span><small>TBR</small></button>
-    <button data-route="reading"><span>📖</span><small>Reading</small></button>
-    <button data-route="finished"><span>✅</span><small>Finished</small></button>
-    <button data-route="stats"><span>📊</span><small>Stats</small></button>
+    <button data-route="home"><svg class="mobile-icon" aria-hidden="true"><use href="#i-home"></use></svg><small>Room</small></button>
+    <button data-route="tbr"><svg class="mobile-icon" aria-hidden="true"><use href="#i-tbr"></use></svg><small>TBR</small></button>
+    <button data-route="reading"><svg class="mobile-icon" aria-hidden="true"><use href="#i-reading"></use></svg><small>Reading</small></button>
+    <button data-route="finished"><svg class="mobile-icon" aria-hidden="true"><use href="#i-finished"></use></svg><small>Finished</small></button>
+    <button data-route="stats"><svg class="mobile-icon" aria-hidden="true"><use href="#i-stats"></use></svg><small>Stats</small></button>
   </nav>
 
-  <button id="floatingAddBook" class="floating-add"><span>＋</span> Add Book</button>
+  <button id="floatingAddBook" class="floating-add"><svg class="fab-icon" aria-hidden="true"><use href="#i-plus"></use></svg> Add Book</button>
 
   <!-- BOOK EDITOR -->
   <dialog id="bookDialog" class="book-dialog">
     <form id="bookForm" class="book-form">
       <header class="dialog-header">
-        <div><p class="eyebrow">📚 Reading journal</p><h2 id="dialogTitle">Add a Book</h2></div>
+        <div><p class="eyebrow"><svg class="ui-icon" aria-hidden="true"><use href="#i-reading"></use></svg> Reading journal</p><h2 id="dialogTitle">Add a Book</h2></div>
         <button type="button" id="closeBookDialog" class="round-btn">✕</button>
       </header>
 
       <input type="hidden" id="bookId">
 
       <section class="form-card">
-        <h3>📖 Book Details</h3>
+        <h3><svg class="ui-icon" aria-hidden="true"><use href="#i-reading"></use></svg> Book Details</h3>
         <label>Book title<input id="title" required maxlength="120"></label>
         <label>Author<input id="author" maxlength="120"></label>
         <div class="form-grid two">
           <label>Status
             <select id="status">
-              <option value="want">📚 TBR</option>
-              <option value="reading">📖 Reading</option>
-              <option value="finished">✅ Finished</option>
-              <option value="dnf">🌙 DNF</option>
+              <option value="want">TBR</option>
+              <option value="reading">Reading</option>
+              <option value="finished">Finished</option>
+              <option value="dnf">DNF</option>
             </select>
           </label>
           <label>Genre
             <div class="genre-control">
               <select id="genre"></select>
-              <button type="button" id="manageGenresBtn" class="secondary compact">⚙️ Manage</button>
+              <button type="button" id="manageGenresBtn" class="secondary compact"><svg class="ui-icon" aria-hidden="true"><use href="#i-genre"></use></svg> Manage</button>
             </div>
           </label>
         </div>
         <label>Format
           <select id="format">
-            <option value="Paperback">📖 Paperback</option>
-            <option value="Hardcover">📕 Hardcover</option>
-            <option value="Kindle">📱 Kindle</option>
-            <option value="Audiobook">🎧 Audiobook</option>
-            <option value="Other">✨ Other</option>
+            <option value="Paperback">Paperback</option>
+            <option value="Hardcover">Hardcover</option>
+            <option value="Kindle">Kindle</option>
+            <option value="Audiobook">Audiobook</option>
+            <option value="Other">Other</option>
           </select>
         </label>
         <label>Book cover
           <div class="cover-picker">
             <input id="coverInput" class="visually-hidden-file" type="file" accept="image/*">
-            <button type="button" id="chooseCoverBtn" class="secondary">📷 Choose Cover</button>
+            <button type="button" id="chooseCoverBtn" class="secondary"><svg class="ui-icon" aria-hidden="true"><use href="#i-camera"></use></svg> Choose Cover</button>
             <span id="coverFileName">No file selected</span>
           </div>
         </label>
@@ -301,17 +331,17 @@
       </section>
 
       <section id="readingFields" class="form-card hidden">
-        <h3>📖 Reading Details</h3>
+        <h3>Reading Details</h3>
         <div class="form-grid two">
           <label>Pages<input id="pages" type="number" min="0"></label>
           <label>Current page<input id="currentPage" type="number" min="0"></label>
         </div>
         <label>Date started<input id="dateStarted" type="date"></label>
-        <label>🔎 My prediction / theory<textarea id="prediction" rows="3" placeholder="What do you think will happen?"></textarea></label>
+        <label><svg class="ui-icon" aria-hidden="true"><use href="#i-note"></use></svg> My prediction / theory<textarea id="prediction" rows="3" placeholder="What do you think will happen?"></textarea></label>
       </section>
 
       <section id="finishedFields" class="form-card hidden">
-        <h3>✅ Finish the Journal</h3>
+        <h3><svg class="ui-icon" aria-hidden="true"><use href="#i-finished"></use></svg> Finish the Journal</h3>
         <div class="form-grid two">
           <label>Date started<input id="finishDateStarted" type="date"></label>
           <label>Date finished<input id="dateFinished" type="date"></label>
@@ -330,13 +360,13 @@
             <option value="partial">Partly</option>
           </select>
         </label>
-        <label class="favorite-toggle"><input id="favoriteBook" type="checkbox"><span>❤️ Add to Hall of Fame</span></label>
+        <label class="favorite-toggle"><input id="favoriteBook" type="checkbox"><span><svg class="ui-icon" aria-hidden="true"><use href="#i-heart"></use></svg> Add to Hall of Fame</span></label>
       </section>
 
       <footer class="editor-actions">
         <button type="button" id="deleteBookBtn" class="danger hidden">Delete</button>
         <button type="button" id="cancelBookBtn" class="secondary desktop-only">Cancel</button>
-        <button type="submit" class="primary save-book">💾 Save Book</button>
+        <button type="submit" class="primary save-book"><svg class="ui-icon" aria-hidden="true"><use href="#i-bookmark"></use></svg> Save Book</button>
       </footer>
     </form>
   </dialog>
@@ -361,12 +391,12 @@
         <label>Mood
           <select id="sessionMood">
             <option value="">Choose mood…</option>
-            <option value="😍">😍 Loved it</option>
-            <option value="😱">😱 Intense</option>
-            <option value="🤯">🤯 Mind blown</option>
-            <option value="😭">😭 Emotional</option>
-            <option value="😌">😌 Cozy</option>
-            <option value="😐">😐 Neutral</option>
+            <option value="😍">Loved it</option>
+            <option value="😱">Intense</option>
+            <option value="🤯">Mind blown</option>
+            <option value="😭">Emotional</option>
+            <option value="😌">Cozy</option>
+            <option value="😐">Neutral</option>
           </select>
         </label>
       </div>
@@ -389,12 +419,12 @@
   <!-- FINISH CELEBRATION -->
   <dialog id="finishDialog" class="finish-dialog">
     <section class="finish-card">
-      <div class="confetti">✨ 📚 ✨</div>
+      <div class="confetti custom-confetti"><svg class="confetti-icon" aria-hidden="true"><use href="#i-sparkle"></use></svg><svg class="confetti-icon" aria-hidden="true"><use href="#i-reading"></use></svg><svg class="confetti-icon" aria-hidden="true"><use href="#i-sparkle"></use></svg></div>
       <p class="eyebrow">Book completed</p>
       <h2 id="finishTitle">You finished a book!</h2>
       <p id="finishSubtitle" class="muted"></p>
       <div id="finishCoverWrap" class="finish-cover"></div>
-      <div class="button-row center"><button id="finishCloseBtn" class="secondary">Close</button><button id="finishFavoriteBtn" class="primary">❤️ Hall of Fame</button></div>
+      <div class="button-row center"><button id="finishCloseBtn" class="secondary">Close</button><button id="finishFavoriteBtn" class="primary"><svg class="ui-icon" aria-hidden="true"><use href="#i-heart"></use></svg> Hall of Fame</button></div>
     </section>
   </dialog>
 

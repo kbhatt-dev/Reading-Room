@@ -1,8 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-<rect width="512" height="512" rx="110" fill="#6f4e37"/>
-<path d="M112 142c54-24 102-18 144 17v228c-43-34-91-39-144-15V142Z" fill="#fff6ea"/>
-<path d="M400 142c-54-24-102-18-144 17v228c43-34 91-39 144-15V142Z" fill="#ead9c8"/>
-<path d="M256 159v228" stroke="#c4aa93" stroke-width="12"/>
-<path d="M172 119c18 9 29 23 34 42-20-4-35-14-44-31 1-7 4-11 10-11Z" fill="#96a58e"/>
-<path d="M340 115c-17 8-29 23-34 43 20-4 36-14 45-31-2-7-5-12-11-12Z" fill="#96a58e"/>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8a6247"/>
+      <stop offset="1" stop-color="#5d3d2b"/>
+    </linearGradient>
+    <linearGradient id="page" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fffaf3"/>
+      <stop offset="1" stop-color="#eadfd3"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="118" fill="url(#bg)"/>
+  <circle cx="256" cy="256" r="174" fill="#f1e7dc" opacity=".12"/>
+  <path d="M118 150c54-24 103-17 138 17v212c-36-31-84-38-138-17z" fill="url(#page)"/>
+  <path d="M394 150c-54-24-103-17-138 17v212c36-31 84-38 138-17z" fill="#e9d8c7"/>
+  <path d="M256 168v211" stroke="#b4957d" stroke-width="10" stroke-linecap="round"/>
+  <path d="M190 112c24 8 39 25 43 50-24-2-43-15-54-37 1-7 4-11 11-13Z" fill="#91a18b"/>
+  <path d="M322 112c-24 8-39 25-43 50 24-2 43-15 54-37-1-7-4-11-11-13Z" fill="#91a18b"/>
+  <path d="M256 86l8 18 20 3-15 14 4 20-17-10-17 10 4-20-15-14 20-3z" fill="#d8b16a"/>
 </svg>

@@ -69,3 +69,13 @@ Automatic sync runs:
 
 ## PWA updates
 The service worker does not persistently cache the app shell. New GitHub Pages releases check for an updated service worker and reload when the new version takes control.
+
+
+## V5.1 — Custom Reading Room icon system
+- Replaced system emoji navigation icons with a consistent inline SVG icon set.
+- Replaced shelf decoration emoji with custom vector plant, sparkle, candle, and coffee icons.
+- Replaced action icons with matching vector icons.
+- Redesigned the Reading Room brand/app icon.
+- Updated the PWA/home-screen icon to use the same Reading Room brand mark.
+- Removed emoji styling from format and genre dropdown option text.
+- No layout, data, sync, or feature behavior was changed.
