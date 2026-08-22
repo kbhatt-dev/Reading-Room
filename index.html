@@ -143,6 +143,17 @@
         <div class="wood-board"></div>
       </div>
       <div id="tbrEmpty" class="empty-card">Your TBR shelf is waiting for its first book.</div>
+
+      <section id="dnfArchiveSection" class="dnf-archive hidden">
+        <div class="section-head compact-section-head">
+          <div>
+            <p class="eyebrow">Set aside</p>
+            <h2>DNF Archive</h2>
+          </div>
+          <span id="dnfCount" class="count-pill">0 books</span>
+        </div>
+        <div id="dnfShelf" class="cover-carousel"></div>
+      </section>
     </section>
 
     <!-- READING -->
@@ -352,6 +363,14 @@
         </label>
         <label>My thoughts<textarea id="review" rows="4"></textarea></label>
         <label>Story memory / spoiler notes<textarea id="spoilers" rows="4"></textarea></label>
+
+        <div class="form-grid two">
+          <label><span class="label-icon"><svg class="ui-icon" aria-hidden="true"><use href="#i-heart"></use></svg>Favourite character</span><input id="favoriteCharacter" maxlength="120"></label>
+          <label><span class="label-icon"><svg class="ui-icon" aria-hidden="true"><use href="#i-star"></use></svg>Favourite scene</span><input id="favoriteScene" maxlength="160"></label>
+        </div>
+
+        <label><span class="label-icon"><svg class="ui-icon" aria-hidden="true"><use href="#i-note"></use></svg>Favourite quote</span><textarea id="favoriteQuote" rows="3"></textarea></label>
+
         <label>Was my prediction right?
           <select id="predictionResult">
             <option value="">Not set</option>

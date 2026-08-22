@@ -183,3 +183,23 @@ textarea{resize:vertical;min-height:74px}
 .confetti-icon{width:26px;height:26px}
 button .ui-icon{margin-right:5px}
 .form-card h3 .ui-icon,.dialog-header .eyebrow .ui-icon{margin-right:6px}
+
+
+/* V5.2 restored journal features */
+.label-icon{display:inline-flex;align-items:center;gap:6px}
+.label-icon .ui-icon{width:15px;height:15px}
+.dnf-archive{margin-top:34px;padding-top:20px;border-top:1px solid var(--line)}
+.compact-section-head{margin-bottom:10px}
+.dnf-archive .cover-carousel{padding-top:4px}
+.dnf-card{flex:0 0 92px;border:0;background:transparent;padding:0;text-align:left}
+.dnf-card .cover{width:92px;filter:saturate(.72)}
+.dnf-card strong{display:block;font-size:.7rem;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dnf-card small{display:block;color:var(--muted);font-size:.62rem}
+.memory-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.memory-card{background:#fff9f2;border:1px solid var(--line);border-radius:13px;padding:11px}
+.memory-card strong{display:block;font-family:Georgia,serif;margin-bottom:4px}
+.quote-card{font-family:Georgia,serif;font-style:italic;background:#f4ece4;border-radius:13px;padding:12px}
+.prediction-result{display:inline-flex;align-items:center;gap:6px;margin-top:7px;padding:6px 9px;border-radius:999px;background:#eee5dc;font-size:.73rem}
+@media(max-width:650px){
+  .memory-grid{grid-template-columns:1fr}
+}

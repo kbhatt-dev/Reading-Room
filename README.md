@@ -79,3 +79,25 @@ The service worker does not persistently cache the app shell. New GitHub Pages r
 - Updated the PWA/home-screen icon to use the same Reading Room brand mark.
 - Removed emoji styling from format and genre dropdown option text.
 - No layout, data, sync, or feature behavior was changed.
+
+
+## V5.2 — Feature restoration
+Restored features that were simplified or dropped during the V5 architecture rebuild:
+
+- Favourite character
+- Favourite scene
+- Favourite quote
+- Prediction result display
+- Full Hall of Fame behavior
+- Finish Book celebration behavior
+- DNF Archive on the TBR page
+- DNF detail/edit flow
+- Reading memory cards in finished-book details
+- Favourite quote display
+- Existing Reading Sessions preserved
+- Existing Statistics preserved
+- Existing Supabase sync preserved
+- Existing backup/import preserved
+- Existing custom SVG icon system preserved
+
+No storage keys or Supabase schema were changed.

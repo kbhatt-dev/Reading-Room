@@ -1,4 +1,4 @@
-const APP_VERSION="5.1";
+const APP_VERSION="5.2";
 const icon=n=>`<svg class="ui-icon" aria-hidden="true"><use href="#i-${n}"></use></svg>`;
 const BOOK_KEY="readingRoomBooksV1";
 const GENRE_KEY="readingRoomGenresV1";
@@ -120,6 +120,11 @@ function renderTbr(){
   $("#tbrCount").textContent=`${list.length} ${list.length===1?"book":"books"}`;
   $("#tbrShelf").innerHTML=list.map(shelfCard).join("");
   $("#tbrEmpty").classList.toggle("hidden",list.length>0);
+
+  const dnf=books.filter(b=>b.status==="dnf").filter(b=>(!q||`${b.title} ${b.author}`.toLowerCase().includes(q))&&(g==="all"||b.genre===g));
+  $("#dnfArchiveSection").classList.toggle("hidden",dnf.length===0);
+  $("#dnfCount").textContent=`${dnf.length} ${dnf.length===1?"book":"books"}`;
+  $("#dnfShelf").innerHTML=dnf.map(b=>`<button class="dnf-card" onclick="openBook('${b.id}')">${coverHTML(b)}<strong>${escapeHtml(b.title)}</strong><small>${escapeHtml(b.author||"Unknown author")}</small></button>`).join("");
 }
 function readingCard(b){return `<article class="reading-card">
   <div class="reading-card-top">${coverHTML(b)}<div><p class="eyebrow">Reading</p><h3>${escapeHtml(b.title)}</h3><p class="meta">${escapeHtml(b.author||"Unknown author")}</p>
@@ -218,7 +223,7 @@ $("#removeCover").onclick=clearCover;
 window.editBook=id=>{
   const b=books.find(x=>x.id===id);if(!b)return;
   resetBookForm();$("#dialogTitle").textContent="Edit Book";$("#deleteBookBtn").classList.remove("hidden");$("#bookId").value=b.id;
-  ["title","author","status","format","pages","currentPage","dateStarted","dateFinished","prediction","review","spoilers","predictionResult"].forEach(k=>{const el=$("#"+k);if(el)el.value=b[k]??"";});
+  ["title","author","status","format","pages","currentPage","dateStarted","dateFinished","prediction","review","spoilers","favoriteCharacter","favoriteScene","favoriteQuote","predictionResult"].forEach(k=>{const el=$("#"+k);if(el)el.value=b[k]??"";});
   $("#finishDateStarted").value=b.dateStarted||"";renderGenreOptions(b.genre||"");selectedRating=Number(b.rating)||0;$("#rating").value=selectedRating;
   $$(".rating-chip").forEach(x=>x.classList.toggle("active",Number(x.textContent)===selectedRating));$("#favoriteBook").checked=!!b.favoriteBook;
   workingCover=b.cover||"";if(workingCover){$("#coverPreview").src=workingCover;$("#coverPreviewWrap").classList.remove("hidden");$("#coverFileName").textContent="Saved cover";}
@@ -234,6 +239,7 @@ $("#bookForm").addEventListener("submit",e=>{
     pages:Number($("#pages").value)||Number(prev?.pages)||0,currentPage:Number($("#currentPage").value)||0,
     dateStarted:status==="finished"?$("#finishDateStarted").value:$("#dateStarted").value,dateFinished:$("#dateFinished").value,
     prediction:$("#prediction").value.trim(),rating:selectedRating,review:$("#review").value.trim(),spoilers:$("#spoilers").value.trim(),
+    favoriteCharacter:$("#favoriteCharacter").value.trim(),favoriteScene:$("#favoriteScene").value.trim(),favoriteQuote:$("#favoriteQuote").value.trim(),
     predictionResult:$("#predictionResult").value,favoriteBook:$("#favoriteBook").checked,sessions:Array.isArray(prev?.sessions)?prev.sessions:[]
   };
   const becameFinished=status==="finished"&&prev?.status!=="finished";
@@ -254,13 +260,24 @@ window.openBook=id=>{
   }else if(b.status==="reading"){
     extra=`<div class="reading-time-card"><strong>Reading progress</strong><p class="meta">${b.currentPage||0}${b.pages?` / ${b.pages}`:""} pages · ${pct(b)}%</p><p class="meta">Started ${b.dateStarted||"—"} · ${mins} min logged</p></div>
       ${b.prediction?`<div class="detail-section"><h3>${icon("note")} My Prediction</h3><p>${escapeHtml(b.prediction)}</p></div>`:""}
-      ${sessions.length?`<div class="detail-section"><h3>Reading Sessions</h3><div class="session-list">${sessions.map(s=>`<div class="session-item">${s.mood||"📖"} ${s.startPage||0} → ${s.endPage||0} · ${s.minutes||0} min · ${s.date||""}</div>`).join("")}</div></div>`:""}`;
+      ${sessions.length?`<div class="detail-section"><h3>Reading Sessions</h3><div class="session-list">${sessions.map(s=>`<div class="session-item">${s.mood||""} ${s.startPage||0} → ${s.endPage||0} · ${s.minutes||0} min · ${s.date||""}</div>`).join("")}</div></div>`:""}`;
     actions=`<button class="secondary" onclick="editBook('${b.id}')">${icon("edit")} Edit Book</button><button class="primary" onclick="openSession('${b.id}')">${icon("session")} Add Session</button>`;
-  }else{
+  }else if(b.status==="finished"){
+    const predictionText=b.predictionResult==="yes"?"Correct":b.predictionResult==="no"?"Not quite":b.predictionResult==="partial"?"Partly right":"";
     extra=`<div class="reading-time-card"><strong>Reading time</strong><p class="meta">${days===null?"—":days+" "+(days===1?"day":"days")} · ${mins} min logged</p><p class="meta">${b.dateStarted||"—"} → ${b.dateFinished||"—"}</p></div>
       ${b.review?`<div class="detail-section"><h3>My Thoughts</h3><p>${escapeHtml(b.review).replace(/\n/g,"<br>")}</p></div>`:""}
-      ${b.spoilers?`<div class="detail-section"><h3>Story Memory</h3><button class="secondary compact" onclick="this.nextElementSibling.classList.toggle('hidden')">🔒 Reveal / Hide</button><p class="hidden">${escapeHtml(b.spoilers).replace(/\n/g,"<br>")}</p></div>`:""}`;
+      ${(b.favoriteCharacter||b.favoriteScene)?`<div class="detail-section"><h3>Reading Memories</h3><div class="memory-grid">
+        ${b.favoriteCharacter?`<div class="memory-card"><strong>Favourite Character</strong><span>${escapeHtml(b.favoriteCharacter)}</span></div>`:""}
+        ${b.favoriteScene?`<div class="memory-card"><strong>Favourite Scene</strong><span>${escapeHtml(b.favoriteScene)}</span></div>`:""}
+      </div></div>`:""}
+      ${b.favoriteQuote?`<div class="detail-section"><h3>Favourite Quote</h3><div class="quote-card">“${escapeHtml(b.favoriteQuote)}”</div></div>`:""}
+      ${b.prediction?`<div class="detail-section"><h3>${icon("note")} My Prediction</h3><p>${escapeHtml(b.prediction)}</p>${predictionText?`<span class="prediction-result">${predictionText}</span>`:""}</div>`:""}
+      ${b.spoilers?`<div class="detail-section"><h3>Story Memory</h3><button class="secondary compact" onclick="this.nextElementSibling.classList.toggle('hidden')">Reveal / Hide</button><p class="hidden">${escapeHtml(b.spoilers).replace(/\n/g,"<br>")}</p></div>`:""}
+      ${b.favoriteBook?`<div class="detail-section"><span class="pill">${icon("heart")} Hall of Fame</span></div>`:""}`;
     actions=`<button class="secondary" onclick="editBook('${b.id}')">${icon("edit")} Edit Journal</button>`;
+  }else{
+    extra=`<div class="reading-time-card"><strong>DNF Archive</strong><p class="meta">This book is set aside. You can move it back to TBR or Reading whenever you want.</p></div>`;
+    actions=`<button class="secondary" onclick="editBook('${b.id}')">${icon("edit")} Edit Book</button>`;
   }
   $("#detailContent").innerHTML=`<div class="detail-top">${coverHTML(b)}<div><p class="eyebrow">${statusLabel(b.status)}</p><h2>${escapeHtml(b.title)}</h2><p class="muted">${escapeHtml(b.author||"Unknown author")}</p>
     <div class="pills"><span class="pill">${icon(genreIcon(b.genre))} ${escapeHtml(b.genre||"No genre")}</span><span class="pill">${icon(formatIcon())} ${escapeHtml(b.format||"No format")}</span>${b.status==="finished"?`<span class="pill">${stars(b.rating)}</span>`:""}</div>
@@ -285,11 +302,19 @@ $("#closeGenreDialog").onclick=()=>$("#genreDialog").close();
 $("#addGenreBtn").onclick=()=>{const i=$("#newGenreInput"),v=i.value.trim().replace(/\s+/g," ");if(!v)return;if(genres.some(g=>g.toLowerCase()===v.toLowerCase()))return alert("That genre already exists.");genres.push(v);i.value="";saveGenres();renderGenreManager();};
 
 function showFinish(b){
-  justFinishedBookId=b.id;$("#finishTitle").textContent=`You finished ${b.title}!`;$("#finishSubtitle").textContent=b.rating?`${stars(b.rating)} · Welcome to the finished shelf.`:"Another story has joined your library.";
-  $("#finishCoverWrap").innerHTML=coverHTML(b);$("#finishFavoriteBtn").textContent=b.favoriteBook?"${icon("heart")} In Hall of Fame":"${icon("heart")} Hall of Fame";$("#finishDialog").showModal();setDialogOpen(true);
+  justFinishedBookId=b.id;
+  $("#finishTitle").textContent=`You finished ${b.title}!`;
+  $("#finishSubtitle").textContent=b.rating?`${stars(b.rating)} · Welcome to the finished shelf.`:"Another story has joined your library.";
+  $("#finishCoverWrap").innerHTML=coverHTML(b);
+  $("#finishFavoriteBtn").innerHTML=b.favoriteBook?`${icon("heart")} In Hall of Fame`:`${icon("heart")} Hall of Fame`;
+  $("#finishDialog").showModal();setDialogOpen(true);
 }
 $("#finishCloseBtn").onclick=()=>$("#finishDialog").close();
-$("#finishFavoriteBtn").onclick=()=>{const b=books.find(x=>x.id===justFinishedBookId);if(!b)return;b.favoriteBook=true;saveBooks();$("#finishFavoriteBtn").textContent="${icon("heart")} In Hall of Fame";};
+$("#finishFavoriteBtn").onclick=()=>{
+  const b=books.find(x=>x.id===justFinishedBookId);if(!b)return;
+  b.favoriteBook=true;saveBooks();
+  $("#finishFavoriteBtn").innerHTML=`${icon("heart")} In Hall of Fame`;
+};
 
 $("#tbrSearch").oninput=renderTbr;$("#tbrGenre").onchange=renderTbr;$("#finishedSearch").oninput=renderFinished;$("#finishedGenre").onchange=renderFinished;$("#finishedYear").onchange=renderFinished;$("#statsYear").onchange=renderStats;
 
