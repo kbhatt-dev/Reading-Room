@@ -1,4 +1,4 @@
-const READING_ROOM_VERSION = "2.4";
+const READING_ROOM_VERSION = "2.5";
 
 const KEY = "readingRoomBooksV1";
 const GENRE_KEY = "readingRoomGenresV1";
@@ -416,15 +416,39 @@ function buildRatingPicker(){
 buildRatingPicker();
 
 function resetForm(){
-  els.form.reset(); $("#bookId").value=""; selectedRating=0; workingCover="";
+  els.form.reset();
+  $("#bookId").value="";
+  selectedRating=0;
+  workingCover="";
   renderGenreOptions("");
+
+  const coverInput=$("#coverInput");
+  const coverPreview=$("#coverPreview");
+  const coverPreviewWrap=$("#coverPreviewWrap");
+
+  if(coverInput) coverInput.value="";
+  if(coverPreview){
+    coverPreview.removeAttribute("src");
+    coverPreview.src="";
+  }
+  if(coverPreviewWrap){
+    coverPreviewWrap.classList.add("hidden");
+    coverPreviewWrap.style.display="";
+  }
   $("#coverFileName").textContent="No file selected";
-  $("#coverPreviewWrap").classList.add("hidden");
   [...$("#ratingPicker").children].forEach(x=>x.classList.remove("active"));
   els.deleteBtn.classList.add("hidden");
   $("#dialogTitle").textContent="Add a Book";
 }
-function openAdd(){ resetForm(); els.dialog.showModal(); updateFabVisibility(); }
+function openAdd(){
+  resetForm();
+  requestAnimationFrame(()=>{
+    $("#coverPreviewWrap")?.classList.add("hidden");
+    if($("#coverPreview")) $("#coverPreview").src="";
+  });
+  els.dialog.showModal();
+  updateFabVisibility();
+}
 
 function fillForm(b){
   resetForm(); $("#dialogTitle").textContent="Edit Book"; els.deleteBtn.classList.remove("hidden");

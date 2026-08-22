@@ -200,3 +200,9 @@ After V2.3 is installed, future releases use the new automatic update behavior.
 - Pinned “Save Book” to the bottom of the phone screen.
 - Prevented controls from spilling outside the viewport.
 - Preserved iPhone-safe 16px form fields to avoid focus zoom.
+
+
+## V2.5 — New book cover reset fix
+- Fixed previous book cover appearing when opening Add Book again.
+- New Add Book sessions now clear the file input, preview image, filename, and in-memory cover state.
+- Edit Book still loads the saved cover normally.
