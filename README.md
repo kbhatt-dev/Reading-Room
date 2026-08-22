@@ -78,3 +78,9 @@ Copyright © 2026 Krishna Bhatt. All rights reserved.
 ## V7.0.6 — Phone Cover Optimizer
 
 Improves large phone/Pinterest cover imports by preserving aspect ratio, resizing before quality reduction, and using a deeper fallback so detailed images can still be stored below 10 KB without being rejected unnecessarily. HEIC/HEIF decode failures now give a clear JPG conversion instruction.
+
+
+## V7.0.8 — Cover Helper Hotfix
+
+- Restores the missing `dataUrlBytes()` helper used by cover optimization and storage reporting.
+- Preserves the V7.0.7 phone cover optimizer, Firebase/Firestore sync, PWA behavior, visible copyright footer, and all existing reading features.
