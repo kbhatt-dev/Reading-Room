@@ -1,5 +1,14 @@
 # My Reading Room — V5
 
+## V6.4.0 — Reading Insights
+
+- Expanded Stats with session-based active days, session count, average session length, and existing yearly reading metrics.
+- Added a yearly Reading Calendar heatmap calculated from existing Reading Sessions.
+- Added current and longest reading streaks, also calculated from session dates.
+- No new cloud-synced activity records are created: calendar, streaks, and advanced session insights are derived from existing book/session data to keep storage lean.
+- Preserves V6.3.1 cover compression, deduplication, optimized sync payload, goals, shelf themes, and journal data.
+
+
 ## V6.3.1 — Storage Optimization
 
 - Automatically resizes uploaded book covers to a maximum of 480 × 720 pixels and compresses them to WebP before saving/syncing.

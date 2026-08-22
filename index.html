@@ -287,6 +287,22 @@
         <article class="insight-card"><h3>Ratings</h3><div id="ratingStats" class="stat-list"></div></article>
         <article class="insight-card"><h3>Formats</h3><div id="formatStats" class="stat-list"></div></article>
       </div>
+
+      <section class="reading-activity-section">
+        <div class="section-heading"><div><p class="eyebrow">Session insights</p><h2>Reading Activity</h2></div></div>
+        <div class="activity-summary-grid">
+          <article class="stat-card"><span class="stat-icon"><svg class="ui-icon"><use href="#i-calendar"></use></svg></span><strong id="statActiveDays">0</strong><small>Active reading days</small></article>
+          <article class="stat-card"><span class="stat-icon"><svg class="ui-icon"><use href="#i-session"></use></svg></span><strong id="statSessions">0</strong><small>Reading sessions</small></article>
+          <article class="stat-card"><span class="stat-icon"><svg class="ui-icon"><use href="#i-stats"></use></svg></span><strong id="statAvgSession">—</strong><small>Average session</small></article>
+          <article class="stat-card"><span class="stat-icon"><svg class="ui-icon"><use href="#i-target"></use></svg></span><strong id="statCurrentStreak">0 days</strong><small>Current streak</small></article>
+          <article class="stat-card"><span class="stat-icon"><svg class="ui-icon"><use href="#i-trophy"></use></svg></span><strong id="statLongestStreak">0 days</strong><small>Longest streak</small></article>
+        </div>
+        <article class="heatmap-card">
+          <div class="heatmap-heading"><div><h3 id="heatmapTitle">Reading Calendar</h3><p class="muted">Each square is a day. Darker squares mean more logged reading time.</p></div><div class="heatmap-legend"><span>Less</span><i data-level="0"></i><i data-level="1"></i><i data-level="2"></i><i data-level="3"></i><i data-level="4"></i><span>More</span></div></div>
+          <div id="readingHeatmap" class="reading-heatmap" aria-label="Reading activity calendar"></div>
+          <p id="heatmapEmpty" class="muted heatmap-empty hidden">Add reading sessions to build your calendar and streaks.</p>
+        </article>
+      </section>
     </section>
 
     <!-- SYNC -->

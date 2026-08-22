@@ -1,4 +1,4 @@
-const APP_VERSION="6.3.1";
+const APP_VERSION="6.4.0";
 const icon=n=>`<svg class="ui-icon" aria-hidden="true"><use href="#i-${n}"></use></svg>`;
 const BOOK_KEY="readingRoomBooksV1";
 const GENRE_KEY="readingRoomGenresV1";
@@ -315,6 +315,26 @@ function renderStatRows(target,obj){
   const entries=Object.entries(obj).sort((a,b)=>b[1]-a[1]);const max=Math.max(1,...entries.map(x=>x[1]));
   $(target).innerHTML=entries.length?entries.map(([n,v])=>`<div class="stat-row"><span>${escapeHtml(n)}</span><div class="stat-track"><span style="width:${v/max*100}%"></span></div><small>${v}</small></div>`).join(""):`<p class="muted">No data yet.</p>`;
 }
+function sessionDateValue(s){return s?.date||s?.sessionDate||s?.createdDate||s?.createdAt?.slice?.(0,10)||"";}
+function sessionsForYear(year){
+  const rows=[];books.forEach(b=>(Array.isArray(b.sessions)?b.sessions:[]).forEach(s=>{const date=sessionDateValue(s);if(/^\d{4}-\d{2}-\d{2}$/.test(date)&&Number(date.slice(0,4))===Number(year))rows.push({...s,_date:date,_bookId:b.id});}));return rows;
+}
+function activityByDate(year){const map={};sessionsForYear(year).forEach(s=>{map[s._date]=(map[s._date]||0)+(Number(s.minutes)||0);});return map;}
+function streakStats(activity,year){
+  const dates=Object.keys(activity).filter(d=>activity[d]>0).sort();if(!dates.length)return {current:0,longest:0};
+  const ord=d=>Math.floor(new Date(d+"T12:00:00").getTime()/86400000);let longest=1,run=1;
+  for(let i=1;i<dates.length;i++){if(ord(dates[i])-ord(dates[i-1])===1){run++;longest=Math.max(longest,run);}else run=1;}
+  const today=todayISO(),yearEnd=`${year}-12-31`,anchor=String(year)===today.slice(0,4)?today:yearEnd;let current=0,cursor=ord(anchor),set=new Set(dates.map(ord));
+  /* A streak stays current through today if the reader read today or yesterday. */
+  if(!set.has(cursor)&&set.has(cursor-1))cursor--;while(set.has(cursor)){current++;cursor--;}
+  return {current,longest};
+}
+function renderReadingHeatmap(year,activity){
+  const root=$("#readingHeatmap"),empty=$("#heatmapEmpty");if(!root)return;const start=new Date(year,0,1,12),end=new Date(year,11,31,12),max=Math.max(1,...Object.values(activity));
+  const days=[];for(let d=new Date(start);d<=end;d.setDate(d.getDate()+1)){const date=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`,minutes=activity[date]||0,level=!minutes?0:Math.min(4,Math.max(1,Math.ceil(minutes/max*4)));days.push(`<span class="heat-day" data-level="${level}" title="${date}: ${minutes} min" aria-label="${date}, ${minutes} minutes"></span>`);}
+  root.innerHTML=`<div class="heat-spacer" style="--offset:${start.getDay()}"></div>`+days.join("");empty.classList.toggle("hidden",Object.keys(activity).length>0);$("#heatmapTitle").textContent=`${year} Reading Calendar`;
+}
+
 function renderStats(){
   const years=[...new Set(books.filter(b=>b.status==="finished").map(bookYear))].sort((a,b)=>b-a);const current=new Date().getFullYear();if(!years.includes(current))years.unshift(current);
   const old=Number($("#statsYear").value)||current;$("#statsYear").innerHTML=years.map(y=>`<option value="${y}">${y}</option>`).join("");$("#statsYear").value=years.includes(old)?old:years[0];
@@ -340,6 +360,13 @@ function renderStats(){
   $("#monthlyBars").innerHTML=months.map((n,i)=>`<div class="bar-col"><div class="bar-fill" style="height:${Math.max(2,n/max*100)}%"><b>${n||""}</b></div><small>${names[i]}</small></div>`).join("");
   renderStatRows("#genreStats",countBy(list,"genre"));renderStatRows("#formatStats",countBy(list,"format"));
   const rc={};rated.forEach(b=>rc[String(b.rating)]=(rc[String(b.rating)]||0)+1);renderStatRows("#ratingStats",rc);
+  const yearSessions=sessionsForYear(year),activity=activityByDate(year),streak=streakStats(activity,year),totalSessionMinutes=yearSessions.reduce((n,s)=>n+(Number(s.minutes)||0),0);
+  $("#statActiveDays").textContent=Object.keys(activity).length;
+  $("#statSessions").textContent=yearSessions.length;
+  $("#statAvgSession").textContent=yearSessions.length?`${Math.round(totalSessionMinutes/yearSessions.length)} min`:`—`;
+  $("#statCurrentStreak").textContent=`${streak.current} ${streak.current===1?"day":"days"}`;
+  $("#statLongestStreak").textContent=`${streak.longest} ${streak.longest===1?"day":"days"}`;
+  renderReadingHeatmap(year,activity);
 }
 
 function setDialogOpen(open){document.body.classList.toggle("dialog-open",open);}
