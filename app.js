@@ -1,4 +1,4 @@
-const APP_VERSION="6.7.0";
+const APP_VERSION="6.7.1";
 const icon=n=>`<svg class="ui-icon" aria-hidden="true"><use href="#i-${n}"></use></svg>`;
 const BOOK_KEY="readingRoomBooksV1";
 const GENRE_KEY="readingRoomGenresV1";
@@ -104,39 +104,72 @@ function progressHTML(b){
 function coverHTML(b,cls="cover"){return b.cover?`<img class="${cls}" src="${b.cover}" alt="${escapeHtml(b.title)} cover">`:`<div class="${cls} placeholder">${escapeHtml(b.title||"Book")}</div>`;}
 
 
-/* V6.3.1 storage optimization: covers are resized/compressed before persistence. */
-const COVER_MAX_W=480,COVER_MAX_H=720,COVER_QUALITY=.76,COVER_TARGET_BYTES=180*1024,COVER_HARD_INPUT_BYTES=12*1024*1024;
+/* V6.7.1 Ultra-Light Covers.
+   New and existing embedded covers are converted to compact WebP thumbnails.
+   Goal: roughly 25–40 KB for typical book covers while keeping shelf text/art readable. */
+const COVER_MAX_W=360,COVER_MAX_H=540,COVER_QUALITY=.68,COVER_TARGET_BYTES=36*1024,COVER_SOFT_MAX_BYTES=40*1024,COVER_HARD_INPUT_BYTES=12*1024*1024;
 function dataUrlBytes(s=""){const i=s.indexOf(",");return i<0?0:Math.ceil((s.length-i-1)*3/4);}
 function readBlobAsDataURL(blob){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(blob);});}
 function loadImage(src){return new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(new Error("This image format could not be processed."));img.src=src;});}
-async function compressCoverSource(src){
+async function compressCoverSource(src,{force=false}={}){
   if(!src||!String(src).startsWith("data:image/"))return src;
-  if(src.startsWith("data:image/webp")&&dataUrlBytes(src)<=COVER_TARGET_BYTES)return src;
+  const originalBytes=dataUrlBytes(src);
+  if(!force&&src.startsWith("data:image/webp")&&originalBytes<=COVER_SOFT_MAX_BYTES)return src;
+
   const img=await loadImage(src),ratio=Math.min(1,COVER_MAX_W/img.naturalWidth,COVER_MAX_H/img.naturalHeight);
-  let w=Math.max(1,Math.round(img.naturalWidth*ratio)),h=Math.max(1,Math.round(img.naturalHeight*ratio)),quality=COVER_QUALITY,best=src;
-  for(let pass=0;pass<6;pass++){
-    const c=document.createElement("canvas");c.width=w;c.height=h;const ctx=c.getContext("2d",{alpha:false});ctx.fillStyle="#f7f0e7";ctx.fillRect(0,0,w,h);ctx.drawImage(img,0,0,w,h);
+  let w=Math.max(1,Math.round(img.naturalWidth*ratio)),
+      h=Math.max(1,Math.round(img.naturalHeight*ratio)),
+      quality=COVER_QUALITY,
+      best=src,
+      bestBytes=originalBytes||Number.MAX_SAFE_INTEGER;
+
+  for(let pass=0;pass<9;pass++){
+    const c=document.createElement("canvas");
+    c.width=w;c.height=h;
+    const ctx=c.getContext("2d",{alpha:false});
+    ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality="high";
+    ctx.fillStyle="#f7f0e7";ctx.fillRect(0,0,w,h);ctx.drawImage(img,0,0,w,h);
     const blob=await new Promise(resolve=>c.toBlob(resolve,"image/webp",quality));
-    if(!blob)break;best=await readBlobAsDataURL(blob);
+    if(!blob)break;
+
+    if(blob.size<bestBytes){
+      best=await readBlobAsDataURL(blob);
+      bestBytes=blob.size;
+    }
     if(blob.size<=COVER_TARGET_BYTES)break;
-    quality=Math.max(.55,quality-.06);w=Math.max(240,Math.round(w*.9));h=Math.max(360,Math.round(h*.9));
+
+    quality=Math.max(.42,quality-.055);
+    if(pass>=2){
+      w=Math.max(240,Math.round(w*.91));
+      h=Math.max(360,Math.round(h*.91));
+    }
   }
-  return best;
+  return bestBytes<originalBytes?best:src;
 }
 async function optimizeCoverFile(file){
   if(!file?.type?.startsWith("image/"))throw new Error("Please choose an image file for the cover.");
   if(file.size>COVER_HARD_INPUT_BYTES)throw new Error("That cover is over 12 MB. Please choose a smaller image.");
-  return compressCoverSource(await readBlobAsDataURL(file));
+  return compressCoverSource(await readBlobAsDataURL(file),{force:true});
 }
 async function optimizeExistingCovers(){
   let changed=0,before=0,after=0;
   for(const b of books){
     if(!b.cover||!String(b.cover).startsWith("data:image/"))continue;
     const oldBytes=dataUrlBytes(b.cover);before+=oldBytes;
-    if(oldBytes<120*1024 || (String(b.cover).startsWith("data:image/webp")&&oldBytes<=COVER_TARGET_BYTES)){after+=oldBytes;continue;}
-    try{const optimized=await compressCoverSource(b.cover);const newBytes=dataUrlBytes(optimized);if(newBytes&&newBytes<oldBytes){b.cover=optimized;changed++;after+=newBytes;}else after+=oldBytes;}catch{after+=oldBytes;}
+    if(String(b.cover).startsWith("data:image/webp")&&oldBytes<=COVER_SOFT_MAX_BYTES){after+=oldBytes;continue;}
+    try{
+      const optimized=await compressCoverSource(b.cover,{force:true}),newBytes=dataUrlBytes(optimized);
+      if(newBytes&&newBytes<oldBytes){
+        /* Replace the old embedded cover in-place. No second copy is retained. */
+        b.cover=optimized;changed++;after+=newBytes;
+      }else after+=oldBytes;
+    }catch{after+=oldBytes;}
   }
-  if(changed){localStorage.setItem(BOOK_KEY,JSON.stringify(books));markChanged();renderAll();}
+  if(changed){
+    localStorage.setItem(BOOK_KEY,JSON.stringify(books));
+    markChanged();
+    renderAll();
+  }
   return {changed,before,after};
 }
 function coverKey(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return `c${(h>>>0).toString(36)}_${s.length}`;}
@@ -149,7 +182,7 @@ function unpackBooksFromStorage(payload){
   const list=Array.isArray(payload?.books)?payload.books:[];const covers=payload?.covers&&typeof payload.covers==="object"?payload.covers:{};
   return list.map(b=>b.coverRef?{...b,cover:covers[b.coverRef]||""}:{...b});
 }
-function persistentSyncPayload(){const packed=packBooksForStorage(books);return {books:packed.books,covers:packed.covers,genres,decorSettings,goalSettings,storageVersion:1};}
+function persistentSyncPayload(){const packed=packBooksForStorage(books);return {books:packed.books,covers:packed.covers,genres,decorSettings,goalSettings,storageVersion:2};}
 
 function markChanged(){localStorage.setItem(CHANGE_KEY,String(Date.now()));}
 function saveBooks({sync=true}={}){
@@ -479,7 +512,7 @@ function buildRatingPicker(){
 buildRatingPicker();
 
 function formatBytes(n){if(!n)return "";return n<1024?`${n} B`:n<1024*1024?`${Math.round(n/1024)} KB`:`${(n/1024/1024).toFixed(1)} MB`;}
-function updateCoverStorageInfo(){const el=$("#coverStorageInfo");if(el)el.textContent=workingCover?`Optimized cover · ${formatBytes(dataUrlBytes(workingCover))}`:"";}
+function updateCoverStorageInfo(){const el=$("#coverStorageInfo");if(el)el.textContent=workingCover?`Ultra-light cover · ${formatBytes(dataUrlBytes(workingCover))}`:"";}
 function clearCover(){
   workingCover="";$("#coverInput").value="";$("#coverFileName").textContent="No file selected";$("#coverPreview").removeAttribute("src");$("#coverPreviewWrap").classList.add("hidden");updateCoverStorageInfo();
 }

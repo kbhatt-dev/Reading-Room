@@ -1,5 +1,16 @@
 # My Reading Room — V5
 
+## V6.7.1 — Ultra-Light Covers
+
+- New book-cover uploads now target roughly 25–40 KB using compact WebP thumbnails.
+- Cover dimensions are capped around 360 × 540 px with adaptive quality/resolution reduction when an image is still too large.
+- Existing embedded covers larger than about 40 KB are automatically re-optimized after startup.
+- When an existing cover compresses successfully, the old larger Base64 cover is replaced in the book record rather than retained as a second copy.
+- After the optimized library is synced, the normal single Supabase sync payload is overwritten with the compact-cover version, so the app does not intentionally keep both old and new cover copies.
+- Covers already at or below about 40 KB are skipped to avoid repeated quality loss.
+- No book, journal, session, goal, shelf, achievement, or other meaningful data is removed.
+
+
 ## V6.7.0 — Cozy Milestones
 
 - Added optional Reading Achievements calculated from existing books, pages, reading sessions, and logged minutes. Achievement progress is derived on demand; badges are not stored separately.
