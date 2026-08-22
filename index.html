@@ -120,9 +120,14 @@
             <p class="eyebrow">Cozy corner</p>
             <h2>My Library</h2>
           </div>
-          <button class="secondary compact customize-shelf-btn" data-customize-zone="home">
-            <svg class="ui-icon" aria-hidden="true"><use href="#i-palette"></use></svg> Customize Room
-          </button>
+          <div class="section-head-actions">
+            <button id="openAdvancedSearch" class="secondary compact">
+              <svg class="ui-icon" aria-hidden="true"><use href="#i-search"></use></svg> Search Library
+            </button>
+            <button class="secondary compact customize-shelf-btn" data-customize-zone="home">
+              <svg class="ui-icon" aria-hidden="true"><use href="#i-palette"></use></svg> Customize Room
+            </button>
+          </div>
         </div>
         <div class="decorative-bookcase custom-decor-zone" data-decor-zone="home">
           <div class="bookcase-top-decor"><span><svg class="decor-icon" aria-hidden="true"><use href="#i-plant"></use></svg></span><span><svg class="decor-icon" aria-hidden="true"><use href="#i-sparkle"></use></svg></span><span><svg class="decor-icon" aria-hidden="true"><use href="#i-candle"></use></svg></span></div>
@@ -427,13 +432,24 @@
         </section>
 
         <section class="sync-block">
-          <h3>Backup</h3>
-          <p class="muted">Export your journal as JSON or restore it later.</p>
-          <div class="button-row start">
+          <div class="backup-heading">
+            <div>
+              <h3>Backup & Journal Export</h3>
+              <p class="muted">Keep a restorable JSON backup and a human-readable copy of your reading life.</p>
+            </div>
+            <span id="backupHealthBadge" class="backup-health-badge">Checking…</span>
+          </div>
+          <div id="backupHealth" class="backup-health-card">
+            <strong id="backupHealthTitle">Backup status</strong>
+            <p id="backupHealthText" class="muted">Checking your last local backup export.</p>
+          </div>
+          <div class="button-row start backup-actions">
             <button id="exportBackup" class="secondary"><svg class="ui-icon" aria-hidden="true"><use href="#i-download"></use></svg> Export Backup</button>
+            <button id="exportJournal" class="secondary"><svg class="ui-icon" aria-hidden="true"><use href="#i-note"></use></svg> Export Reading Journal</button>
             <button id="importBackupBtn" class="secondary"><svg class="ui-icon" aria-hidden="true"><use href="#i-upload"></use></svg> Import Backup</button>
             <input id="importBackupInput" class="visually-hidden-file" type="file" accept=".json,application/json">
           </div>
+          <p class="note">The JSON backup can restore the app. The Reading Journal export is a standalone HTML file for viewing, printing, or archiving your memories.</p>
         </section>
       </div>
     </section>
@@ -450,6 +466,41 @@
   </nav>
 
   <button id="floatingAddBook" class="floating-add"><svg class="fab-icon" aria-hidden="true"><use href="#i-plus"></use></svg> Add Book</button>
+
+  <!-- ADVANCED LIBRARY SEARCH -->
+  <dialog id="advancedSearchDialog" class="advanced-search-dialog">
+    <section class="advanced-search-panel">
+      <header class="dialog-header">
+        <div><p class="eyebrow">Across your whole library</p><h2>Advanced Search</h2></div>
+        <button type="button" id="closeAdvancedSearch" class="round-btn">✕</button>
+      </header>
+      <div class="advanced-search-controls">
+        <input id="advancedSearchQuery" type="search" placeholder="Search title, author, quote, character, thoughts, prediction…" />
+        <div class="advanced-search-filters">
+          <select id="advancedSearchStatus">
+            <option value="all">All statuses</option>
+            <option value="want">TBR</option>
+            <option value="reading">Reading</option>
+            <option value="finished">Finished</option>
+            <option value="dnf">DNF</option>
+          </select>
+          <select id="advancedSearchGenre"><option value="all">All genres</option></select>
+          <select id="advancedSearchYear"><option value="all">All years</option></select>
+          <select id="advancedSearchRating">
+            <option value="all">Any rating</option>
+            <option value="5">5 stars</option>
+            <option value="4">4+ stars</option>
+            <option value="3">3+ stars</option>
+            <option value="2">2+ stars</option>
+            <option value="1">1+ stars</option>
+          </select>
+        </div>
+      </div>
+      <div class="advanced-search-summary"><strong id="advancedSearchCount">0 results</strong><button type="button" id="clearAdvancedSearch" class="text-btn">Clear filters</button></div>
+      <div id="advancedSearchResults" class="advanced-search-results"></div>
+      <p id="advancedSearchEmpty" class="muted advanced-search-empty">Start typing or use filters to search your library.</p>
+    </section>
+  </dialog>
 
   <!-- BOOK EDITOR -->
   <dialog id="bookDialog" class="book-dialog">

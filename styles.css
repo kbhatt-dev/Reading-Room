@@ -782,3 +782,41 @@ body.customizing-shelf .year-block .full-bookcase::after{
   .journal-tools>summary{padding:13px 14px}
   .journal-tools .journal-collections{padding:0 10px 10px}
 }
+
+
+/* V6.6.0 — Lifetime Library Tools */
+.section-head-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.advanced-search-dialog{width:min(820px,calc(100% - 28px));max-height:min(84vh,820px);border:0;border-radius:24px;padding:0;background:var(--paper,#fffaf4);color:inherit}
+.advanced-search-dialog::backdrop{background:rgba(38,27,22,.48);backdrop-filter:blur(2px)}
+.advanced-search-panel{padding:20px}
+.advanced-search-controls{display:grid;gap:12px}
+.advanced-search-controls>input{width:100%}
+.advanced-search-filters{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.advanced-search-summary{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:14px 0}
+.advanced-search-results{display:grid;gap:10px;max-height:52vh;overflow:auto;padding-right:3px}
+.advanced-result-card{display:grid;grid-template-columns:58px 1fr;gap:12px;align-items:center;width:100%;text-align:left;padding:10px;border:1px solid var(--line,#e4d5c7);border-radius:15px;background:rgba(255,255,255,.5);color:inherit}
+.advanced-result-cover{width:58px;height:84px;object-fit:cover;border-radius:7px}
+.advanced-result-copy{min-width:0;display:grid;gap:4px}
+.advanced-result-copy strong{font-size:1rem}
+.advanced-result-copy small,.advanced-result-copy>span{color:var(--muted,#786b61);white-space:normal}
+.advanced-search-empty{text-align:center;padding:28px 8px}
+.backup-heading{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}
+.backup-heading h3{margin-bottom:4px}
+.backup-health-badge{padding:6px 10px;border-radius:999px;font-size:.78rem;font-weight:800;white-space:nowrap;background:#eee4d9;color:#6d5b50}
+.backup-health-badge[data-health="good"]{background:#dfeadd;color:#466143}
+.backup-health-badge[data-health="warning"]{background:#f3e7c8;color:#795f29}
+.backup-health-badge[data-health="danger"]{background:#f1d8d2;color:#7b4038}
+.backup-health-card{margin:12px 0 14px;padding:13px 14px;border:1px solid var(--line,#e4d5c7);border-radius:15px;background:rgba(255,255,255,.42)}
+.backup-health-card p{margin:5px 0 0}
+.backup-health-card[data-health="good"]{border-color:rgba(80,120,75,.3)}
+.backup-health-card[data-health="warning"]{border-color:rgba(150,115,45,.3)}
+.backup-health-card[data-health="danger"]{border-color:rgba(150,70,60,.35)}
+.backup-actions{flex-wrap:wrap}
+@media(max-width:760px){
+  .section-head-actions{width:100%;justify-content:flex-start;margin-top:8px}
+  .advanced-search-panel{padding:14px}
+  .advanced-search-filters{grid-template-columns:1fr 1fr}
+  .advanced-search-results{max-height:50vh}
+  .backup-heading{display:block}
+  .backup-health-badge{display:inline-block;margin-top:8px}
+}

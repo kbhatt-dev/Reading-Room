@@ -1,5 +1,15 @@
 # My Reading Room — V5
 
+## V6.6.0 — Lifetime Library Tools
+
+- Added a human-readable Reading Journal export as a standalone HTML file, separate from the restorable JSON backup.
+- The journal export includes books, reading status, dates, ratings, journal memories, favourite quotes/characters/scenes, predictions, reading sessions, and optimized cover images where available.
+- Added local Backup Health tracking on the Sync page. It remembers only the timestamp of the last JSON backup export on that device and warns when no backup exists or it is getting old.
+- Added Advanced Search from the Room page with full-library text search plus status, genre, year, and rating filters. Search covers titles, authors, journal thoughts, story memories, favourite quotes/characters/scenes, predictions, and session text.
+- Search indexes and backup-health status are local/on-demand only and are not added to the Supabase sync payload.
+- No new Supabase tables or duplicate journal data were introduced.
+
+
 ## V6.5.2 — Collapsed Journal Tools
 
 - Quotes Collection and Story Memories Search are now hidden inside one collapsed Journal Tools section on the Finished page.
