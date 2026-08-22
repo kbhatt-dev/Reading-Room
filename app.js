@@ -1,4 +1,4 @@
-const READING_ROOM_VERSION = "2.3";
+const READING_ROOM_VERSION = "2.4";
 
 const KEY = "readingRoomBooksV1";
 const GENRE_KEY = "readingRoomGenresV1";
@@ -424,7 +424,7 @@ function resetForm(){
   els.deleteBtn.classList.add("hidden");
   $("#dialogTitle").textContent="Add a Book";
 }
-function openAdd(){ resetForm(); els.dialog.showModal(); }
+function openAdd(){ resetForm(); els.dialog.showModal(); updateFabVisibility(); }
 
 function fillForm(b){
   resetForm(); $("#dialogTitle").textContent="Edit Book"; els.deleteBtn.classList.remove("hidden");
@@ -501,7 +501,7 @@ window.openDetail = id => {
       <button class="secondary" onclick="document.getElementById('detailDialog').close()">Close</button>
       <button class="primary" onclick="editBook('${b.id}')">Edit Book</button>
     </div>`;
-  els.detailDialog.showModal();
+  els.detailDialog.showModal(); updateFabVisibility();
 };
 
 
@@ -547,6 +547,13 @@ $("#newGenreInput").addEventListener("keydown",e=>{
 
 els.add.addEventListener("click", openAdd);
 $("#floatingAddBookBtn")?.addEventListener("click", openAdd);
+
+function updateFabVisibility(){
+  const anyDialog=[...document.querySelectorAll("dialog")].some(d=>d.open);
+  const fab=$("#floatingAddBookBtn");
+  if(fab) fab.classList.toggle("fab-hidden",anyDialog);
+}
+document.querySelectorAll("dialog").forEach(d=>d.addEventListener("close",updateFabVisibility));
 els.close.addEventListener("click",()=>els.dialog.close());
 els.cancel.addEventListener("click",()=>els.dialog.close());
 els.search.addEventListener("input",render);

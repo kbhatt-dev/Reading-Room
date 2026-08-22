@@ -189,3 +189,14 @@ Note:
 The very first upgrade from an older aggressively cached build may still require one hard refresh
 or reopening the installed app because the *old* service worker is the code currently controlling it.
 After V2.3 is installed, future releases use the new automatic update behavior.
+
+
+## V2.4 — iPhone layout fix
+- Fixed horizontal overflow in Add/Edit Book.
+- Made the mobile editor truly full-screen.
+- Moved Genre Manage below the genre dropdown on phones.
+- Reduced cover preview to a compact thumbnail.
+- Added a permanent floating “+ Add Book” button while browsing the library.
+- Pinned “Save Book” to the bottom of the phone screen.
+- Prevented controls from spilling outside the viewport.
+- Preserved iPhone-safe 16px form fields to avoid focus zoom.
