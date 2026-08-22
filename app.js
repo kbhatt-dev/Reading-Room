@@ -1,4 +1,4 @@
-const APP_VERSION="6.0";
+const APP_VERSION="6.1";
 const icon=n=>`<svg class="ui-icon" aria-hidden="true"><use href="#i-${n}"></use></svg>`;
 const BOOK_KEY="readingRoomBooksV1";
 const GENRE_KEY="readingRoomGenresV1";
@@ -20,7 +20,35 @@ let lastRoute="home";
 let justFinishedBookId=null;
 let activeFullBookId=null;
 let sessionsManagerBookId=null;
-let decorSettings=JSON.parse(localStorage.getItem(DECOR_KEY)||"null")||{theme:"classic",plant:true,candle:true,coffee:false,sparkle:true};
+let decorSettings=JSON.parse(localStorage.getItem(DECOR_KEY)||"null");
+if(!decorSettings || !decorSettings.layouts){
+  const old=decorSettings||{};
+  decorSettings={
+    themes:{home:old.theme||"classic",tbr:old.theme||"classic",finished:old.theme||"classic"},
+    layouts:{
+      home:[
+        ...(old.plant===false?[]:[{id:"home-plant",type:"plant",x:86,y:12}]),
+        ...(old.sparkle===false?[]:[{id:"home-sparkle",type:"sparkle",x:91,y:12}]),
+        ...(old.candle===false?[]:[{id:"home-candle",type:"candle",x:96,y:12}]),
+        ...(old.coffee?[{id:"home-coffee",type:"coffee",x:81,y:12}]:[])
+      ],
+      tbr:[
+        {id:"tbr-plant",type:"plant",x:86,y:12},
+        {id:"tbr-coffee",type:"coffee",x:91,y:12},
+        {id:"tbr-sparkle",type:"sparkle",x:96,y:12}
+      ],
+      finished:[
+        {id:"finished-plant",type:"plant",x:86,y:12},
+        {id:"finished-sparkle",type:"sparkle",x:91,y:12},
+        {id:"finished-candle",type:"candle",x:96,y:12}
+      ]
+    }
+  };
+  localStorage.setItem(DECOR_KEY,JSON.stringify(decorSettings));
+}
+let activeDecorZone=null;
+let selectedDecorType=null;
+let draggingDecor=null;
 
 const $=s=>document.querySelector(s);
 const $$=s=>[...document.querySelectorAll(s)];
@@ -163,28 +191,157 @@ function woodBook(b){return `<button class="wood-book" onclick="openBook('${b.id
 function shelfCard(b){return `<button class="shelf-card" onclick="openBook('${b.id}')">${coverHTML(b)}<strong>${escapeHtml(b.title)}</strong><small>${escapeHtml(b.author||"Unknown")}</small></button>`;}
 
 
+function decorThemeFor(zone){return decorSettings.themes?.[zone]||"classic";}
+function decorLayoutFor(zone){
+  decorSettings.layouts??={};
+  decorSettings.layouts[zone]??=[];
+  return decorSettings.layouts[zone];
+}
+function uid(prefix="decor"){return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;}
+
+function renderDecorLayer(zone,root){
+  let layer=root.querySelector(".decor-layer");
+  if(!layer){
+    layer=document.createElement("div");
+    layer.className="decor-layer";
+    root.appendChild(layer);
+  }
+  layer.innerHTML=decorLayoutFor(zone).map(item=>`
+    <div class="placed-decor" data-decor-id="${item.id}" data-decor-zone="${zone}"
+         style="left:${item.x}%;top:${item.y}%">
+      ${icon(item.type)}
+      <button type="button" class="placed-decor-remove" aria-label="Remove decoration"
+              onclick="event.stopPropagation();removePlacedDecor('${zone}','${item.id}')">×</button>
+    </div>`).join("");
+}
+
 function applyDecorations(){
-  document.body.dataset.shelfTheme=decorSettings.theme||"classic";
-  const sets=$$(".bookcase-top-decor");
-  sets.forEach(wrap=>{
-    wrap.innerHTML="";
-    const items=[];
-    if(decorSettings.plant)items.push("plant");
-    if(decorSettings.sparkle)items.push("sparkle");
-    if(decorSettings.candle)items.push("candle");
-    if(decorSettings.coffee)items.push("coffee");
-    items.forEach(name=>{
-      const span=document.createElement("span");
-      span.className="room-decor-slot";
-      span.innerHTML=icon(name);
-      wrap.appendChild(span);
+  const zoneRoots={
+    home:$$('[data-decor-zone="home"]'),
+    tbr:$$('[data-decor-zone="tbr"]'),
+    finished:$$('[data-decor-zone="finished"]')
+  };
+
+  Object.entries(zoneRoots).forEach(([zone,roots])=>{
+    roots.forEach(root=>{
+      root.dataset.shelfTheme=decorThemeFor(zone);
+      renderDecorLayer(zone,root);
     });
   });
+
+  // Theme finished shelves generated dynamically.
+  $$('.year-block .full-bookcase').forEach(root=>{
+    root.dataset.decorZone="finished";
+    root.dataset.shelfTheme=decorThemeFor("finished");
+    renderDecorLayer("finished",root);
+  });
 }
+
 function saveDecorSettings(){
   localStorage.setItem(DECOR_KEY,JSON.stringify(decorSettings));
   applyDecorations();
 }
+
+function zoneFromElement(el){
+  return el?.closest?.('[data-decor-zone]')?.dataset.decorZone || null;
+}
+function pointToPercent(root,clientX,clientY){
+  const r=root.getBoundingClientRect();
+  return {
+    x:Math.max(4,Math.min(96,((clientX-r.left)/r.width)*100)),
+    y:Math.max(8,Math.min(88,((clientY-r.top)/r.height)*100))
+  };
+}
+function addDecorAt(zone,type,x,y){
+  if(!zone||!type)return;
+  decorLayoutFor(zone).push({id:uid(`${zone}-${type}`),type,x,y});
+  saveDecorSettings();
+}
+window.removePlacedDecor=(zone,id)=>{
+  decorSettings.layouts[zone]=decorLayoutFor(zone).filter(x=>x.id!==id);
+  saveDecorSettings();
+};
+
+function updateDecorPosition(zone,id,x,y){
+  const item=decorLayoutFor(zone).find(x=>x.id===id);
+  if(!item)return;
+  item.x=x;item.y=y;
+  saveDecorSettings();
+}
+
+function setupDecorInteraction(){
+  document.addEventListener("dragstart",e=>{
+    const tray=e.target.closest(".decor-tray-item");
+    if(tray){
+      e.dataTransfer.setData("text/reading-room-decor",tray.dataset.decorType);
+      e.dataTransfer.effectAllowed="copy";
+    }
+  });
+
+  document.addEventListener("dragover",e=>{
+    const zone=e.target.closest('[data-decor-zone]');
+    if(zone && document.body.classList.contains("customizing-shelf")){
+      e.preventDefault();
+      e.dataTransfer.dropEffect="copy";
+    }
+  });
+
+  document.addEventListener("drop",e=>{
+    const root=e.target.closest('[data-decor-zone]');
+    if(!root || !document.body.classList.contains("customizing-shelf"))return;
+    e.preventDefault();
+    const type=e.dataTransfer.getData("text/reading-room-decor");
+    if(!type)return;
+    const p=pointToPercent(root,e.clientX,e.clientY);
+    addDecorAt(root.dataset.decorZone,type,p.x,p.y);
+  });
+
+  document.addEventListener("click",e=>{
+    const tray=e.target.closest(".decor-tray-item");
+    if(tray){
+      selectedDecorType=tray.dataset.decorType;
+      $$(".decor-tray-item").forEach(x=>x.classList.toggle("selected",x===tray));
+      $("#designerStatus").textContent=`${tray.querySelector("small")?.textContent||"Decoration"} selected — tap the shelf where you want it.`;
+      return;
+    }
+
+    const root=e.target.closest('[data-decor-zone]');
+    if(root && document.body.classList.contains("customizing-shelf") && selectedDecorType && !e.target.closest(".placed-decor")){
+      const p=pointToPercent(root,e.clientX,e.clientY);
+      addDecorAt(root.dataset.decorZone,selectedDecorType,p.x,p.y);
+      selectedDecorType=null;
+      $$(".decor-tray-item").forEach(x=>x.classList.remove("selected"));
+      $("#designerStatus").textContent="Placed. Choose another decoration or drag one to reposition it.";
+    }
+  });
+
+  document.addEventListener("pointerdown",e=>{
+    const itemEl=e.target.closest(".placed-decor");
+    if(!itemEl || !document.body.classList.contains("customizing-shelf") || e.target.closest(".placed-decor-remove"))return;
+    const root=itemEl.closest('[data-decor-zone]');
+    if(!root)return;
+    draggingDecor={el:itemEl,root,zone:itemEl.dataset.decorZone,id:itemEl.dataset.decorId,pointerId:e.pointerId};
+    itemEl.setPointerCapture?.(e.pointerId);
+    e.preventDefault();
+  });
+
+  document.addEventListener("pointermove",e=>{
+    if(!draggingDecor || e.pointerId!==draggingDecor.pointerId)return;
+    const p=pointToPercent(draggingDecor.root,e.clientX,e.clientY);
+    draggingDecor.el.style.left=`${p.x}%`;
+    draggingDecor.el.style.top=`${p.y}%`;
+  });
+
+  document.addEventListener("pointerup",e=>{
+    if(!draggingDecor || e.pointerId!==draggingDecor.pointerId)return;
+    const p=pointToPercent(draggingDecor.root,e.clientX,e.clientY);
+    const {zone,id}=draggingDecor;
+    draggingDecor=null;
+    updateDecorPosition(zone,id,p.x,p.y);
+    $("#designerStatus").textContent="Decoration moved. Drag again anytime while customizing.";
+  });
+}
+
 
 function renderHome(){
   const finished=books.filter(b=>b.status==="finished");
@@ -203,10 +360,6 @@ function renderHome(){
   const favs=books.filter(b=>b.favoriteBook);
   $("#homeFavoritesSection").classList.toggle("hidden",favs.length===0);
   $("#homeFavorites").innerHTML=favs.map(b=>`<button class="cover-card" onclick="openBook('${b.id}')">${coverHTML(b)}<span>${escapeHtml(b.title)}</span></button>`).join("");
-
-  const memoryBooks=finished.filter(b=>b.rating||b.favoriteQuote||b.favoriteCharacter||b.favoriteScene||b.review).slice(0,6);
-  $("#memoryCardsSection").classList.toggle("hidden",memoryBooks.length===0);
-  $("#memoryCards").innerHTML=memoryBooks.map(memoryCardHTML).join("");
 
   applyDecorations();
 }
@@ -249,10 +402,15 @@ function renderFinished(){
   const list=all.filter(b=>(!q||`${b.title} ${b.author}`.toLowerCase().includes(q))&&(g==="all"||b.genre===g)&&(yy==="all"||String(bookYear(b))===yy));
   $("#finishedCount").textContent=`${list.length} ${list.length===1?"book":"books"}`;
   const groups={};list.forEach(b=>(groups[bookYear(b)]??=[]).push(b));
-  $("#finishedYearShelves").innerHTML=Object.keys(groups).sort((a,b)=>b-a).map(year=>`<section class="year-block"><h2>${year} Shelf</h2><div class="full-bookcase">
-    <div class="bookcase-top-decor"><span>${icon("plant")}</span><span>${icon("sparkle")}</span><span>${icon("candle")}</span></div><div class="large-shelf-grid">${groups[year].map(shelfCard).join("")}</div><div class="wood-board"></div>
+  $("#finishedYearShelves").innerHTML=Object.keys(groups).sort((a,b)=>b-a).map(year=>`<section class="year-block"><h2>${year} Shelf</h2><div class="full-bookcase custom-decor-zone" data-decor-zone="finished">
+    <div class="large-shelf-grid">${groups[year].map(shelfCard).join("")}</div><div class="wood-board"></div>
   </div></section>`).join("");
   $("#finishedEmpty").classList.toggle("hidden",list.length>0);
+
+  const memoryBooks=all.filter(b=>b.rating||b.favoriteQuote||b.favoriteCharacter||b.favoriteScene||b.review).slice(0,12);
+  $("#memoryCardsSection").classList.toggle("hidden",memoryBooks.length===0);
+  $("#memoryCards").innerHTML=memoryBooks.map(memoryCardHTML).join("");
+  applyDecorations();
 }
 function renderAll(){renderGenreOptions();renderHome();renderTbr();renderReading();renderFinished();if(lastRoute==="stats")renderStats();}
 
@@ -577,36 +735,71 @@ $("#finishFavoriteBtn").onclick=()=>{
 $("#tbrSearch").oninput=renderTbr;$("#tbrGenre").onchange=renderTbr;$("#finishedSearch").oninput=renderFinished;$("#finishedGenre").onchange=renderFinished;$("#finishedYear").onchange=renderFinished;$("#statsYear").onchange=renderStats;
 
 
-$("#openDecorSettings").onclick=()=>{
-  $("#decorTheme").value=decorSettings.theme||"classic";
-  $("#decorPlant").checked=!!decorSettings.plant;
-  $("#decorCandle").checked=!!decorSettings.candle;
-  $("#decorCoffee").checked=!!decorSettings.coffee;
-  $("#decorSparkle").checked=!!decorSettings.sparkle;
-  $("#decorDialog").showModal();
-  setDialogOpen(true);
-};
-$("#closeDecorDialog").onclick=()=>$("#decorDialog").close();
-$("#resetDecorBtn").onclick=()=>{
-  decorSettings={theme:"classic",plant:true,candle:true,coffee:false,sparkle:true};
-  $("#decorTheme").value=decorSettings.theme;
-  $("#decorPlant").checked=decorSettings.plant;
-  $("#decorCandle").checked=decorSettings.candle;
-  $("#decorCoffee").checked=decorSettings.coffee;
-  $("#decorSparkle").checked=decorSettings.sparkle;
-};
-$("#decorForm").addEventListener("submit",e=>{
-  e.preventDefault();
-  decorSettings={
-    theme:$("#decorTheme").value,
-    plant:$("#decorPlant").checked,
-    candle:$("#decorCandle").checked,
-    coffee:$("#decorCoffee").checked,
-    sparkle:$("#decorSparkle").checked
-  };
-  saveDecorSettings();
+function openDecorDesigner(zone){
+  activeDecorZone=zone;
+  selectedDecorType=null;
+  $$(".decor-tray-item").forEach(x=>x.classList.remove("selected"));
+  const labels={home:"Customize My Library",tbr:"Customize TBR Shelf",finished:"Customize Finished Shelves"};
+  $("#decorDesignerTitle").textContent=labels[zone]||"Customize Shelf";
+  $("#decorTheme").value=decorThemeFor(zone);
+  $("#designerStatus").textContent="Choose a decoration. On desktop you can drag it to the shelf; on phone tap it, then tap the shelf.";
+  document.body.classList.add("customizing-shelf");
+  applyDecorations();
+  if(!$("#decorDialog").open)$("#decorDialog").show();
+}
+$$(".customize-shelf-btn").forEach(btn=>btn.onclick=()=>openDecorDesigner(btn.dataset.customizeZone));
+
+function closeDecorDesigner(){
+  document.body.classList.remove("customizing-shelf");
+  selectedDecorType=null;
+  activeDecorZone=null;
+  $$(".decor-tray-item").forEach(x=>x.classList.remove("selected"));
   $("#decorDialog").close();
-});
+}
+$("#closeDecorDialog").onclick=closeDecorDesigner;
+$("#doneDecorBtn").onclick=closeDecorDesigner;
+
+$("#decorTheme").onchange=()=>{
+  if(!activeDecorZone)return;
+  decorSettings.themes[activeDecorZone]=$("#decorTheme").value;
+  saveDecorSettings();
+};
+
+$("#clearDecorBtn").onclick=()=>{
+  if(!activeDecorZone)return;
+  if(!confirm("Remove all decorations from this shelf?"))return;
+  decorSettings.layouts[activeDecorZone]=[];
+  saveDecorSettings();
+  $("#designerStatus").textContent="Shelf cleared. Choose items from the tray to decorate it again.";
+};
+
+$("#resetDecorBtn").onclick=()=>{
+  if(!activeDecorZone)return;
+  const defaults={
+    home:[
+      {id:uid("home-plant"),type:"plant",x:86,y:12},
+      {id:uid("home-sparkle"),type:"sparkle",x:91,y:12},
+      {id:uid("home-candle"),type:"candle",x:96,y:12}
+    ],
+    tbr:[
+      {id:uid("tbr-plant"),type:"plant",x:86,y:12},
+      {id:uid("tbr-coffee"),type:"coffee",x:91,y:12},
+      {id:uid("tbr-sparkle"),type:"sparkle",x:96,y:12}
+    ],
+    finished:[
+      {id:uid("finished-plant"),type:"plant",x:86,y:12},
+      {id:uid("finished-sparkle"),type:"sparkle",x:91,y:12},
+      {id:uid("finished-candle"),type:"candle",x:96,y:12}
+    ]
+  };
+  decorSettings.themes[activeDecorZone]="classic";
+  decorSettings.layouts[activeDecorZone]=defaults[activeDecorZone].map(x=>({...x}));
+  $("#decorTheme").value="classic";
+  saveDecorSettings();
+  $("#designerStatus").textContent="This shelf has been reset to its original decoration layout.";
+};
+
+setupDecorInteraction();
 
 /* SUPABASE AUTH + AUTO SYNC */
 function configured(){return !!(syncSettings.url&&syncSettings.key);}

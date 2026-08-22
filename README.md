@@ -192,3 +192,26 @@ Decorations can be toggled:
 Decoration preferences are stored locally and do not alter book data or Supabase schema.
 
 All V5.3.1 features, Supabase sync, Reading Sessions, PWA updates, and existing data remain compatible.
+
+
+## V6.1 — Interactive Shelf Designer
+- Moved Book Memory Cards from the Room page to the Finished page.
+- Moved Customize Room beside the My Library heading.
+- Added independent shelf customization for:
+  - Room / My Library
+  - TBR
+  - Finished yearly shelves
+- Added per-page shelf finish selection.
+- Added exact-position decoration layouts.
+- Desktop:
+  - drag a decoration from the tray onto a shelf
+  - drag placed decorations to reposition them
+- iPhone / touch:
+  - tap a decoration in the tray
+  - tap the shelf where it should be placed
+  - drag placed decorations to reposition them
+- Added remove control for each placed decoration while customizing.
+- Added Clear Shelf and Reset This Shelf.
+- Shelf layouts persist across reloads.
+- Older V6 decoration preferences are automatically migrated.
+- Book data and Supabase schema are unchanged.

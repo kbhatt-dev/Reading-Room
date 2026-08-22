@@ -436,3 +436,127 @@ body[data-shelf-theme="dark"] .full-bookcase{
   .memory-card-grid{grid-template-columns:1fr}
   #openDecorSettings{width:auto}
 }
+
+
+/* V6.1 — interactive per-page shelf designer */
+.page-title-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.customize-shelf-btn{display:inline-flex;align-items:center;gap:5px}
+
+.custom-decor-zone,
+.year-block .full-bookcase{
+  position:relative;
+  overflow:hidden;
+}
+.decor-layer{
+  position:absolute;
+  inset:0;
+  z-index:8;
+  pointer-events:none;
+}
+.placed-decor{
+  position:absolute;
+  width:42px;height:42px;
+  transform:translate(-50%,-50%);
+  display:grid;place-items:center;
+  border-radius:12px;
+  background:rgba(255,250,243,.82);
+  border:1px solid rgba(117,80,56,.12);
+  box-shadow:0 7px 18px rgba(66,44,29,.12);
+  color:var(--wood);
+  pointer-events:auto;
+  user-select:none;
+  touch-action:none;
+}
+.placed-decor .ui-icon{width:22px;height:22px}
+.placed-decor-remove{
+  display:none;
+  position:absolute;right:-7px;top:-7px;
+  width:20px;height:20px;border-radius:50%;
+  border:0;background:#8c5048;color:#fff;
+  font-size:.72rem;line-height:1;padding:0;
+  place-items:center;
+}
+body.customizing-shelf .placed-decor{
+  cursor:grab;
+  outline:1px dashed rgba(117,80,56,.35);
+}
+body.customizing-shelf .placed-decor:active{cursor:grabbing}
+body.customizing-shelf .placed-decor-remove{display:grid}
+body.customizing-shelf .custom-decor-zone,
+body.customizing-shelf .year-block .full-bookcase{
+  outline:2px dashed rgba(117,80,56,.35);
+  outline-offset:-6px;
+}
+body.customizing-shelf .custom-decor-zone::after,
+body.customizing-shelf .year-block .full-bookcase::after{
+  content:"Tap shelf to place selected decoration";
+  position:absolute;left:50%;top:12px;transform:translateX(-50%);
+  z-index:9;background:rgba(255,250,243,.9);border:1px solid var(--line);
+  padding:6px 9px;border-radius:999px;font-size:.68rem;color:var(--muted);
+  pointer-events:none;white-space:nowrap
+}
+
+.decor-designer{
+  position:fixed;
+  left:auto;right:18px;top:auto;bottom:18px;
+  width:min(450px,calc(100vw - 36px));
+  max-width:450px;
+  margin:0;
+  border:1px solid var(--line);
+  border-radius:22px;
+  background:rgba(255,250,243,.98);
+  box-shadow:0 22px 60px rgba(45,30,21,.24);
+  z-index:200;
+}
+.decor-designer::backdrop{background:transparent}
+.decor-designer-inner{padding:17px}
+.decor-designer-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.decor-designer-head h2{font-size:1.35rem;margin-bottom:3px}
+.designer-help{font-size:.76rem;margin:0}
+.decor-designer-controls{display:grid;gap:12px;margin:13px 0}
+.decor-control-label{display:block;font-size:.78rem;font-weight:850;color:#5b493c;margin-bottom:6px}
+.decor-tray{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+.decor-tray-item{
+  border:1px solid var(--line);background:#f5ece3;border-radius:13px;
+  padding:9px 4px;display:grid;place-items:center;gap:4px;color:var(--wood)
+}
+.decor-tray-item .ui-icon{width:21px;height:21px}
+.decor-tray-item small{font-size:.62rem;font-weight:800}
+.decor-tray-item.selected{
+  background:var(--wood);color:white;border-color:var(--wood);
+  box-shadow:0 0 0 3px rgba(117,80,56,.12)
+}
+.designer-status{font-size:.74rem;color:var(--muted);background:#f6eee6;border-radius:10px;padding:8px 10px;margin-bottom:11px}
+.spacer{flex:1}
+.finished-memory-section{margin-top:34px;padding-top:24px;border-top:1px solid var(--line)}
+
+@media(max-width:700px){
+  .page-title-actions{align-items:flex-end;flex-direction:column}
+  .customize-shelf-btn{font-size:.68rem;padding:7px 9px}
+  .decor-designer{
+    left:8px;right:8px;bottom:calc(76px + env(safe-area-inset-bottom));
+    width:auto;max-width:none;border-radius:19px;
+  }
+  .decor-designer-inner{padding:13px}
+  .decor-designer-head h2{font-size:1.18rem}
+  .designer-help{font-size:.68rem}
+  .decor-tray{gap:5px}
+  .decor-tray-item{padding:7px 2px}
+  body.customizing-shelf .floating-add{display:none!important}
+  .placed-decor{width:38px;height:38px}
+  .placed-decor .ui-icon{width:20px;height:20px}
+}
+
+/* Per-shelf theme overrides for V6.1 */
+[data-shelf-theme="classic"]{--local-board:#755038;--local-board-dark:#513524}
+[data-shelf-theme="light"]{--local-board:#9c7659;--local-board-dark:#79553d}
+[data-shelf-theme="dark"]{--local-board:#4b3022;--local-board-dark:#2f1d15}
+[data-shelf-theme] .wood-board{
+  background:linear-gradient(var(--local-board),var(--local-board-dark))!important
+}
+[data-shelf-theme="light"]{
+  background:linear-gradient(180deg,rgba(181,145,111,.08),rgba(155,118,87,.14))!important
+}
+[data-shelf-theme="dark"]{
+  background:linear-gradient(180deg,rgba(76,47,31,.09),rgba(56,34,23,.18))!important
+}
