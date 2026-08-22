@@ -1,5 +1,19 @@
 # My Reading Room — V5
 
+## V6.2.4 — Multi-Row Shelf Fix
+
+- Fixed wrapped bookshelf rows appearing to float when a shelf contains many books.
+- Every desktop TBR and Finished shelf row now receives its own wooden board and fairy-light string.
+- Preserved existing mobile horizontal shelf behavior and all other application features.
+
+
+## V6.2.3 — Per-Year Finished Shelf Customization
+
+- Finished shelf themes can now be customized independently for each year.
+- Each year heading has its own Customize Shelf button aligned beside the year label.
+- Existing Finished shelf theme remains the fallback until a year receives its own theme.
+
+
 ## V6.2.2 — Fairy String Lights Hotfix
 
 - Moved fairy lights beneath each wooden shelf board.

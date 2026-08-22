@@ -171,6 +171,7 @@ function shelfCard(b){return `<button class="shelf-card" onclick="openBook('${b.
 
 
 function decorThemeFor(zone){
+  if(zone?.startsWith("finished-")) return decorSettings.themes?.[zone]||decorSettings.themes?.finished||"classic";
   return decorSettings.themes?.[zone]||"classic";
 }
 
@@ -182,8 +183,8 @@ function applyDecorations(){
   });
 
   $$(".year-block .full-bookcase").forEach(root=>{
-    root.dataset.decorZone="finished";
-    root.dataset.shelfTheme=decorThemeFor("finished");
+    const zone=root.dataset.decorZone||"finished";
+    root.dataset.shelfTheme=decorThemeFor(zone);
     root.querySelectorAll(".decor-layer").forEach(x=>x.remove());
   });
 }
@@ -252,9 +253,11 @@ function renderFinished(){
   const list=all.filter(b=>(!q||`${b.title} ${b.author}`.toLowerCase().includes(q))&&(g==="all"||b.genre===g)&&(yy==="all"||String(bookYear(b))===yy));
   $("#finishedCount").textContent=`${list.length} ${list.length===1?"book":"books"}`;
   const groups={};list.forEach(b=>(groups[bookYear(b)]??=[]).push(b));
-  $("#finishedYearShelves").innerHTML=Object.keys(groups).sort((a,b)=>b-a).map(year=>`<section class="year-block"><h2>${year} Shelf</h2><div class="full-bookcase custom-decor-zone" data-decor-zone="finished">
-    <div class="large-shelf-grid">${groups[year].map(shelfCard).join("")}</div><div class="wood-board"></div>
-  </div></section>`).join("");
+  $("#finishedYearShelves").innerHTML=Object.keys(groups).sort((a,b)=>b-a).map(year=>`<section class="year-block">
+    <div class="year-shelf-heading"><h2>${year} Shelf</h2><button class="secondary compact customize-shelf-btn year-customize-btn" data-customize-zone="finished-${year}">${icon("palette")} Customize Shelf</button></div>
+    <div class="full-bookcase custom-decor-zone" data-decor-zone="finished-${year}">
+      <div class="large-shelf-grid">${groups[year].map(shelfCard).join("")}</div><div class="wood-board"></div>
+    </div></section>`).join("");
   $("#finishedEmpty").classList.toggle("hidden",list.length>0);
 
   const memoryBooks=all.filter(b=>b.rating||b.favoriteQuote||b.favoriteCharacter||b.favoriteScene||b.review).slice(0,12);
@@ -588,11 +591,16 @@ $("#tbrSearch").oninput=renderTbr;$("#tbrGenre").onchange=renderTbr;$("#finished
 function openDecorDesigner(zone){
   activeDecorZone=zone;
   const labels={home:"Customize My Library",tbr:"Customize TBR Shelf",finished:"Customize Finished Shelves"};
-  $("#decorDesignerTitle").textContent=labels[zone]||"Customize Shelf";
+  const finishedYear=zone?.startsWith("finished-")?zone.slice("finished-".length):"";
+  $("#decorDesignerTitle").textContent=finishedYear?`Customize ${finishedYear} Shelf`:(labels[zone]||"Customize Shelf");
   $("#decorTheme").value=decorThemeFor(zone);
   if(!$("#decorDialog").open)$("#decorDialog").show();
 }
 $$(".customize-shelf-btn").forEach(btn=>btn.onclick=()=>openDecorDesigner(btn.dataset.customizeZone));
+$("#finishedYearShelves").addEventListener("click",e=>{
+  const btn=e.target.closest(".year-customize-btn");
+  if(btn)openDecorDesigner(btn.dataset.customizeZone);
+});
 
 function closeDecorDesigner(){
   activeDecorZone=null;

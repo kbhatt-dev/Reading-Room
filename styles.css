@@ -665,3 +665,92 @@ body.customizing-shelf .year-block .full-bookcase::after{
     right:10px;bottom:30px;transform:scale(.82);transform-origin:bottom right;
   }
 }
+
+/* V6.2.3 — Finished shelves are customized independently by year */
+.year-shelf-heading{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin:0 5px 9px;
+}
+.year-shelf-heading h2{
+  margin:0;
+}
+.year-customize-btn{
+  flex:0 0 auto;
+}
+@media(max-width:700px){
+  .year-shelf-heading{gap:8px;margin-left:2px;margin-right:2px}
+  .year-customize-btn{font-size:.68rem;padding:7px 9px}
+}
+
+
+/* V6.2.4 — multi-row bookshelf support
+   Desktop wrapping shelves now draw a real board and fairy-light string
+   beneath every row, so additional rows never appear to float. */
+@media(min-width:701px){
+  .large-shelf-grid{
+    align-content:flex-end;
+    row-gap:48px;
+    padding-bottom:34px;
+    overflow:visible;
+  }
+  .large-shelf-grid .shelf-card{
+    position:relative;
+    z-index:2;
+  }
+  /* Continuous wooden board for the row. Each card paints the same
+     full-width strip; overlapping strips visually merge into one shelf. */
+  .large-shelf-grid .shelf-card::before{
+    content:"";
+    position:absolute;
+    left:-100vw;
+    width:200vw;
+    bottom:-20px;
+    height:16px;
+    border-radius:7px;
+    pointer-events:none;
+    background:
+      linear-gradient(180deg,rgba(255,255,255,.08),transparent 35%),
+      linear-gradient(90deg,var(--local-board,#6f4933),var(--local-dark,#472e22),var(--local-board,#6f4933));
+    box-shadow:0 5px 12px rgba(54,33,20,.28);
+  }
+  /* Thin wire + warm bulbs directly below every generated shelf board. */
+  .large-shelf-grid .shelf-card::after{
+    content:"";
+    position:absolute;
+    left:-100vw;
+    width:200vw;
+    bottom:-38px;
+    height:18px;
+    pointer-events:none;
+    background:
+      radial-gradient(circle at 2% 42%,#ffd987 0 2.5px,transparent 3.5px),
+      radial-gradient(circle at 10% 62%,#ffe4a1 0 2.5px,transparent 3.5px),
+      radial-gradient(circle at 18% 42%,#ffd987 0 2.5px,transparent 3.5px),
+      radial-gradient(circle at 26% 62%,#ffe4a1 0 2.5px,transparent 3.5px),
+      radial-gradient(circle at 34% 42%,#ffd987 0 2.5px,transparent 3.5px),
+      radial-gradient(circle at 42% 62%,#ffe4a1 0 2.5px,transparent 3.5px),
+      radial-gradient(circle at 50% 42%,#ffd987 0 2.5px,transparent 3.5px),
+      radial-gradient(circle at 58% 62%,#ffe4a1 0 2.5px,transparent 3.5px),
+      radial-gradient(circle at 66% 42%,#ffd987 0 2.5px,transparent 3.5px),
+      radial-gradient(circle at 74% 62%,#ffe4a1 0 2.5px,transparent 3.5px),
+      radial-gradient(circle at 82% 42%,#ffd987 0 2.5px,transparent 3.5px),
+      radial-gradient(circle at 90% 62%,#ffe4a1 0 2.5px,transparent 3.5px),
+      radial-gradient(circle at 98% 42%,#ffd987 0 2.5px,transparent 3.5px),
+      linear-gradient(176deg,transparent 0 5px,rgba(91,67,47,.82) 5.5px 6.5px,transparent 7px 100%);
+    filter:drop-shadow(0 0 5px rgba(255,214,118,.82));
+  }
+  /* The generated row board replaces the old single bottom board when
+     books are present. Empty shelves still retain the original board. */
+  .large-shelf-grid:not(:empty) + .wood-board{
+    height:0;
+    margin:0;
+    box-shadow:none!important;
+    background:transparent!important;
+  }
+  .large-shelf-grid:not(:empty) + .wood-board::after{
+    display:none;
+  }
+}
