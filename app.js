@@ -2,7 +2,7 @@
  * My Reading Room
  * Copyright © 2026 Krishna Bhatt. All rights reserved.
  */
-const APP_VERSION="7.0.6";
+const APP_VERSION="7.0.7";
 const icon=n=>`<svg class="ui-icon" aria-hidden="true"><use href="#i-${n}"></use></svg>`;
 const BOOK_KEY="readingRoomBooksV1";
 const GENRE_KEY="readingRoomGenresV1";
@@ -126,6 +126,7 @@ function coverHTML(b,cls="cover"){return b.cover?`<img class="${cls}" src="${b.c
    that fits below the 10 KB hard cap. Dimensions shrink only when useful quality cannot fit. */
 const COVER_MAX_W=220,COVER_MAX_H=330,COVER_START_QUALITY=.84,COVER_MIN_QUALITY=.52,COVER_HARD_MAX_BYTES=10*1024,COVER_HARD_INPUT_BYTES=20*1024*1024;
 function loadImage(src){return new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(new Error("This phone image format could not be read. If it is HEIC/HEIF, save or share it as JPG first and try again."));img.src=src;});}
+function readBlobAsDataURL(blob){return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result||""));reader.onerror=()=>reject(reader.error||new Error("This cover image could not be read."));reader.readAsDataURL(blob);});}
 async function compressCoverSource(src,{force=false}={}){
   if(!src||!String(src).startsWith("data:image/"))return src;
   const originalBytes=dataUrlBytes(src);
@@ -186,7 +187,7 @@ async function compressCoverSource(src,{force=false}={}){
 }
 async function optimizeCoverFile(file){
   if(!file?.type?.startsWith("image/"))throw new Error("Please choose an image file for the cover.");
-  if(file.size>COVER_HARD_INPUT_BYTES)throw new Error("That cover is over 12 MB. Please choose a smaller image.");
+  if(file.size>COVER_HARD_INPUT_BYTES)throw new Error("That cover is over 20 MB. Please choose a smaller image.");
   return compressCoverSource(await readBlobAsDataURL(file),{force:true});
 }
 async function optimizeExistingCovers(){

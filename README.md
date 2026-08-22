@@ -69,6 +69,12 @@ The previous README contained the detailed V5/V6 stabilization history. The cura
 Copyright © 2026 Krishna Bhatt. All rights reserved.
 
 
+## V7.0.7 — Cover Upload Hotfix
+
+- Restores the missing browser Blob/File → data URL helper used by phone cover optimization.
+- Fixes the `readBlobAsDataURL is not defined` upload regression while preserving the adaptive <10 KB cover optimizer.
+- Corrects the large-input message to match the existing 20 MB input limit.
+
 ## V7.0.6 — Phone Cover Optimizer
 
 Improves large phone/Pinterest cover imports by preserving aspect ratio, resizing before quality reduction, and using a deeper fallback so detailed images can still be stored below 10 KB without being rejected unnecessarily. HEIC/HEIF decode failures now give a clear JPG conversion instruction.
