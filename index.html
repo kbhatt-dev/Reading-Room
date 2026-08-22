@@ -4,227 +4,266 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#6f4e37" />
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-  <meta http-equiv="Pragma" content="no-cache" />
-  <meta http-equiv="Expires" content="0" />
-  <title>My Reading Room — V2</title>
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Reading Room" />
+  <title>My Reading Room</title>
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="icon.svg" />
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <header class="topbar">
-    <div>
-      <p class="eyebrow">Your private reading journal</p>
-      <h1>My Reading Room</h1>
-    </div>
-    <button class="primary" id="addBookBtn">+ Add Book</button>
+  <header class="app-header">
+    <button class="brand" data-route="home" aria-label="Go to Reading Room home">
+      <span class="brand-mark">📚</span>
+      <span>
+        <small>Your private reading journal</small>
+        <strong>My Reading Room</strong>
+      </span>
+    </button>
+    <button id="headerAddBook" class="primary desktop-add">＋ Add Book</button>
   </header>
 
-  <nav class="app-tabs" aria-label="Reading Room sections">
-    <button class="tab-btn active" data-view="home">Library</button>
-    <button class="tab-btn" data-view="stats">Statistics</button>
-    <button class="tab-btn" data-view="sync">Sync</button>
+  <nav class="desktop-nav" aria-label="Main navigation">
+    <button data-route="home">🏠 <span>Room</span></button>
+    <button data-route="tbr">📚 <span>TBR</span></button>
+    <button data-route="reading">📖 <span>Reading</span></button>
+    <button data-route="finished">✅ <span>Finished</span></button>
+    <button data-route="stats">📊 <span>Stats</span></button>
+    <button data-route="sync">☁️ <span>Sync</span></button>
   </nav>
 
-  <main>
-    <div id="homeView" class="view-panel active-view">
-    <section class="hero-card">
-      <div>
-        <p class="eyebrow">Welcome back ✨</p>
-        <h2>Your library grows one story at a time.</h2>
-        <p class="muted" id="yearSummary">Start adding books to build your shelf.</p>
-      </div>
-      <div class="mini-stat">
-        <strong id="completedCount">0</strong>
-        <span>finished</span>
-      </div>
-    </section>
-
-    <section id="readingShelfSection">
-      <div class="section-heading">
+  <main id="appMain">
+    <!-- HOME -->
+    <section class="page" data-page="home">
+      <div class="hero-card">
         <div>
-          <p class="eyebrow">In progress</p>
-          <h2>Currently Reading</h2>
+          <p class="eyebrow">Welcome back ✨</p>
+          <h1>Your library grows one story at a time.</h1>
+          <p id="homeSummary" class="muted">Start filling your shelves.</p>
+        </div>
+        <div class="hero-count">
+          <strong id="homeFinishedCount">0</strong>
+          <span>finished</span>
         </div>
       </div>
-      <div id="readingShelf" class="status-shelf reading-status-shelf"></div>
-      <div id="readingEmpty" class="empty-state">Nothing in progress yet.</div>
+
+      <section class="home-section">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">On your nightstand</p>
+            <h2>Currently Reading</h2>
+          </div>
+          <button class="text-btn" data-route="reading">View all →</button>
+        </div>
+        <div id="homeReading" class="reading-feature-grid"></div>
+        <div id="homeReadingEmpty" class="empty-card">Nothing in progress yet. Pick something from your TBR when you're ready.</div>
+      </section>
+
+      <section class="home-section">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Cozy corner</p>
+            <h2>My Library</h2>
+          </div>
+        </div>
+        <div class="decorative-bookcase">
+          <div class="bookcase-top-decor"><span>🪴</span><span>✨</span><span>🕯️</span></div>
+          <div class="bookcase-label">Recent Finished Books</div>
+          <div id="homeFinishedShelf" class="wood-shelf-books"></div>
+          <div class="wood-board"></div>
+
+          <div class="bookcase-label second">Next on TBR</div>
+          <div id="homeTbrShelf" class="wood-shelf-books"></div>
+          <div class="wood-board"></div>
+        </div>
+      </section>
+
+      <section id="homeFavoritesSection" class="home-section hidden">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Forever favourites</p>
+            <h2>Hall of Fame ❤️</h2>
+          </div>
+        </div>
+        <div id="homeFavorites" class="cover-carousel"></div>
+      </section>
     </section>
 
-
-    <section id="tbrShelfSection">
-      <div class="section-heading library-heading">
+    <!-- TBR -->
+    <section class="page" data-page="tbr">
+      <div class="page-title">
         <div>
           <p class="eyebrow">Next reads</p>
-          <h2>TBR Shelf</h2>
+          <h1>TBR Shelf</h1>
+          <p class="muted">Books waiting for their turn.</p>
         </div>
-        <div class="controls compact-controls">
-          <input id="searchInput" type="search" placeholder="Search your books…" />
-          <select id="filterGenre"><option value="all">All genres</option></select>
-        </div>
+        <span id="tbrCount" class="count-pill">0 books</span>
       </div>
-      <div id="tbrShelf" class="status-shelf tbr-status-shelf"></div>
-      <div id="tbrEmpty" class="empty-state">Your TBR shelf is waiting.</div>
+
+      <div class="filter-bar">
+        <input id="tbrSearch" type="search" placeholder="Search TBR…" />
+        <select id="tbrGenre"><option value="all">🏷️ All genres</option></select>
+      </div>
+
+      <div class="full-bookcase">
+        <div class="bookcase-top-decor"><span>🌿</span><span>☕</span><span>✨</span></div>
+        <div id="tbrShelf" class="large-shelf-grid"></div>
+        <div class="wood-board"></div>
+      </div>
+      <div id="tbrEmpty" class="empty-card">Your TBR shelf is waiting for its first book.</div>
     </section>
 
-    <section id="finishedShelfSection">
-      <div class="section-heading">
+    <!-- READING -->
+    <section class="page" data-page="reading">
+      <div class="page-title">
+        <div>
+          <p class="eyebrow">In progress</p>
+          <h1>Currently Reading</h1>
+          <p class="muted">Progress, predictions, and reading sessions live here.</p>
+        </div>
+        <span id="readingCount" class="count-pill">0 books</span>
+      </div>
+      <div id="readingGrid" class="reading-page-grid"></div>
+      <div id="readingEmpty" class="empty-card">Nothing in progress yet.</div>
+    </section>
+
+    <!-- FINISHED -->
+    <section class="page" data-page="finished">
+      <div class="page-title">
         <div>
           <p class="eyebrow">Completed stories</p>
-          <h2>Finished Shelf</h2>
+          <h1>Finished Library</h1>
+          <p class="muted">Your reading history, arranged by year.</p>
         </div>
+        <span id="finishedCount" class="count-pill">0 books</span>
       </div>
-      <div id="finishedShelf" class="status-shelf finished-status-shelf"></div>
-      <div id="finishedEmpty" class="empty-state">Finished books will appear here.</div>
+
+      <div class="filter-bar">
+        <input id="finishedSearch" type="search" placeholder="Search finished books…" />
+        <select id="finishedGenre"><option value="all">🏷️ All genres</option></select>
+        <select id="finishedYear"><option value="all">All years</option></select>
+      </div>
+
+      <div id="finishedYearShelves" class="year-shelves"></div>
+      <div id="finishedEmpty" class="empty-card">Finished books will appear here.</div>
     </section>
 
-    </div>
-
-    <section id="statsView" class="view-panel hidden">
-      <div class="section-heading">
+    <!-- STATS -->
+    <section class="page" data-page="stats">
+      <div class="page-title">
         <div>
           <p class="eyebrow">Your reading life</p>
-          <h2>Reading Statistics</h2>
+          <h1>Statistics</h1>
+          <p class="muted">A quiet overview of what you've been reading.</p>
         </div>
-        <select id="statsYear"></select>
+        <select id="statsYear" class="year-select"></select>
       </div>
 
-      <div class="stats-grid stats-grid-v3">
+      <div class="stats-grid">
         <article class="stat-card"><span>📚</span><strong id="statBooks">0</strong><small>Books finished</small></article>
         <article class="stat-card"><span>📄</span><strong id="statPages">0</strong><small>Pages read</small></article>
-        <article class="stat-card"><span>⭐</span><strong id="statRating">0</strong><small>Average rating</small></article>
+        <article class="stat-card"><span>⭐</span><strong id="statRating">—</strong><small>Average rating</small></article>
         <article class="stat-card"><span>🏷️</span><strong id="statGenre">—</strong><small>Top genre</small></article>
         <article class="stat-card"><span>✍️</span><strong id="statAuthor">—</strong><small>Top author</small></article>
-        <article class="stat-card"><span>⏱️</span><strong id="statMinutes">0</strong><small>Reading minutes</small></article>
-        <article class="stat-card"><span>⚡</span><strong id="statFastest">—</strong><small>Fastest finish</small></article>
+        <article class="stat-card"><span>⏱️</span><strong id="statMinutes">0</strong><small>Logged minutes</small></article>
+        <article class="stat-card"><span>⚡</span><strong id="statFastest">—</strong><small>Fastest read</small></article>
         <article class="stat-card"><span>📘</span><strong id="statLongest">—</strong><small>Longest book</small></article>
       </div>
 
       <div class="insight-grid">
-        <article class="insight-card">
-          <h3>Books by Month</h3>
-          <div id="monthlyBars" class="bar-chart"></div>
-        </article>
-        <article class="insight-card">
-          <h3>Genres</h3>
-          <div id="genreStats" class="genre-stats"></div>
-        </article>
-        <article class="insight-card">
-          <h3>Ratings</h3>
-          <div id="ratingStats" class="rating-stats"></div>
-        </article>
-        <article class="insight-card">
-          <h3>Formats</h3>
-          <div id="formatStats" class="genre-stats"></div>
-        </article>
+        <article class="insight-card"><h3>Books by Month</h3><div id="monthlyBars" class="bar-chart"></div></article>
+        <article class="insight-card"><h3>Genres</h3><div id="genreStats" class="stat-list"></div></article>
+        <article class="insight-card"><h3>Ratings</h3><div id="ratingStats" class="stat-list"></div></article>
+        <article class="insight-card"><h3>Formats</h3><div id="formatStats" class="stat-list"></div></article>
       </div>
     </section>
 
-    <section id="syncView" class="view-panel hidden">
-      <div class="sync-card">
-        <p class="eyebrow">Across your devices</p>
-        <h2>Cloud Sync</h2>
-        <p class="muted">Connect this Reading Room to your Supabase project, then sign in with the user you created in Supabase Authentication.</p>
-
-        <div class="sync-status" id="syncStatus">
-          <span class="sync-dot local"></span>
-          <div>
-            <strong>Local mode</strong>
-            <p>Your books are saved on this device.</p>
-          </div>
+    <!-- SYNC -->
+    <section class="page" data-page="sync">
+      <div class="page-title">
+        <div>
+          <p class="eyebrow">Across your devices</p>
+          <h1>Cloud Sync</h1>
+          <p class="muted">Automatic Supabase sync with local backup.</p>
         </div>
+      </div>
+
+      <div class="sync-card">
+        <div id="syncStatus" class="sync-status"></div>
 
         <section class="sync-block">
-          <h3>1. Supabase Connection</h3>
-          <div class="form-grid two sync-fields">
-            <label>Project URL
-              <input id="supabaseUrl" placeholder="https://xxxx.supabase.co" autocomplete="off">
-            </label>
-            <label>Publishable key
-              <input id="supabaseKey" type="password" placeholder="sb_publishable_..." autocomplete="off">
-            </label>
+          <h3>Supabase Connection</h3>
+          <div class="form-grid two">
+            <label>Project URL<input id="supabaseUrl" placeholder="https://xxxx.supabase.co" autocomplete="off"></label>
+            <label>Publishable key<input id="supabaseKey" type="password" placeholder="sb_publishable_..." autocomplete="off"></label>
           </div>
-          <div class="dialog-actions">
-            <button type="button" class="secondary" id="clearSyncSettings">Clear</button>
-            <span class="spacer"></span>
-            <button type="button" class="primary" id="saveSyncSettings">Save Connection</button>
+          <div class="button-row">
+            <button id="clearSyncSettings" class="secondary">Clear</button>
+            <button id="saveSyncSettings" class="primary">Save Connection</button>
           </div>
-          <p class="genre-note">Use only the Project URL and Publishable key. Never place a secret/service-role key in this browser app.</p>
+          <p class="note">Use only the Project URL and Publishable key. Never use a secret/service-role key in the browser.</p>
         </section>
 
         <section class="sync-block">
-          <h3>2. Reading Room Login</h3>
+          <h3>Reading Room Login</h3>
           <div id="signedOutPanel">
-            <div class="form-grid two sync-fields">
-              <label>Email
-                <input id="syncEmail" type="email" placeholder="you@example.com" autocomplete="username">
-              </label>
-              <label>Password
-                <input id="syncPassword" type="password" placeholder="Your Reading Room password" autocomplete="current-password">
-              </label>
+            <div class="form-grid two">
+              <label>Email<input id="syncEmail" type="email" autocomplete="username"></label>
+              <label>Password<input id="syncPassword" type="password" autocomplete="current-password"></label>
             </div>
-            <div class="dialog-actions">
-              <span class="spacer"></span>
-              <button type="button" class="primary" id="signInBtn">Sign In & Sync</button>
-            </div>
-            <p class="genre-note">Your password is sent directly to Supabase for sign-in and is not saved in Reading Room.</p>
+            <div class="button-row end"><button id="signInBtn" class="primary">Sign In & Sync</button></div>
           </div>
 
           <div id="signedInPanel" class="hidden">
             <div class="account-card">
-              <div>
-                <span class="sync-dot connected"></span>
-                <strong id="signedInEmail">Signed in</strong>
-                <p id="lastSyncText">Ready to sync.</p>
-              </div>
-              <div class="account-actions">
-                <button type="button" class="secondary" id="syncNowBtn">☁️ Sync Now</button>
-                <button type="button" class="secondary" id="signOutBtn">Sign Out</button>
-              </div>
+              <div><span class="status-dot good"></span><strong id="signedInEmail">Signed in</strong><p id="lastSyncText">Ready to sync.</p></div>
+              <div class="button-row"><button id="syncNowBtn" class="secondary">☁️ Sync Now</button><button id="signOutBtn" class="secondary">Sign Out</button></div>
             </div>
           </div>
         </section>
 
-        <div class="backup-card">
+        <section class="sync-block">
           <h3>Backup</h3>
           <p class="muted">Export your journal as JSON or restore it later.</p>
-          <div class="backup-actions">
-            <button class="secondary" id="exportBackup">Export Backup</button>
-            <button class="secondary" id="importBackupBtn">Import Backup</button>
+          <div class="button-row start">
+            <button id="exportBackup" class="secondary">Export Backup</button>
+            <button id="importBackupBtn" class="secondary">Import Backup</button>
             <input id="importBackupInput" class="visually-hidden-file" type="file" accept=".json,application/json">
           </div>
-        </div>
+        </section>
       </div>
     </section>
   </main>
 
-  <dialog id="bookDialog">
-    <form id="bookForm" method="dialog" class="book-form">
-      <div class="dialog-head book-dialog-head">
-        <div>
-          <p class="eyebrow">📚 Reading journal</p>
-          <h2 id="dialogTitle">Add a Book</h2>
-          <p class="dialog-subtitle">Capture the book, your progress, and the little details worth remembering.</p>
-        </div>
-        <button type="button" class="icon-btn close-round" id="closeDialog">✕</button>
-      </div>
+  <!-- MOBILE BOTTOM NAV -->
+  <nav class="mobile-nav" aria-label="Mobile navigation">
+    <button data-route="home"><span>🏠</span><small>Room</small></button>
+    <button data-route="tbr"><span>📚</span><small>TBR</small></button>
+    <button data-route="reading"><span>📖</span><small>Reading</small></button>
+    <button data-route="finished"><span>✅</span><small>Finished</small></button>
+    <button data-route="stats"><span>📊</span><small>Stats</small></button>
+  </nav>
 
-      <input type="hidden" id="bookId" />
+  <button id="floatingAddBook" class="floating-add"><span>＋</span> Add Book</button>
 
-      <section class="form-section compact-form-section">
-        <div class="form-section-title"><span>📖</span><div><strong>Book Details</strong><small>Only what you need right now</small></div></div>
+  <!-- BOOK EDITOR -->
+  <dialog id="bookDialog" class="book-dialog">
+    <form id="bookForm" class="book-form">
+      <header class="dialog-header">
+        <div><p class="eyebrow">📚 Reading journal</p><h2 id="dialogTitle">Add a Book</h2></div>
+        <button type="button" id="closeBookDialog" class="round-btn">✕</button>
+      </header>
 
-        <label>Book title
-          <input id="title" required maxlength="120" />
-        </label>
+      <input type="hidden" id="bookId">
 
-        <label>Author
-          <input id="author" maxlength="120" />
-        </label>
-
+      <section class="form-card">
+        <h3>📖 Book Details</h3>
+        <label>Book title<input id="title" required maxlength="120"></label>
+        <label>Author<input id="author" maxlength="120"></label>
         <div class="form-grid two">
-          <label>📌 Status
+          <label>Status
             <select id="status">
               <option value="want">📚 TBR</option>
               <option value="reading">📖 Reading</option>
@@ -232,16 +271,14 @@
               <option value="dnf">🌙 DNF</option>
             </select>
           </label>
-
-          <label>🏷️ Genre
+          <label>Genre
             <div class="genre-control">
               <select id="genre"></select>
-              <button type="button" class="secondary small manage-genre-btn" id="manageGenresBtn">⚙️ Manage</button>
+              <button type="button" id="manageGenresBtn" class="secondary compact">⚙️ Manage</button>
             </div>
           </label>
         </div>
-
-        <label>📚 Format
+        <label>Format
           <select id="format">
             <option value="Paperback">📖 Paperback</option>
             <option value="Hardcover">📕 Hardcover</option>
@@ -250,59 +287,42 @@
             <option value="Other">✨ Other</option>
           </select>
         </label>
-
-        <label>🖼️ Book cover
-          <div class="cover-upload">
-            <input id="coverInput" class="visually-hidden-file" type="file" accept="image/*" />
-            <button type="button" class="secondary cover-upload-btn" id="chooseCoverBtn">📷 Choose Cover</button>
-            <span id="coverFileName" class="cover-file-name">No file selected</span>
+        <label>Book cover
+          <div class="cover-picker">
+            <input id="coverInput" class="visually-hidden-file" type="file" accept="image/*">
+            <button type="button" id="chooseCoverBtn" class="secondary">📷 Choose Cover</button>
+            <span id="coverFileName">No file selected</span>
           </div>
         </label>
         <div id="coverPreviewWrap" class="cover-preview-wrap hidden">
-          <img id="coverPreview" class="cover-preview" alt="Book cover preview" />
-          <button type="button" class="secondary small" id="removeCover">Remove cover</button>
+          <img id="coverPreview" alt="Book cover preview">
+          <button type="button" id="removeCover" class="secondary compact">Remove</button>
         </div>
       </section>
 
-      <section id="readingFields" class="form-section status-fields hidden">
-        <div class="form-section-title"><span>📖</span><div><strong>Reading Details</strong><small>Shown only while you are reading</small></div></div>
+      <section id="readingFields" class="form-card hidden">
+        <h3>📖 Reading Details</h3>
         <div class="form-grid two">
-          <label>📄 Pages
-            <input id="pages" type="number" min="0" />
-          </label>
-          <label>🔖 Current page
-            <input id="currentPage" type="number" min="0" />
-          </label>
+          <label>Pages<input id="pages" type="number" min="0"></label>
+          <label>Current page<input id="currentPage" type="number" min="0"></label>
         </div>
-        <label>🗓️ Date started
-          <input id="dateStarted" type="date" />
-        </label>
-        <label>🔎 My prediction / theory
-          <textarea id="prediction" rows="3" placeholder="What do you think will happen?"></textarea>
-        </label>
+        <label>Date started<input id="dateStarted" type="date"></label>
+        <label>🔎 My prediction / theory<textarea id="prediction" rows="3" placeholder="What do you think will happen?"></textarea></label>
       </section>
 
-      <section id="finishedFields" class="form-section status-fields hidden">
-        <div class="form-section-title"><span>✅</span><div><strong>Finish the Journal</strong><small>Only shown for completed books</small></div></div>
+      <section id="finishedFields" class="form-card hidden">
+        <h3>✅ Finish the Journal</h3>
         <div class="form-grid two">
-          <label>🗓️ Date started
-            <input id="finishDateStarted" type="date" />
-          </label>
-          <label>✅ Date finished
-            <input id="dateFinished" type="date" />
-          </label>
+          <label>Date started<input id="finishDateStarted" type="date"></label>
+          <label>Date finished<input id="dateFinished" type="date"></label>
         </div>
-        <label>⭐ Overall rating
-          <div id="ratingPicker" class="rating-picker" aria-label="Rating"></div>
-          <input type="hidden" id="rating" value="0" />
+        <label>Overall rating
+          <div id="ratingPicker" class="rating-picker"></div>
+          <input type="hidden" id="rating" value="0">
         </label>
-        <label>💭 My thoughts
-          <textarea id="review" rows="4" placeholder="What did you think about this book?"></textarea>
-        </label>
-        <label>🔒 Story memory / spoiler notes
-          <textarea id="spoilers" rows="4" placeholder="What do you want to remember later?"></textarea>
-        </label>
-        <label>🎯 Was my prediction right?
+        <label>My thoughts<textarea id="review" rows="4"></textarea></label>
+        <label>Story memory / spoiler notes<textarea id="spoilers" rows="4"></textarea></label>
+        <label>Was my prediction right?
           <select id="predictionResult">
             <option value="">Not set</option>
             <option value="yes">Yes 🎯</option>
@@ -310,79 +330,36 @@
             <option value="partial">Partly</option>
           </select>
         </label>
-        <label class="favorite-toggle">
-          <input id="favoriteBook" type="checkbox">
-          <span>❤️ Add this book to Hall of Fame</span>
-        </label>
+        <label class="favorite-toggle"><input id="favoriteBook" type="checkbox"><span>❤️ Add to Hall of Fame</span></label>
       </section>
 
-      <div class="hidden">
-        <input id="favoriteCharacter" />
-        <input id="favoriteScene" />
-        <textarea id="favoriteQuote"></textarea>
-        <input id="sessionStartPage" type="number" />
-        <input id="sessionEndPage" type="number" />
-        <input id="sessionMinutes" type="number" />
-        <select id="sessionMood"><option value=""></option></select>
-        <div id="sessionList"></div>
-        <button type="button" id="addSessionBtn"></button>
-      </div>
-
-      <div class="dialog-actions sticky-save-bar">
+      <footer class="editor-actions">
         <button type="button" id="deleteBookBtn" class="danger hidden">Delete</button>
-        <span class="spacer"></span>
-        <button type="button" class="secondary" id="cancelBtn">Cancel</button>
-        <button type="submit" class="primary save-book-btn">💾 Save Book</button>
-      </div>
+        <button type="button" id="cancelBookBtn" class="secondary desktop-only">Cancel</button>
+        <button type="submit" class="primary save-book">💾 Save Book</button>
+      </footer>
     </form>
   </dialog>
 
+  <!-- BOOK DETAIL -->
+  <dialog id="detailDialog" class="detail-dialog"><article id="detailContent"></article></dialog>
 
-  <dialog id="genreDialog" class="small-dialog">
-    <section class="genre-manager">
-      <div class="dialog-head">
-        <div>
-          <p class="eyebrow">Personalize your journal</p>
-          <h2>Manage Genres</h2>
-        </div>
-        <button type="button" class="icon-btn" id="closeGenreDialog">✕</button>
-      </div>
-
-      <div class="genre-add-row">
-        <input id="newGenreInput" maxlength="50" placeholder="Add a genre…" />
-        <button type="button" class="primary" id="addGenreBtn">Add</button>
-      </div>
-
-      <div id="genreList" class="genre-list"></div>
-      <p class="genre-note">Renaming a genre updates books already using it. Deleting a genre only removes it from future choices.</p>
-    </section>
-  </dialog>
-
-
+  <!-- READING SESSION -->
   <dialog id="sessionDialog" class="small-dialog">
-    <form id="sessionForm" class="genre-manager">
-      <div class="dialog-head">
-        <div>
-          <p class="eyebrow">Reading progress</p>
-          <h2>Add Reading Session</h2>
-        </div>
-        <button type="button" class="icon-btn" id="closeSessionDialog">✕</button>
-      </div>
-      <input type="hidden" id="sessionBookId">
+    <form id="sessionForm" class="small-form">
+      <header class="dialog-header">
+        <div><p class="eyebrow">Reading progress</p><h2>Add Reading Session</h2></div>
+        <button type="button" id="closeSessionDialog" class="round-btn">✕</button>
+      </header>
+      <input id="sessionBookId" type="hidden">
       <div class="form-grid two">
-        <label>Start page
-          <input id="sessionModalStart" type="number" min="0">
-        </label>
-        <label>End page
-          <input id="sessionModalEnd" type="number" min="0">
-        </label>
+        <label>Start page<input id="sessionStart" type="number" min="0"></label>
+        <label>End page<input id="sessionEnd" type="number" min="0"></label>
       </div>
       <div class="form-grid two">
-        <label>Minutes
-          <input id="sessionModalMinutes" type="number" min="0">
-        </label>
+        <label>Minutes<input id="sessionMinutes" type="number" min="0"></label>
         <label>Mood
-          <select id="sessionModalMood">
+          <select id="sessionMood">
             <option value="">Choose mood…</option>
             <option value="😍">😍 Loved it</option>
             <option value="😱">😱 Intense</option>
@@ -393,34 +370,34 @@
           </select>
         </label>
       </div>
-      <div class="dialog-actions">
-        <span class="spacer"></span>
-        <button type="button" class="secondary" id="cancelSessionBtn">Cancel</button>
-        <button type="submit" class="primary">Save Session</button>
-      </div>
+      <footer class="button-row end"><button type="button" id="cancelSessionBtn" class="secondary">Cancel</button><button type="submit" class="primary">Save Session</button></footer>
     </form>
   </dialog>
 
+  <!-- GENRE MANAGER -->
+  <dialog id="genreDialog" class="small-dialog">
+    <section class="small-form">
+      <header class="dialog-header">
+        <div><p class="eyebrow">Personalize</p><h2>Manage Genres</h2></div>
+        <button type="button" id="closeGenreDialog" class="round-btn">✕</button>
+      </header>
+      <div class="genre-add"><input id="newGenreInput" placeholder="Add a genre…"><button id="addGenreBtn" class="primary">Add</button></div>
+      <div id="genreList" class="genre-list"></div>
+    </section>
+  </dialog>
+
+  <!-- FINISH CELEBRATION -->
   <dialog id="finishDialog" class="finish-dialog">
     <section class="finish-card">
       <div class="confetti">✨ 📚 ✨</div>
       <p class="eyebrow">Book completed</p>
       <h2 id="finishTitle">You finished a book!</h2>
-      <p id="finishSubtitle" class="muted">Another story has joined your library.</p>
-      <div id="finishCoverWrap" class="finish-cover-wrap"></div>
-      <div class="finish-actions">
-        <button class="secondary" id="finishCloseBtn">Close</button>
-        <button class="primary" id="finishFavoriteBtn">❤️ Add to Hall of Fame</button>
-      </div>
+      <p id="finishSubtitle" class="muted"></p>
+      <div id="finishCoverWrap" class="finish-cover"></div>
+      <div class="button-row center"><button id="finishCloseBtn" class="secondary">Close</button><button id="finishFavoriteBtn" class="primary">❤️ Hall of Fame</button></div>
     </section>
   </dialog>
 
-  <dialog id="detailDialog">
-    <article id="detailContent" class="detail-card"></article>
-  </dialog>
-
-
-  <button id="floatingAddBookBtn" class="floating-add" aria-label="Add a new book"><span class="fab-plus">＋</span><span class="fab-label">Add Book</span></button>
   <script src="app.js"></script>
 </body>
 </html>

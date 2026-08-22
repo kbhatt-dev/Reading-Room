@@ -1,254 +1,71 @@
-# My Reading Room — V1
+# My Reading Room — V5
 
-A cozy, mobile-friendly personal reading journal and digital bookshelf.
+V5 is a full UI architecture rebuild focused on mobile usability and clear separation between parts of the reading journey.
 
-## Included in V1
-- Add, edit and delete books
-- Upload book cover images
-- Status: Want to Read / Reading / Finished / DNF
-- Currently Reading cards with page progress
-- Decorative bookshelf landing page
-- Half-star ratings from 0.5 to 5
-- Review / thoughts
-- Story memory with spoiler reveal
-- Favourite character, scene and quote
-- Prediction/theory + result
-- Search by title, author or genre
-- Filter by reading status
-- Responsive layout for phone and desktop
-- PWA manifest + service worker so it can be added to an iPhone home screen
-- LocalStorage persistence
+## Pages
+- **Reading Room / Home** — cozy landing page with Currently Reading, decorative finished shelf, decorative TBR shelf, and Hall of Fame.
+- **TBR** — only books you want to read.
+- **Reading** — active books with progress and quick Reading Session actions.
+- **Finished** — completed books organized into decorated yearly shelves.
+- **Statistics** — yearly reading insights.
+- **Sync** — Supabase connection, login, manual fallback sync, and backup tools.
 
-## Important V1 note
-Data is stored in the browser on that device. If you open the app on another phone/computer,
-the books will not automatically sync yet. Cloud/database sync can be added in V2.
+On iPhone, the main pages are accessible from a persistent bottom navigation bar. Add Book remains a floating action button above the navigation.
 
-## Run locally
-Because the service worker requires HTTP/HTTPS, use a simple local server instead of opening
-index.html directly.
+## Status-driven book editor
+### TBR
+Only asks for:
+- title
+- author
+- status
+- genre
+- format
+- cover
 
-Python:
-    python -m http.server 8000
+### Reading
+Adds:
+- pages
+- current page
+- start date
+- prediction / theory
 
-Then visit:
-    http://localhost:8000
+Changing a TBR book to Reading automatically fills today's start date.
 
-## Put it online
-Deploy this folder to any static host such as GitHub Pages, Netlify, Vercel, or Cloudflare Pages.
+### Finished
+Adds:
+- start/end dates
+- rating
+- thoughts
+- spoiler/story memory
+- prediction result
+- Hall of Fame toggle
 
-## iPhone
-Once hosted on HTTPS:
-1. Open the website in Safari.
-2. Tap Share.
-3. Choose "Add to Home Screen".
-4. Launch it from the new Reading Room icon.
+Changing a book to Finished automatically fills today's finish date.
 
+## Reading Sessions
+Reading Sessions use a separate compact modal rather than the main Add/Edit Book form. A session tracks:
+- start page
+- end page
+- minutes
+- mood
+- date
 
-## V1.1 update
-- Genre is now a dropdown instead of free text.
-- Added a Genre Manager to add, rename, and delete custom genres.
-- Renaming a genre updates existing books using that genre.
-- Deleting a genre removes it from future choices without deleting books.
-- Replaced the large mobile file input with a compact "Choose Cover" button.
-- Reduced the cover preview size on phones.
+Saving a session updates the book's current page.
 
+## Compatibility
+V5 intentionally preserves the existing storage keys and book structure used by previous Reading Room versions, so current local/Supabase data remains compatible.
 
-# V2
+## Cloud sync
+Supabase Auth + RLS sync remains supported. Connection values are entered from the Sync page and are stored only in the browser on that device.
 
-## New in V2
-- Added Library / Statistics / Sync navigation.
-- Added yearly bookshelves based on finished/start date.
-- Added genre filter beside search and status filters.
-- Added Reading Statistics dashboard:
-  - finished books
-  - pages read
-  - average rating
-  - top genre
-  - books by month
-  - genre breakdown
-  - rating breakdown
-  - format breakdown
-- Added JSON backup export and restore.
-- Added optional Supabase sync configuration.
-- Local-only mode still works without any account or backend.
+Automatic sync runs:
+- after book/genre changes
+- on app startup
+- when returning to the app
+- when the device comes online
+- every 60 seconds while the app is visible
 
-## Optional Supabase cloud sync setup
+`Sync Now` remains as a manual fallback.
 
-Create a Supabase project and add this table:
-
-```sql
-create table reading_room_sync (
-  user_id text primary key,
-  payload jsonb not null default '{}'::jsonb,
-  updated_at_ms bigint not null default 0
-);
-```
-
-For a private personal project, configure appropriate Row Level Security policies before using it publicly.
-
-Then open Reading Room → Sync and enter:
-- Project URL
-- anon public key
-- your private Sync ID
-
-Use the same values on your iPhone and computer.
-
-Important: V2 does not ship with anyone's credentials.
-
-
-## V2.1 — Secure authenticated device sync
-
-Cloud sync now uses Supabase Authentication instead of a manually chosen Sync ID.
-
-### Required Supabase setup
-The `reading_room_sync` table should use:
-
-```sql
-create table reading_room_sync (
-  user_id uuid primary key references auth.users(id) on delete cascade,
-  payload jsonb not null default '{}'::jsonb,
-  updated_at_ms bigint not null default 0
-);
-
-alter table reading_room_sync enable row level security;
-```
-
-RLS policies:
-
-```sql
-create policy "Users can read their own reading room"
-on reading_room_sync for select to authenticated
-using ((select auth.uid()) = user_id);
-
-create policy "Users can insert their own reading room"
-on reading_room_sync for insert to authenticated
-with check ((select auth.uid()) = user_id);
-
-create policy "Users can update their own reading room"
-on reading_room_sync for update to authenticated
-using ((select auth.uid()) = user_id)
-with check ((select auth.uid()) = user_id);
-
-create policy "Users can delete their own reading room"
-on reading_room_sync for delete to authenticated
-using ((select auth.uid()) = user_id);
-```
-
-### In the app
-1. Open **Sync**.
-2. Paste your Supabase **Project URL**.
-3. Paste your **Publishable key** (`sb_publishable_...`).
-4. Click **Save Connection**.
-5. Enter the email/password for the user created in Supabase Authentication.
-6. Click **Sign In & Sync**.
-7. Use the same Project URL, Publishable key, email and password on your second device.
-
-The app does not store your password. Supabase session tokens are kept locally so you stay signed in.
-
-### Sync behavior
-- Books still save immediately to localStorage.
-- When signed in, changes are also synced to Supabase.
-- A new device downloads the newest cloud copy.
-- The **Sync Now** button is available for a manual refresh.
-- JSON export/import backup remains available.
-
-
-## V2.2 — Automatic sync + mobile form refresh
-
-- Cloud sync now runs automatically:
-  - after book/genre changes
-  - when the app starts
-  - when the browser/app returns to focus
-  - when the device comes back online
-  - every 60 seconds while the app is visible
-- Manual "Sync Now" remains as an optional fallback.
-- Added a floating Add Book button on mobile.
-- Reworked Add Book into visual sections.
-- Added sticky mobile Save Book action.
-- Prevented iPhone Safari input-focus zoom with 16px form controls.
-- Added emoji-enhanced format and genre choices.
-- Improved mobile full-screen book editor.
-- Kept existing book data format compatible with earlier versions.
-
-
-## V2.3 — Automatic app updates
-
-This release fixes stale GitHub Pages / iPhone Home Screen builds.
-
-Changes:
-- Removed persistent service-worker app-shell caching.
-- The service worker now activates immediately with `skipWaiting()`.
-- Old Reading Room caches are automatically deleted during activation.
-- The app registers the service worker with `updateViaCache: "none"`.
-- Reading Room checks for a new service worker on launch and when returning to the app.
-- When a new build takes control, the page reloads once automatically.
-- You should no longer need Chrome DevTools → Application → Clear site data for normal releases.
-- Supabase/localStorage data are not cleared during an app update.
-
-Note:
-The very first upgrade from an older aggressively cached build may still require one hard refresh
-or reopening the installed app because the *old* service worker is the code currently controlling it.
-After V2.3 is installed, future releases use the new automatic update behavior.
-
-
-## V2.4 — iPhone layout fix
-- Fixed horizontal overflow in Add/Edit Book.
-- Made the mobile editor truly full-screen.
-- Moved Genre Manage below the genre dropdown on phones.
-- Reduced cover preview to a compact thumbnail.
-- Added a permanent floating “+ Add Book” button while browsing the library.
-- Pinned “Save Book” to the bottom of the phone screen.
-- Prevented controls from spilling outside the viewport.
-- Preserved iPhone-safe 16px form fields to avoid focus zoom.
-
-
-## V2.5 — New book cover reset fix
-- Fixed previous book cover appearing when opening Add Book again.
-- New Add Book sessions now clear the file input, preview image, filename, and in-memory cover state.
-- Edit Book still loads the saved cover normally.
-
-
-# V3
-
-## New in V3
-- Hall of Fame favourite shelf.
-- Mark any book as a favourite.
-- Finish Book celebration when a book moves to Finished.
-- Quick “Add to Hall of Fame” action from the finish celebration.
-- Reading Sessions with start page, end page, minutes, mood, and date.
-- Session history inside each book.
-- Enhanced statistics:
-  - top author
-  - total reading minutes
-  - fastest finished book
-  - longest book
-  - existing books/pages/rating/genre/month/format stats preserved
-- Existing V2.5 book data remains compatible.
-
-
-# V4 — Status-driven Reading Workflow
-
-V4 redesigns the book flow around TBR → Reading → Finished.
-
-## TBR
-Add Book only asks for title, author, status, genre, format, and cover.
-TBR books live on their own shelf.
-
-## Reading
-Changing a TBR book to Reading:
-- auto-fills the start date with today
-- reveals pages, current page, and prediction/theory
-- moves the book to Currently Reading
-- tapping the book shows Edit Book and Add Reading Session
-
-Reading Sessions are added in a separate compact modal.
-
-## Finished
-Changing a book to Finished:
-- auto-fills the finish date
-- reveals rating and final journal fields
-- moves the book to Finished Shelf
-- finished detail shows status, title, author, genre, format, rating, pages,
-  start/end dates, calendar days, and logged reading minutes.
-
-Existing cloud sync and older book data remain compatible.
+## PWA updates
+The service worker does not persistently cache the app shell. New GitHub Pages releases check for an updated service worker and reload when the new version takes control.

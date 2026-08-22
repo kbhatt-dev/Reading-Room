@@ -1,932 +1,362 @@
-const READING_ROOM_VERSION = "4.0";
+const APP_VERSION="5.0";
+const BOOK_KEY="readingRoomBooksV1";
+const GENRE_KEY="readingRoomGenresV1";
+const SYNC_KEY="readingRoomSyncSettingsV2";
+const SESSION_KEY="readingRoomSupabaseSessionV2";
+const CHANGE_KEY="readingRoomLastChangedV2";
+const SYNCED_KEY="readingRoomLastSyncedV2";
 
-const KEY = "readingRoomBooksV1";
-const GENRE_KEY = "readingRoomGenresV1";
-const SYNC_KEY = "readingRoomSyncSettingsV2";
-const SESSION_KEY = "readingRoomSupabaseSessionV2";
-const DEFAULT_GENRES = [
-  "Thriller", "Mystery", "Horror", "Romance", "Fantasy",
-  "Science Fiction", "Contemporary", "Historical Fiction",
-  "Literary Fiction", "Non-Fiction", "Biography", "Self-Help", "Other"
-];
-let books = JSON.parse(localStorage.getItem(KEY) || "[]");
-let genres = JSON.parse(localStorage.getItem(GENRE_KEY) || "null") || [...DEFAULT_GENRES];
-let syncSettings = JSON.parse(localStorage.getItem(SYNC_KEY) || "null") || {url:"", key:""};
-let syncSession = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
-let selectedRating = 0;
-let workingCover = "";
-let workingSessions = [];
-let justFinishedBookId = null;
+const DEFAULT_GENRES=["Thriller","Mystery","Horror","Romance","Fantasy","Science Fiction","Contemporary","Historical Fiction","Literary Fiction","Non-Fiction","Biography","Self-Help","Other"];
 
-const $ = s => document.querySelector(s);
-const els = {
-  add: $("#addBookBtn"), dialog: $("#bookDialog"), form: $("#bookForm"),
-  close: $("#closeDialog"), cancel: $("#cancelBtn"), shelf: $("#bookShelf"),
-  current: $("#currentlyReading"), currentEmpty: $("#currentlyEmpty"),
-  libraryEmpty: $("#libraryEmpty"), search: $("#searchInput"), filter: $("#filterStatus"),
-  detailDialog: $("#detailDialog"), detail: $("#detailContent"), deleteBtn: $("#deleteBookBtn"),
-  genreDialog: $("#genreDialog"), genreList: $("#genreList"),
-  filterGenre: $("#filterGenre"), yearShelves: $("#yearShelves")
-};
+let books=JSON.parse(localStorage.getItem(BOOK_KEY)||"[]");
+let genres=JSON.parse(localStorage.getItem(GENRE_KEY)||"null")||[...DEFAULT_GENRES];
+let syncSettings=JSON.parse(localStorage.getItem(SYNC_KEY)||"null")||{url:"",key:""};
+let syncSession=JSON.parse(localStorage.getItem(SESSION_KEY)||"null");
+let selectedRating=0;
+let workingCover="";
+let lastRoute="home";
+let justFinishedBookId=null;
 
-function save(){
-  localStorage.setItem(KEY, JSON.stringify(books));
-  localStorage.setItem("readingRoomLastChangedV2", String(Date.now()));
-  render();
-  cloudSync();
-}
-function saveGenres(){
-  localStorage.setItem(GENRE_KEY, JSON.stringify(genres));
-  localStorage.setItem("readingRoomLastChangedV2", String(Date.now()));
-  renderGenreOptions($("#genre").value);
-  renderGenreFilter();
-  renderGenreManager();
-  cloudSync();
-}
+const $=s=>document.querySelector(s);
+const $$=s=>[...document.querySelectorAll(s)];
 
+function escapeHtml(v=""){return String(v).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));}
+function todayISO(){return new Date().toISOString().slice(0,10);}
+function statusLabel(s){return ({want:"TBR",reading:"Reading",finished:"Finished",dnf:"DNF"})[s]||s;}
 function genreEmoji(name=""){
   const g=name.toLowerCase();
-  if(g.includes("thriller")) return "🔪";
-  if(g.includes("mystery")) return "🕵️";
-  if(g.includes("horror")) return "👻";
-  if(g.includes("romance")) return "💗";
-  if(g.includes("fantasy")) return "🐉";
-  if(g.includes("science fiction")) return "🚀";
-  if(g.includes("historical")) return "🏛️";
-  if(g.includes("contemporary")) return "🌿";
-  if(g.includes("literary")) return "✒️";
-  if(g.includes("biography")) return "👤";
-  if(g.includes("self-help")) return "🌱";
-  if(g.includes("non-fiction") || g.includes("nonfiction")) return "🧠";
-  return "📚";
+  if(g.includes("thriller"))return"🔪"; if(g.includes("mystery"))return"🕵️"; if(g.includes("horror"))return"👻";
+  if(g.includes("romance"))return"💗"; if(g.includes("fantasy"))return"🐉"; if(g.includes("science fiction"))return"🚀";
+  if(g.includes("historical"))return"🏛️"; if(g.includes("contemporary"))return"🌿"; if(g.includes("literary"))return"✒️";
+  if(g.includes("biography"))return"👤"; if(g.includes("self-help"))return"🌱"; if(g.includes("non-fiction")||g.includes("nonfiction"))return"🧠";
+  return"📚";
+}
+function formatEmoji(f=""){return ({Paperback:"📖",Hardcover:"📕",Kindle:"📱",Audiobook:"🎧",Other:"✨"})[f]||"✨";}
+function stars(r){r=Number(r)||0;if(!r)return"Not rated";return `${"★".repeat(Math.floor(r))}${r%1?"½":""} ${r}/5`;}
+function pct(b){if(!b.pages||!b.currentPage)return 0;return Math.min(100,Math.round((Number(b.currentPage)/Number(b.pages))*100));}
+function bookYear(b){const raw=b.dateFinished||b.dateStarted;if(raw){const y=new Date(raw+"T00:00:00").getFullYear();if(!Number.isNaN(y))return y;}return new Date().getFullYear();}
+function dateDiffDays(a,b){if(!a||!b)return null;const d=Math.round((new Date(b+"T00:00:00")-new Date(a+"T00:00:00"))/86400000);return Number.isFinite(d)&&d>=0?d:null;}
+function sessionMinutes(b){return (Array.isArray(b.sessions)?b.sessions:[]).reduce((n,s)=>n+(Number(s.minutes)||0),0);}
+function coverHTML(b,cls="cover"){return b.cover?`<img class="${cls}" src="${b.cover}" alt="${escapeHtml(b.title)} cover">`:`<div class="${cls} placeholder">${escapeHtml(b.title||"Book")}</div>`;}
+
+function markChanged(){localStorage.setItem(CHANGE_KEY,String(Date.now()));}
+function saveBooks({sync=true}={}){
+  localStorage.setItem(BOOK_KEY,JSON.stringify(books));markChanged();renderAll();if(sync)cloudSync();
+}
+function saveGenres({sync=true}={}){
+  localStorage.setItem(GENRE_KEY,JSON.stringify(genres));markChanged();renderGenreOptions();renderAll();if(sync)cloudSync();
 }
 
-function renderGenreOptions(selected=""){
-  const select = $("#genre");
-  const choices = [...genres];
-  if(selected && !choices.includes(selected)) choices.unshift(selected);
-  select.innerHTML = `<option value="">✨ Choose genre…</option>` +
-    choices.map(g => `<option value="${escapeHtml(g)}">${genreEmoji(g)} ${escapeHtml(g)}</option>`).join("");
-  select.value = selected || "";
+function routeTo(route,{replace=false}={}){
+  const valid=["home","tbr","reading","finished","stats","sync"];
+  if(!valid.includes(route))route="home";
+  lastRoute=route;
+  $$(".page").forEach(p=>p.classList.toggle("active",p.dataset.page===route));
+  $$("[data-route]").forEach(b=>b.classList.toggle("active",b.dataset.route===route));
+  if(replace)history.replaceState({route},"",`#${route}`); else if(location.hash!==`#${route}`)history.pushState({route},"",`#${route}`);
+  window.scrollTo({top:0,behavior:"instant"});
+  if(route==="stats")renderStats();
+  if(route==="sync")renderSyncStatus();
+}
+window.addEventListener("popstate",()=>routeTo(location.hash.slice(1)||"home",{replace:true}));
+$$("[data-route]").forEach(btn=>btn.addEventListener("click",()=>routeTo(btn.dataset.route)));
+routeTo(location.hash.slice(1)||"home",{replace:true});
+
+function renderGenreOptions(selected){
+  const bookSelect=$("#genre");
+  if(bookSelect){
+    const current=selected!==undefined?selected:bookSelect.value;
+    const list=[...genres];
+    if(current&&!list.includes(current))list.unshift(current);
+    bookSelect.innerHTML=`<option value="">✨ Choose genre…</option>`+list.map(g=>`<option value="${escapeHtml(g)}">${genreEmoji(g)} ${escapeHtml(g)}</option>`).join("");
+    bookSelect.value=current||"";
+  }
+  ["tbrGenre","finishedGenre"].forEach(id=>{
+    const el=$("#"+id);if(!el)return;const current=el.value||"all";
+    el.innerHTML=`<option value="all">🏷️ All genres</option>`+genres.map(g=>`<option value="${escapeHtml(g)}">${genreEmoji(g)} ${escapeHtml(g)}</option>`).join("");
+    el.value=genres.includes(current)?current:"all";
+  });
 }
 function renderGenreManager(){
-  els.genreList.innerHTML = genres.map((g, i) => `
-    <div class="genre-row">
-      <input value="${escapeHtml(g)}" aria-label="Genre name" data-genre-index="${i}" />
-      <button type="button" class="secondary small" onclick="renameGenre(${i})">Save</button>
-      <button type="button" class="danger small" onclick="deleteGenre(${i})">Delete</button>
-    </div>`).join("");
+  $("#genreList").innerHTML=genres.map((g,i)=>`<div class="genre-row">
+    <input data-genre-index="${i}" value="${escapeHtml(g)}">
+    <button type="button" class="secondary compact" onclick="renameGenre(${i})">Save</button>
+    <button type="button" class="danger compact" onclick="deleteGenre(${i})">Delete</button>
+  </div>`).join("");
 }
+window.renameGenre=i=>{
+  const input=document.querySelector(`[data-genre-index="${i}"]`);const next=(input?.value||"").trim().replace(/\s+/g," ");const old=genres[i];
+  if(!next)return alert("Genre name cannot be empty.");
+  if(genres.some((g,j)=>j!==i&&g.toLowerCase()===next.toLowerCase()))return alert("That genre already exists.");
+  genres[i]=next;books=books.map(b=>b.genre===old?{...b,genre:next}:b);localStorage.setItem(BOOK_KEY,JSON.stringify(books));saveGenres();
+};
+window.deleteGenre=i=>{const name=genres[i];if(!confirm(`Remove "${name}" from future choices? Existing books keep it.`))return;genres.splice(i,1);saveGenres();};
 
+function woodBook(b){return `<button class="wood-book" onclick="openBook('${b.id}')">${coverHTML(b)}<span>${escapeHtml(b.title)}</span></button>`;}
+function shelfCard(b){return `<button class="shelf-card" onclick="openBook('${b.id}')">${coverHTML(b)}<strong>${escapeHtml(b.title)}</strong><small>${escapeHtml(b.author||"Unknown")}</small></button>`;}
 
-function bookYear(b){
-  const raw = b.dateFinished || b.dateStarted;
-  if(raw){
-    const y = new Date(raw + "T00:00:00").getFullYear();
-    if(!Number.isNaN(y)) return y;
-  }
-  return new Date().getFullYear();
+function renderHome(){
+  const finished=books.filter(b=>b.status==="finished");
+  const reading=books.filter(b=>b.status==="reading");
+  const tbr=books.filter(b=>b.status==="want");
+  $("#homeFinishedCount").textContent=finished.length;
+  $("#homeSummary").textContent=finished.length?`You have finished ${finished.length} ${finished.length===1?"book":"books"} in your library.`:"Start filling your shelves.";
+  $("#homeReading").innerHTML=reading.slice(0,3).map(b=>`<article class="reading-feature">
+    ${coverHTML(b)}
+    <div><p class="eyebrow">Reading</p><h3>${escapeHtml(b.title)}</h3><p class="meta">${escapeHtml(b.author||"Unknown author")}</p>
+    <div class="progress"><span style="width:${pct(b)}%"></span></div><p class="meta">${b.currentPage||0}${b.pages?` / ${b.pages}`:""} pages · ${pct(b)}%</p>
+    <button class="secondary compact" onclick="openBook('${b.id}')">Open</button></div></article>`).join("");
+  $("#homeReadingEmpty").classList.toggle("hidden",reading.length>0);
+  $("#homeFinishedShelf").innerHTML=finished.slice(0,9).map(woodBook).join("");
+  $("#homeTbrShelf").innerHTML=tbr.slice(0,9).map(woodBook).join("");
+  const favs=books.filter(b=>b.favoriteBook);
+  $("#homeFavoritesSection").classList.toggle("hidden",favs.length===0);
+  $("#homeFavorites").innerHTML=favs.map(b=>`<button class="cover-card" onclick="openBook('${b.id}')">${coverHTML(b)}<span>${escapeHtml(b.title)}</span></button>`).join("");
 }
-function renderGenreFilter(){
-  const current = els.filterGenre?.value || "all";
-  if(!els.filterGenre) return;
-  els.filterGenre.innerHTML = `<option value="all">🏷️ All genres</option>` +
-    genres.map(g=>`<option value="${escapeHtml(g)}">${genreEmoji(g)} ${escapeHtml(g)}</option>`).join("");
-  els.filterGenre.value = genres.includes(current) ? current : "all";
+function renderTbr(){
+  const q=$("#tbrSearch").value.trim().toLowerCase(),g=$("#tbrGenre").value;
+  const list=books.filter(b=>b.status==="want").filter(b=>(!q||`${b.title} ${b.author}`.toLowerCase().includes(q))&&(g==="all"||b.genre===g));
+  $("#tbrCount").textContent=`${list.length} ${list.length===1?"book":"books"}`;
+  $("#tbrShelf").innerHTML=list.map(shelfCard).join("");
+  $("#tbrEmpty").classList.toggle("hidden",list.length>0);
 }
-function filteredBooks(){
-  const q = els.search.value.trim().toLowerCase();
-  const f = els.filter.value;
-  const g = els.filterGenre?.value || "all";
-  return books.filter(b => {
-    const matchQ = !q || `${b.title} ${b.author} ${b.genre}`.toLowerCase().includes(q);
-    const matchF = f === "all" || b.status === f;
-    const matchG = g === "all" || b.genre === g;
-    return matchQ && matchF && matchG;
-  });
+function readingCard(b){return `<article class="reading-card">
+  <div class="reading-card-top">${coverHTML(b)}<div><p class="eyebrow">Reading</p><h3>${escapeHtml(b.title)}</h3><p class="meta">${escapeHtml(b.author||"Unknown author")}</p>
+  <div class="progress"><span style="width:${pct(b)}%"></span></div><p class="meta">${b.currentPage||0}${b.pages?` / ${b.pages}`:""} pages · ${pct(b)}%</p>
+  <p class="meta">Started ${b.dateStarted||"not set"} · ${sessionMinutes(b)} min logged</p></div></div>
+  <div class="card-actions"><button class="secondary" onclick="editBook('${b.id}')">✏️ Edit Book</button><button class="primary" onclick="openSession('${b.id}')">⏱️ Add Session</button></div>
+</article>`;}
+function renderReading(){
+  const list=books.filter(b=>b.status==="reading");
+  $("#readingCount").textContent=`${list.length} ${list.length===1?"book":"books"}`;
+  $("#readingGrid").innerHTML=list.map(readingCard).join("");
+  $("#readingEmpty").classList.toggle("hidden",list.length>0);
 }
-function renderYearShelves(visible){
-  if(!els.yearShelves) return;
-  const groups = {};
-  visible.forEach(b => {
-    const y = bookYear(b);
-    (groups[y] ||= []).push(b);
-  });
-  const years = Object.keys(groups).sort((a,b)=>Number(b)-Number(a));
-  els.yearShelves.innerHTML = years.map(year => `
-    <section class="year-block">
-      <h3>${year} Shelf</h3>
-      <div class="shelf-wrap">
-        <div class="decor">🪴 <span>✨</span> 🕯️</div>
-        <div class="book-shelf">
-          ${groups[year].map(b => `
-            <button class="shelf-book" onclick="openDetail('${b.id}')" title="${escapeHtml(b.title)}">
-              ${coverHTML(b)}
-              <span class="label">${escapeHtml(b.title)}</span>
-            </button>`).join("")}
-        </div>
-        <div class="shelf-board"></div>
-      </div>
-    </section>`).join("");
+function renderFinished(){
+  const q=$("#finishedSearch").value.trim().toLowerCase(),g=$("#finishedGenre").value,y=$("#finishedYear").value;
+  const all=books.filter(b=>b.status==="finished");
+  const years=[...new Set(all.map(bookYear))].sort((a,b)=>b-a);
+  const old=$("#finishedYear").value||"all";
+  $("#finishedYear").innerHTML=`<option value="all">All years</option>`+years.map(x=>`<option value="${x}">${x}</option>`).join("");
+  $("#finishedYear").value=years.map(String).includes(old)?old:"all";
+  const yy=$("#finishedYear").value;
+  const list=all.filter(b=>(!q||`${b.title} ${b.author}`.toLowerCase().includes(q))&&(g==="all"||b.genre===g)&&(yy==="all"||String(bookYear(b))===yy));
+  $("#finishedCount").textContent=`${list.length} ${list.length===1?"book":"books"}`;
+  const groups={};list.forEach(b=>(groups[bookYear(b)]??=[]).push(b));
+  $("#finishedYearShelves").innerHTML=Object.keys(groups).sort((a,b)=>b-a).map(year=>`<section class="year-block"><h2>${year} Shelf</h2><div class="full-bookcase">
+    <div class="bookcase-top-decor"><span>🪴</span><span>✨</span><span>🕯️</span></div><div class="large-shelf-grid">${groups[year].map(shelfCard).join("")}</div><div class="wood-board"></div>
+  </div></section>`).join("");
+  $("#finishedEmpty").classList.toggle("hidden",list.length>0);
+}
+function renderAll(){renderGenreOptions();renderHome();renderTbr();renderReading();renderFinished();if(lastRoute==="stats")renderStats();}
+
+function countBy(list,key){return list.reduce((a,b)=>{const v=b[key]||"Unknown";a[v]=(a[v]||0)+1;return a;},{});}
+function topKey(o){return Object.entries(o).sort((a,b)=>b[1]-a[1])[0]?.[0]||"—";}
+function renderStatRows(target,obj){
+  const entries=Object.entries(obj).sort((a,b)=>b[1]-a[1]);const max=Math.max(1,...entries.map(x=>x[1]));
+  $(target).innerHTML=entries.length?entries.map(([n,v])=>`<div class="stat-row"><span>${escapeHtml(n)}</span><div class="stat-track"><span style="width:${v/max*100}%"></span></div><small>${v}</small></div>`).join(""):`<p class="muted">No data yet.</p>`;
 }
 function renderStats(){
-  if(!$("#statsYear")) return;
-  const years = [...new Set(books.map(bookYear))].sort((a,b)=>b-a);
-  const currentYear = new Date().getFullYear();
-  if(!years.includes(currentYear)) years.unshift(currentYear);
-  const old = Number($("#statsYear").value) || currentYear;
-  $("#statsYear").innerHTML = years.map(y=>`<option value="${y}">${y}</option>`).join("");
-  $("#statsYear").value = years.includes(old) ? old : years[0];
-  const year = Number($("#statsYear").value);
-
-  const finished = books.filter(b=>b.status==="finished" && bookYear(b)===year);
-  const pages = finished.reduce((n,b)=>n+(Number(b.pages)||0),0);
-  const rated = finished.filter(b=>Number(b.rating)>0);
-  const avg = rated.length ? (rated.reduce((n,b)=>n+Number(b.rating),0)/rated.length).toFixed(1) : "—";
-
-  const countBy = key => finished.reduce((acc,b)=>{
-    const v = b[key] || "Unknown"; acc[v]=(acc[v]||0)+1; return acc;
-  },{});
-  const top = obj => Object.entries(obj).sort((a,b)=>b[1]-a[1])[0]?.[0] || "—";
-
-  $("#statBooks").textContent = finished.length;
-  $("#statPages").textContent = pages.toLocaleString();
-  $("#statRating").textContent = avg;
-  $("#statGenre").textContent = top(countBy("genre"));
-  $("#statAuthor").textContent = top(countBy("author"));
-  const allSessions = finished.flatMap(b=>Array.isArray(b.sessions)?b.sessions:[]);
-  $("#statMinutes").textContent = allSessions.reduce((n,s)=>n+(Number(s.minutes)||0),0).toLocaleString();
-
-  const withDays = finished.map(b=>({b,days:dateDiffDays(b.dateStarted,b.dateFinished)})).filter(x=>x.days!==null);
-  const fastest = withDays.sort((a,b)=>a.days-b.days)[0];
-  $("#statFastest").textContent = fastest ? `${fastest.days}d` : "—";
-
-  const longest = [...finished].sort((a,b)=>(Number(b.pages)||0)-(Number(a.pages)||0))[0];
-  $("#statLongest").textContent = longest && longest.pages ? `${longest.pages}p` : "—";
-
-  const monthCounts = Array(12).fill(0);
-  finished.forEach(b=>{
-    if(b.dateFinished){
-      const d = new Date(b.dateFinished+"T00:00:00");
-      if(!Number.isNaN(d)) monthCounts[d.getMonth()]++;
-    }
-  });
-  const maxMonth = Math.max(1,...monthCounts);
-  const monthNames = ["J","F","M","A","M","J","J","A","S","O","N","D"];
-  $("#monthlyBars").innerHTML = monthCounts.map((n,i)=>`
-    <div class="bar-col">
-      <div class="bar-fill" style="height:${Math.max(2,(n/maxMonth)*100)}%"><span>${n||""}</span></div>
-      <div class="bar-label">${monthNames[i]}</div>
-    </div>`).join("");
-
-  function rows(target, obj){
-    const entries = Object.entries(obj).sort((a,b)=>b[1]-a[1]);
-    const max = Math.max(1,...entries.map(x=>x[1]));
-    $(target).innerHTML = entries.length ? entries.map(([name,n])=>`
-      <div class="stat-row">
-        <span>${escapeHtml(String(name))}</span>
-        <div class="stat-track"><span style="width:${(n/max)*100}%"></span></div>
-        <small>${n}</small>
-      </div>`).join("") : `<p class="muted">No data yet.</p>`;
-  }
-  rows("#genreStats", countBy("genre"));
-  rows("#formatStats", countBy("format"));
-
-  const ratingCounts = {};
-  rated.forEach(b=>{ const r=String(b.rating); ratingCounts[r]=(ratingCounts[r]||0)+1; });
-  rows("#ratingStats", ratingCounts);
-}
-function setView(name){
-  ["home","stats","sync"].forEach(v=>{
-    const panel = $("#"+v+"View");
-    panel.classList.toggle("hidden", v!==name);
-    document.querySelector(`[data-view="${v}"]`)?.classList.toggle("active", v===name);
-  });
-  if(name==="stats") renderStats();
-  if(name==="sync") renderSyncStatus();
-}
-function isSyncConfigured(){
-  return !!(syncSettings.url && syncSettings.key);
-}
-function isSignedIn(){
-  return !!(syncSession && syncSession.access_token && syncSession.user && syncSession.user.id);
-}
-function authHeaders(useAccessToken=false){
-  const h = {
-    "apikey": syncSettings.key,
-    "Content-Type": "application/json"
-  };
-  if(useAccessToken && isSignedIn()) h["Authorization"] = `Bearer ${syncSession.access_token}`;
-  return h;
-}
-function setLastSync(message){
-  const el=$("#lastSyncText");
-  if(el) el.textContent=message;
-}
-function renderSyncStatus(){
-  const box=$("#syncStatus"); if(!box) return;
-  $("#supabaseUrl").value=syncSettings.url||"";
-  $("#supabaseKey").value=syncSettings.key||"";
-
-  const configured=isSyncConfigured();
-  const signedIn=isSignedIn();
-
-  if(signedIn){
-    box.innerHTML=`<span class="sync-dot connected"></span><div><strong>Cloud sync active</strong><p>Signed in securely with Supabase Authentication.</p></div>`;
-  }else if(configured){
-    box.innerHTML=`<span class="sync-dot"></span><div><strong>Connection saved</strong><p>Sign in below to start cross-device synchronization.</p></div>`;
-  }else{
-    box.innerHTML=`<span class="sync-dot local"></span><div><strong>Local mode</strong><p>Your books are saved on this device.</p></div>`;
-  }
-
-  $("#signedOutPanel")?.classList.toggle("hidden", signedIn);
-  $("#signedInPanel")?.classList.toggle("hidden", !signedIn);
-  if(signedIn){
-    $("#signedInEmail").textContent=syncSession.user.email || "Reading Room account";
-  }
-}
-async function refreshSessionIfNeeded(){
-  if(!syncSession?.refresh_token || !isSyncConfigured()) return false;
-  const expiresAt = Number(syncSession.expires_at || 0) * 1000;
-  if(expiresAt && Date.now() < expiresAt - 60000) return true;
-
-  try{
-    const url=`${syncSettings.url.replace(/\/$/,"")}/auth/v1/token?grant_type=refresh_token`;
-    const res=await fetch(url,{
-      method:"POST",
-      headers:authHeaders(false),
-      body:JSON.stringify({refresh_token:syncSession.refresh_token})
-    });
-    if(!res.ok) throw new Error("Session refresh failed");
-    const data=await res.json();
-    syncSession=data;
-    localStorage.setItem(SESSION_KEY,JSON.stringify(syncSession));
-    renderSyncStatus();
-    return true;
-  }catch(err){
-    console.warn("Reading Room auth refresh:",err);
-    syncSession=null;
-    localStorage.removeItem(SESSION_KEY);
-    renderSyncStatus();
-    return false;
-  }
-}
-async function signInToSupabase(email,password){
-  if(!isSyncConfigured()) throw new Error("Save your Supabase Project URL and Publishable key first.");
-  const url=`${syncSettings.url.replace(/\/$/,"")}/auth/v1/token?grant_type=password`;
-  const res=await fetch(url,{
-    method:"POST",
-    headers:authHeaders(false),
-    body:JSON.stringify({email,password})
-  });
-  const data=await res.json().catch(()=>({}));
-  if(!res.ok) throw new Error(data.error_description || data.msg || data.error || "Sign in failed.");
-  syncSession=data;
-  localStorage.setItem(SESSION_KEY,JSON.stringify(syncSession));
-  renderSyncStatus();
-  return data;
-}
-async function signOutFromSupabase(){
-  if(isSignedIn()){
-    try{
-      await fetch(`${syncSettings.url.replace(/\/$/,"")}/auth/v1/logout`,{
-        method:"POST",
-        headers:authHeaders(true)
-      });
-    }catch{}
-  }
-  syncSession=null;
-  localStorage.removeItem(SESSION_KEY);
-  renderSyncStatus();
-}
-async function cloudSync(force=false){
-  if(!isSyncConfigured() || !isSignedIn()) return false;
-  if(!(await refreshSessionIfNeeded())) return false;
-
-  try{
-    const uid=syncSession.user.id;
-    const base=`${syncSettings.url.replace(/\/$/,"")}/rest/v1/reading_room_sync`;
-    const endpoint=`${base}?user_id=eq.${encodeURIComponent(uid)}&select=user_id,payload,updated_at_ms`;
-    const headers=authHeaders(true);
-
-    setLastSync("Checking cloud…");
-    const getRes=await fetch(endpoint,{headers});
-    if(!getRes.ok){
-      const detail=await getRes.text();
-      throw new Error(`Cloud read failed (${getRes.status}): ${detail.slice(0,120)}`);
-    }
-    const rows=await getRes.json();
-    const localStamp=Number(localStorage.getItem("readingRoomLastChangedV2")||0);
-    const lastSyncedStamp=Number(localStorage.getItem("readingRoomLastSyncedV2")||0);
-
-    if(rows.length && rows[0].payload){
-      const remote=rows[0].payload;
-      const remoteStamp=Number(rows[0].updated_at_ms||0);
-
-      if(!force && remoteStamp > localStamp){
-        books=Array.isArray(remote.books)?remote.books:books;
-        genres=Array.isArray(remote.genres)?remote.genres:genres;
-        localStorage.setItem(KEY,JSON.stringify(books));
-        localStorage.setItem(GENRE_KEY,JSON.stringify(genres));
-        localStorage.setItem("readingRoomLastChangedV2",String(remoteStamp));
-        localStorage.setItem("readingRoomLastSyncedV2",String(remoteStamp));
-        renderGenreOptions("");
-        renderGenreFilter();
-        render();
-        setLastSync(`Downloaded latest library · ${new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}`);
-        return true;
-      }
-    }
-
-    if(rows.length && !force && localStamp <= lastSyncedStamp){
-      setLastSync(`Up to date · ${new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}`);
-      return true;
-    }
-
-    const now=Date.now();
-    const payload={user_id:uid,payload:{books,genres},updated_at_ms:now};
-    const upsert=`${base}?on_conflict=user_id`;
-    const putRes=await fetch(upsert,{
-      method:"POST",
-      headers:{...headers,"Prefer":"resolution=merge-duplicates,return=minimal"},
-      body:JSON.stringify(payload)
-    });
-    if(!putRes.ok){
-      const detail=await putRes.text();
-      throw new Error(`Cloud write failed (${putRes.status}): ${detail.slice(0,120)}`);
-    }
-    localStorage.setItem("readingRoomLastChangedV2",String(now));
-    localStorage.setItem("readingRoomLastSyncedV2",String(now));
-    setLastSync(`Synced automatically · ${new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}`);
-    return true;
-  }catch(err){
-    console.warn("Reading Room sync:",err);
-    setLastSync("Sync failed — check connection settings or Supabase policies.");
-    return false;
-  }
+  const years=[...new Set(books.filter(b=>b.status==="finished").map(bookYear))].sort((a,b)=>b-a);const current=new Date().getFullYear();if(!years.includes(current))years.unshift(current);
+  const old=Number($("#statsYear").value)||current;$("#statsYear").innerHTML=years.map(y=>`<option value="${y}">${y}</option>`).join("");$("#statsYear").value=years.includes(old)?old:years[0];
+  const year=Number($("#statsYear").value),list=books.filter(b=>b.status==="finished"&&bookYear(b)===year),rated=list.filter(b=>Number(b.rating)>0);
+  $("#statBooks").textContent=list.length;$("#statPages").textContent=list.reduce((n,b)=>n+(Number(b.pages)||0),0).toLocaleString();
+  $("#statRating").textContent=rated.length?(rated.reduce((n,b)=>n+Number(b.rating),0)/rated.length).toFixed(1):"—";
+  $("#statGenre").textContent=topKey(countBy(list,"genre"));$("#statAuthor").textContent=topKey(countBy(list,"author"));
+  $("#statMinutes").textContent=list.reduce((n,b)=>n+sessionMinutes(b),0).toLocaleString();
+  const withDays=list.map(b=>({b,d:dateDiffDays(b.dateStarted,b.dateFinished)})).filter(x=>x.d!==null).sort((a,b)=>a.d-b.d);
+  $("#statFastest").textContent=withDays.length?`${withDays[0].d}d`:"—";
+  const longest=[...list].sort((a,b)=>(Number(b.pages)||0)-(Number(a.pages)||0))[0];$("#statLongest").textContent=longest?.pages?`${longest.pages}p`:"—";
+  const months=Array(12).fill(0);list.forEach(b=>{if(b.dateFinished){const d=new Date(b.dateFinished+"T00:00:00");if(!Number.isNaN(d))months[d.getMonth()]++;}});
+  const max=Math.max(1,...months),names=["J","F","M","A","M","J","J","A","S","O","N","D"];
+  $("#monthlyBars").innerHTML=months.map((n,i)=>`<div class="bar-col"><div class="bar-fill" style="height:${Math.max(2,n/max*100)}%"><b>${n||""}</b></div><small>${names[i]}</small></div>`).join("");
+  renderStatRows("#genreStats",countBy(list,"genre"));renderStatRows("#formatStats",countBy(list,"format"));
+  const rc={};rated.forEach(b=>rc[String(b.rating)]=(rc[String(b.rating)]||0)+1);renderStatRows("#ratingStats",rc);
 }
 
-
-function renderHallOfFame(){
-  const section=$("#hallOfFameSection");
-  const wrap=$("#hallOfFame");
-  if(!section || !wrap) return;
-  const favs=books.filter(b=>b.favoriteBook);
-  section.classList.toggle("hidden",favs.length===0);
-  wrap.innerHTML=favs.map(b=>`
-    <button class="hall-book" onclick="openDetail('${b.id}')">
-      ${coverHTML(b)}
-      <span>${escapeHtml(b.title)}</span>
-    </button>`).join("");
-}
-function renderSessionList(){
-  const wrap=$("#sessionList");
-  if(!wrap) return;
-  wrap.innerHTML=workingSessions.length ? workingSessions.map((s,i)=>`
-    <div class="session-row">
-      <div>
-        <strong>${s.startPage||0} → ${s.endPage||0} pages ${s.mood||""}</strong>
-        <small>${Math.max(0,(s.endPage||0)-(s.startPage||0))} pages · ${s.minutes||0} min · ${s.date||""}</small>
-      </div>
-      <button type="button" class="session-delete" onclick="removeSession(${i})">✕</button>
-    </div>`).join("") : `<p class="muted">No reading sessions yet.</p>`;
-}
-window.removeSession=index=>{
-  workingSessions.splice(index,1);
-  renderSessionList();
-};
-function dateDiffDays(start,end){
-  if(!start || !end) return null;
-  const a=new Date(start+"T00:00:00"), b=new Date(end+"T00:00:00");
-  const d=Math.round((b-a)/86400000);
-  return Number.isFinite(d) && d>=0 ? d : null;
-}
-function showFinishCelebration(book){
-  justFinishedBookId=book.id;
-  $("#finishTitle").textContent=`You finished ${book.title}!`;
-  $("#finishSubtitle").textContent=book.rating ? `${stars(Number(book.rating))} · Welcome to the finished shelf.` : "Another story has joined your library.";
-  $("#finishCoverWrap").innerHTML=coverHTML(book);
-  $("#finishFavoriteBtn").textContent=book.favoriteBook ? "❤️ In Hall of Fame" : "❤️ Add to Hall of Fame";
-  $("#finishDialog").showModal();
-}
-
-function escapeHtml(v=""){
-  return v.replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));
-}
-function statusLabel(v){ return ({want:"Want to Read",reading:"Reading",finished:"Finished",dnf:"DNF"})[v] || v; }
-function pct(b){
-  if(!b.pages || !b.currentPage) return 0;
-  return Math.min(100, Math.round((b.currentPage/b.pages)*100));
-}
-function stars(r){
-  if(!r) return "Not rated";
-  return `${"★".repeat(Math.floor(r))}${r%1 ? "½" : ""}  ${r}/5`;
-}
-function coverHTML(b, cls="cover"){
-  if(b.cover) return `<img class="${cls}" src="${b.cover}" alt="${escapeHtml(b.title)} cover">`;
-  return `<div class="${cls} placeholder">${escapeHtml(b.title || "Book")}</div>`;
-}
-
-function todayISO(){ return new Date().toISOString().slice(0,10); }
-
-function readingDuration(book){
-  const days=dateDiffDays(book.dateStarted,book.dateFinished);
-  const minutes=(Array.isArray(book.sessions)?book.sessions:[]).reduce((n,s)=>n+(Number(s.minutes)||0),0);
-  return {days,minutes};
-}
-
-function statusBookCard(b, extra=""){
-  return `<button class="status-book" onclick="openStatusBook('${b.id}')">
-    ${coverHTML(b)}
-    <span class="status-book-title">${escapeHtml(b.title)}</span>
-    <span class="status-book-author">${escapeHtml(b.author||"Unknown author")}</span>
-    ${extra}
-  </button>`;
-}
-
-function renderStatusShelves(){
-  const q=$("#searchInput")?.value.trim().toLowerCase()||"";
-  const genre=$("#filterGenre")?.value||"all";
-  const visible=books.filter(b=>{
-    const matchQ=!q || `${b.title} ${b.author} ${b.genre}`.toLowerCase().includes(q);
-    const matchG=genre==="all" || b.genre===genre;
-    return matchQ && matchG;
-  });
-
-  const tbr=visible.filter(b=>b.status==="want");
-  const reading=visible.filter(b=>b.status==="reading");
-  const finished=visible.filter(b=>b.status==="finished");
-
-  $("#tbrShelf").innerHTML=tbr.map(b=>statusBookCard(b,`<span class="status-chip">${genreEmoji(b.genre)} ${escapeHtml(b.genre||"TBR")}</span>`)).join("");
-  $("#readingShelf").innerHTML=reading.map(b=>statusBookCard(b,`<span class="status-chip">📖 ${pct(b)}%</span>`)).join("");
-  $("#finishedShelf").innerHTML=finished.map(b=>statusBookCard(b,`<span class="status-chip">${stars(Number(b.rating||0))}</span>`)).join("");
-
-  $("#tbrEmpty").classList.toggle("hidden",tbr.length>0);
-  $("#readingEmpty").classList.toggle("hidden",reading.length>0);
-  $("#finishedEmpty").classList.toggle("hidden",finished.length>0);
-}
-
-function updateStatusFields({autoDate=true}={}){
-  const status=$("#status").value;
-  const reading=status==="reading";
-  const finished=status==="finished";
-  $("#readingFields").classList.toggle("hidden",!reading);
-  $("#finishedFields").classList.toggle("hidden",!finished);
-
-  if(reading && autoDate && !$("#dateStarted").value){
-    $("#dateStarted").value=todayISO();
-  }
-  if(finished){
-    if(!$("#finishDateStarted").value){
-      $("#finishDateStarted").value=$("#dateStarted").value || todayISO();
-    }
-    if(autoDate && !$("#dateFinished").value){
-      $("#dateFinished").value=todayISO();
-    }
-  }
-}
-
-function render(){
-  const finished=books.filter(b=>b.status==="finished");
-  $("#completedCount").textContent=finished.length;
-  $("#yearSummary").textContent=finished.length
-    ? `You have finished ${finished.length} ${finished.length===1?"book":"books"} in your library.`
-    : "Start adding books to build your shelf.";
-  renderGenreFilter();
-  renderStatusShelves();
-}
+function setDialogOpen(open){document.body.classList.toggle("dialog-open",open);}
+$$("dialog").forEach(d=>d.addEventListener("close",()=>setDialogOpen($$("dialog").some(x=>x.open))));
 
 function buildRatingPicker(){
-  const picker = $("#ratingPicker");
-  picker.innerHTML = "";
-  for(let r=.5; r<=5; r+=.5){
-    const btn = document.createElement("button");
-    btn.type = "button"; btn.className = "rating-chip";
-    btn.textContent = r;
-    btn.addEventListener("click", () => {
-      selectedRating = r; $("#rating").value = r;
-      [...picker.children].forEach(x => x.classList.toggle("active", Number(x.textContent) === r));
-    });
-    picker.appendChild(btn);
-  }
+  const p=$("#ratingPicker");p.innerHTML="";
+  for(let r=.5;r<=5;r+=.5){const b=document.createElement("button");b.type="button";b.className="rating-chip";b.textContent=r;b.onclick=()=>{selectedRating=r;$("#rating").value=r;$$(".rating-chip").forEach(x=>x.classList.toggle("active",Number(x.textContent)===r));};p.appendChild(b);}
 }
 buildRatingPicker();
 
-function resetForm(){
-  els.form.reset();
-  $("#bookId").value="";
-  selectedRating=0;
-  workingCover="";
-  workingSessions=[];
-  $("#favoriteBook").checked=false;
-  renderSessionList();
-  renderGenreOptions("");
-
-  const coverInput=$("#coverInput");
-  const coverPreview=$("#coverPreview");
-  const coverPreviewWrap=$("#coverPreviewWrap");
-
-  if(coverInput) coverInput.value="";
-  if(coverPreview){
-    coverPreview.removeAttribute("src");
-    coverPreview.src="";
+function clearCover(){
+  workingCover="";$("#coverInput").value="";$("#coverFileName").textContent="No file selected";$("#coverPreview").removeAttribute("src");$("#coverPreviewWrap").classList.add("hidden");
+}
+function resetBookForm(){
+  $("#bookForm").reset();$("#bookId").value="";selectedRating=0;clearCover();$("#deleteBookBtn").classList.add("hidden");$("#dialogTitle").textContent="Add a Book";$("#status").value="want";
+  $$(".rating-chip").forEach(x=>x.classList.remove("active"));renderGenreOptions("");updateStatusFields({auto:false});
+}
+function updateStatusFields({auto=true}={}){
+  const s=$("#status").value;$("#readingFields").classList.toggle("hidden",s!=="reading");$("#finishedFields").classList.toggle("hidden",s!=="finished");
+  if(s==="reading"&&auto&&!$("#dateStarted").value)$("#dateStarted").value=todayISO();
+  if(s==="finished"){
+    if(!$("#finishDateStarted").value)$("#finishDateStarted").value=$("#dateStarted").value||todayISO();
+    if(auto&&!$("#dateFinished").value)$("#dateFinished").value=todayISO();
   }
-  if(coverPreviewWrap){
-    coverPreviewWrap.classList.add("hidden");
-    coverPreviewWrap.style.display="";
-  }
-  $("#coverFileName").textContent="No file selected";
-  [...$("#ratingPicker").children].forEach(x=>x.classList.remove("active"));
-  els.deleteBtn.classList.add("hidden");
-  $("#dialogTitle").textContent="Add a Book";
-  $("#status").value="want";
-  updateStatusFields({autoDate:false});
 }
 function openAdd(){
-  resetForm();
-  requestAnimationFrame(()=>{
-    $("#coverPreviewWrap")?.classList.add("hidden");
-    if($("#coverPreview")) $("#coverPreview").src="";
-  });
-  els.dialog.showModal();
-  updateFabVisibility();
+  resetBookForm();$("#bookDialog").showModal();setDialogOpen(true);
 }
-
-function fillForm(b){
-  resetForm(); $("#dialogTitle").textContent="Edit Book"; els.deleteBtn.classList.remove("hidden");
-  renderGenreOptions(b.genre || "");
-  const fields = ["title","author","status","format","pages","currentPage","dateStarted","dateFinished","review","spoilers","favoriteCharacter","favoriteScene","favoriteQuote","prediction","predictionResult"];
-  fields.forEach(k => { const e=$("#"+k); if(e) e.value=b[k] ?? ""; });
-  $("#bookId").value=b.id; selectedRating=Number(b.rating||0); $("#rating").value=selectedRating;
-  $("#finishDateStarted").value=b.dateStarted||"";
-  updateStatusFields({autoDate:false});
-  [...$("#ratingPicker").children].forEach(x=>x.classList.toggle("active", Number(x.textContent)===selectedRating));
-  workingCover=b.cover||"";
-  workingSessions=Array.isArray(b.sessions)?JSON.parse(JSON.stringify(b.sessions)):[];
-  $("#favoriteBook").checked=!!b.favoriteBook;
-  renderSessionList();
-  if(workingCover){ $("#coverPreview").src=workingCover; $("#coverPreviewWrap").classList.remove("hidden"); }
-  els.dialog.showModal();
-}
-window.editBook = id => { const b=books.find(x=>x.id===id); if(b){ els.detailDialog.close(); fillForm(b); } };
+$("#headerAddBook").onclick=openAdd;$("#floatingAddBook").onclick=openAdd;
+$("#closeBookDialog").onclick=()=>$("#bookDialog").close();$("#cancelBookBtn").onclick=()=>$("#bookDialog").close();
 
 $("#status").addEventListener("change",()=>{
-  const id=$("#bookId").value;
-  const old=id ? books.find(b=>b.id===id) : null;
-  const newStatus=$("#status").value;
-  if(newStatus==="reading" && old?.status==="want" && !$("#dateStarted").value){
-    $("#dateStarted").value=todayISO();
-  }
-  if(newStatus==="finished"){
-    if(!$("#finishDateStarted").value) $("#finishDateStarted").value=$("#dateStarted").value||todayISO();
-    if(!$("#dateFinished").value) $("#dateFinished").value=todayISO();
-  }
+  const id=$("#bookId").value,old=id?books.find(b=>b.id===id):null,s=$("#status").value;
+  if(s==="reading"&&old?.status==="want"&&!$("#dateStarted").value)$("#dateStarted").value=todayISO();
+  if(s==="finished"){if(!$("#finishDateStarted").value)$("#finishDateStarted").value=$("#dateStarted").value||todayISO();if(!$("#dateFinished").value)$("#dateFinished").value=todayISO();}
   updateStatusFields();
 });
+$("#chooseCoverBtn").onclick=()=>$("#coverInput").click();
+$("#coverInput").onchange=e=>{const f=e.target.files[0];if(!f)return;$("#coverFileName").textContent=f.name;const r=new FileReader();r.onload=ev=>{workingCover=ev.target.result;$("#coverPreview").src=workingCover;$("#coverPreviewWrap").classList.remove("hidden");};r.readAsDataURL(f);};
+$("#removeCover").onclick=clearCover;
 
-$("#chooseCoverBtn").addEventListener("click",()=>$("#coverInput").click());
-$("#coverInput").addEventListener("change", e => {
-  const file=e.target.files[0]; if(!file) return;
-  $("#coverFileName").textContent=file.name;
-  const reader=new FileReader();
-  reader.onload=ev=>{ workingCover=ev.target.result; $("#coverPreview").src=workingCover; $("#coverPreviewWrap").classList.remove("hidden"); };
-  reader.readAsDataURL(file);
-});
-$("#removeCover").addEventListener("click",()=>{
-  workingCover=""; $("#coverInput").value=""; $("#coverFileName").textContent="No file selected";
-  $("#coverPreviewWrap").classList.add("hidden");
-});
+window.editBook=id=>{
+  const b=books.find(x=>x.id===id);if(!b)return;
+  resetBookForm();$("#dialogTitle").textContent="Edit Book";$("#deleteBookBtn").classList.remove("hidden");$("#bookId").value=b.id;
+  ["title","author","status","format","pages","currentPage","dateStarted","dateFinished","prediction","review","spoilers","predictionResult"].forEach(k=>{const el=$("#"+k);if(el)el.value=b[k]??"";});
+  $("#finishDateStarted").value=b.dateStarted||"";renderGenreOptions(b.genre||"");selectedRating=Number(b.rating)||0;$("#rating").value=selectedRating;
+  $$(".rating-chip").forEach(x=>x.classList.toggle("active",Number(x.textContent)===selectedRating));$("#favoriteBook").checked=!!b.favoriteBook;
+  workingCover=b.cover||"";if(workingCover){$("#coverPreview").src=workingCover;$("#coverPreviewWrap").classList.remove("hidden");$("#coverFileName").textContent="Saved cover";}
+  updateStatusFields({auto:false});$("#detailDialog").close();$("#bookDialog").showModal();setDialogOpen(true);
+};
 
-els.form.addEventListener("submit", e => {
+$("#bookForm").addEventListener("submit",e=>{
   e.preventDefault();
-  const id=$("#bookId").value || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()));
+  const id=$("#bookId").value||(crypto.randomUUID?crypto.randomUUID():String(Date.now()));const i=books.findIndex(x=>x.id===id);const prev=i>=0?books[i]:null;
+  const status=$("#status").value;
   const b={
-    id, title:$("#title").value.trim(), author:$("#author").value.trim(),
-    status:$("#status").value, genre:$("#genre").value.trim(), format:$("#format").value,
-    pages:Number($("#pages").value)||0, currentPage:Number($("#currentPage").value)||0,
-    dateStarted:($("#status").value==="finished" ? $("#finishDateStarted").value : $("#dateStarted").value), dateFinished:$("#dateFinished").value,
-    rating:selectedRating, cover:workingCover, favoriteBook:$("#favoriteBook").checked,
-    sessions:workingSessions, review:$("#review").value.trim(),
-    spoilers:$("#spoilers").value.trim(), favoriteCharacter:$("#favoriteCharacter").value.trim(),
-    favoriteScene:$("#favoriteScene").value.trim(), favoriteQuote:$("#favoriteQuote").value.trim(),
-    prediction:$("#prediction").value.trim(), predictionResult:$("#predictionResult").value
+    ...(prev||{}),id,title:$("#title").value.trim(),author:$("#author").value.trim(),status,genre:$("#genre").value,format:$("#format").value,cover:workingCover,
+    pages:Number($("#pages").value)||Number(prev?.pages)||0,currentPage:Number($("#currentPage").value)||0,
+    dateStarted:status==="finished"?$("#finishDateStarted").value:$("#dateStarted").value,dateFinished:$("#dateFinished").value,
+    prediction:$("#prediction").value.trim(),rating:selectedRating,review:$("#review").value.trim(),spoilers:$("#spoilers").value.trim(),
+    predictionResult:$("#predictionResult").value,favoriteBook:$("#favoriteBook").checked,sessions:Array.isArray(prev?.sessions)?prev.sessions:[]
   };
-  const i=books.findIndex(x=>x.id===id);
-  const previous = i>=0 ? books[i] : null;
-  const becameFinished = b.status==="finished" && (!previous || previous.status!=="finished");
-  if(i>=0) books[i]=b; else books.unshift(b);
-  save(); els.dialog.close();
-  if(becameFinished) setTimeout(()=>showFinishCelebration(b),120);
+  const becameFinished=status==="finished"&&prev?.status!=="finished";
+  if(i>=0)books[i]=b;else books.unshift(b);saveBooks();$("#bookDialog").close();
+  if(becameFinished)setTimeout(()=>showFinish(b),120);
 });
-
-$("#addSessionBtn")?.addEventListener("click",()=>{
-  const startPage=Number($("#sessionStartPage").value)||0;
-  const endPage=Number($("#sessionEndPage").value)||0;
-  const minutes=Number($("#sessionMinutes").value)||0;
-  const mood=$("#sessionMood").value;
-  if(endPage < startPage){ alert("End page should be greater than or equal to start page."); return; }
-  if(!endPage && !minutes){ alert("Add an end page or reading minutes."); return; }
-  workingSessions.push({
-    startPage,endPage,minutes,mood,
-    date:new Date().toISOString().slice(0,10)
-  });
-  $("#sessionStartPage").value="";
-  $("#sessionEndPage").value="";
-  $("#sessionMinutes").value="";
-  $("#sessionMood").value="";
-  renderSessionList();
-});
-
-$("#finishCloseBtn").addEventListener("click",()=>$("#finishDialog").close());
-$("#finishFavoriteBtn").addEventListener("click",()=>{
-  const b=books.find(x=>x.id===justFinishedBookId);
-  if(!b) return;
-  b.favoriteBook=true;
-  save();
-  $("#finishFavoriteBtn").textContent="❤️ In Hall of Fame";
-});
-
-
-window.openSessionDialog = id => {
-  const b=books.find(x=>x.id===id); if(!b) return;
-  $("#sessionBookId").value=id;
-  $("#sessionModalStart").value=b.currentPage||0;
-  $("#sessionModalEnd").value="";
-  $("#sessionModalMinutes").value="";
-  $("#sessionModalMood").value="";
-  els.detailDialog.close();
-  $("#sessionDialog").showModal();
-  updateFabVisibility();
+$("#deleteBookBtn").onclick=()=>{
+  const id=$("#bookId").value;if(id&&confirm("Delete this book from your journal?")){books=books.filter(b=>b.id!==id);saveBooks();$("#bookDialog").close();}
 };
-$("#closeSessionDialog").addEventListener("click",()=>$("#sessionDialog").close());
-$("#cancelSessionBtn").addEventListener("click",()=>$("#sessionDialog").close());
+
+window.openBook=id=>{
+  const b=books.find(x=>x.id===id);if(!b)return;
+  const mins=sessionMinutes(b),days=dateDiffDays(b.dateStarted,b.dateFinished),sessions=Array.isArray(b.sessions)?b.sessions:[];
+  let extra="",actions="";
+  if(b.status==="want"){
+    extra=`<div class="reading-time-card"><strong>📚 TBR</strong><p class="meta">Move this book to Reading when you start it.</p></div>`;
+    actions=`<button class="primary" onclick="editBook('${b.id}')">📖 Start / Edit</button>`;
+  }else if(b.status==="reading"){
+    extra=`<div class="reading-time-card"><strong>Reading progress</strong><p class="meta">${b.currentPage||0}${b.pages?` / ${b.pages}`:""} pages · ${pct(b)}%</p><p class="meta">Started ${b.dateStarted||"—"} · ${mins} min logged</p></div>
+      ${b.prediction?`<div class="detail-section"><h3>🔎 My Prediction</h3><p>${escapeHtml(b.prediction)}</p></div>`:""}
+      ${sessions.length?`<div class="detail-section"><h3>Reading Sessions</h3><div class="session-list">${sessions.map(s=>`<div class="session-item">${s.mood||"📖"} ${s.startPage||0} → ${s.endPage||0} · ${s.minutes||0} min · ${s.date||""}</div>`).join("")}</div></div>`:""}`;
+    actions=`<button class="secondary" onclick="editBook('${b.id}')">✏️ Edit Book</button><button class="primary" onclick="openSession('${b.id}')">⏱️ Add Session</button>`;
+  }else{
+    extra=`<div class="reading-time-card"><strong>Reading time</strong><p class="meta">${days===null?"—":days+" "+(days===1?"day":"days")} · ${mins} min logged</p><p class="meta">${b.dateStarted||"—"} → ${b.dateFinished||"—"}</p></div>
+      ${b.review?`<div class="detail-section"><h3>My Thoughts</h3><p>${escapeHtml(b.review).replace(/\n/g,"<br>")}</p></div>`:""}
+      ${b.spoilers?`<div class="detail-section"><h3>Story Memory</h3><button class="secondary compact" onclick="this.nextElementSibling.classList.toggle('hidden')">🔒 Reveal / Hide</button><p class="hidden">${escapeHtml(b.spoilers).replace(/\n/g,"<br>")}</p></div>`:""}`;
+    actions=`<button class="secondary" onclick="editBook('${b.id}')">✏️ Edit Journal</button>`;
+  }
+  $("#detailContent").innerHTML=`<div class="detail-top">${coverHTML(b)}<div><p class="eyebrow">${statusLabel(b.status)}</p><h2>${escapeHtml(b.title)}</h2><p class="muted">${escapeHtml(b.author||"Unknown author")}</p>
+    <div class="pills"><span class="pill">${genreEmoji(b.genre)} ${escapeHtml(b.genre||"No genre")}</span><span class="pill">${formatEmoji(b.format)} ${escapeHtml(b.format||"No format")}</span>${b.status==="finished"?`<span class="pill">${stars(b.rating)}</span>`:""}</div>
+    ${b.status==="finished"&&b.pages?`<p class="meta">${b.pages} pages</p>`:""}</div></div>${extra}<div class="detail-actions">${actions}<button class="secondary" onclick="document.getElementById('detailDialog').close()">Close</button></div>`;
+  $("#detailDialog").showModal();setDialogOpen(true);
+};
+
+window.openSession=id=>{
+  const b=books.find(x=>x.id===id);if(!b)return;$("#sessionBookId").value=id;$("#sessionStart").value=b.currentPage||0;$("#sessionEnd").value="";$("#sessionMinutes").value="";$("#sessionMood").value="";
+  $("#detailDialog").close();$("#sessionDialog").showModal();setDialogOpen(true);
+};
+$("#closeSessionDialog").onclick=()=>$("#sessionDialog").close();$("#cancelSessionBtn").onclick=()=>$("#sessionDialog").close();
 $("#sessionForm").addEventListener("submit",e=>{
-  e.preventDefault();
-  const id=$("#sessionBookId").value;
-  const b=books.find(x=>x.id===id); if(!b) return;
-  const startPage=Number($("#sessionModalStart").value)||0;
-  const endPage=Number($("#sessionModalEnd").value)||0;
-  const minutes=Number($("#sessionModalMinutes").value)||0;
-  const mood=$("#sessionModalMood").value;
-  if(endPage<startPage){ alert("End page should be greater than or equal to start page."); return; }
-  if(!endPage && !minutes){ alert("Add an end page or reading minutes."); return; }
-  b.sessions=Array.isArray(b.sessions)?b.sessions:[];
-  b.sessions.push({startPage,endPage,minutes,mood,date:todayISO()});
-  if(endPage) b.currentPage=endPage;
-  save();
-  $("#sessionDialog").close();
-  setTimeout(()=>openStatusBook(id),80);
+  e.preventDefault();const id=$("#sessionBookId").value,b=books.find(x=>x.id===id);if(!b)return;
+  const startPage=Number($("#sessionStart").value)||0,endPage=Number($("#sessionEnd").value)||0,minutes=Number($("#sessionMinutes").value)||0,mood=$("#sessionMood").value;
+  if(endPage<startPage)return alert("End page should be greater than or equal to start page.");if(!endPage&&!minutes)return alert("Add an end page or reading minutes.");
+  b.sessions=Array.isArray(b.sessions)?b.sessions:[];b.sessions.push({startPage,endPage,minutes,mood,date:todayISO()});if(endPage)b.currentPage=endPage;saveBooks();$("#sessionDialog").close();setTimeout(()=>openBook(id),80);
 });
 
-els.deleteBtn.addEventListener("click", ()=>{
-  const id=$("#bookId").value;
-  if(id && confirm("Delete this book from your journal?")){ books=books.filter(b=>b.id!==id); save(); els.dialog.close(); }
-});
+$("#manageGenresBtn").onclick=()=>{renderGenreManager();$("#genreDialog").showModal();setDialogOpen(true);};
+$("#closeGenreDialog").onclick=()=>$("#genreDialog").close();
+$("#addGenreBtn").onclick=()=>{const i=$("#newGenreInput"),v=i.value.trim().replace(/\s+/g," ");if(!v)return;if(genres.some(g=>g.toLowerCase()===v.toLowerCase()))return alert("That genre already exists.");genres.push(v);i.value="";saveGenres();renderGenreManager();};
 
-window.openStatusBook = id => {
-  const b=books.find(x=>x.id===id); if(!b) return;
-  const dur=readingDuration(b);
-  const sessions=Array.isArray(b.sessions)?b.sessions:[];
-  const sessionMinutes=sessions.reduce((n,s)=>n+(Number(s.minutes)||0),0);
-
-  let actions="";
-  let extra="";
-
-  if(b.status==="reading"){
-    actions=`<div class="reading-actions">
-      <button class="secondary" onclick="editBook('${b.id}')">✏️ Edit Book</button>
-      <button class="primary" onclick="openSessionDialog('${b.id}')">⏱️ Add Reading Session</button>
-    </div>`;
-    extra=`<div class="reading-time-card">
-      <strong>Reading progress</strong>
-      <p class="meta">${b.currentPage||0}${b.pages?` / ${b.pages} pages`:" pages"} · ${pct(b)}%</p>
-      <p class="meta">Started ${b.dateStarted||"not set"} · ${sessionMinutes} min logged</p>
-    </div>
-    ${b.prediction?`<div class="detail-section"><h3>🔎 My Prediction</h3><p>${escapeHtml(b.prediction)}</p></div>`:""}
-    ${sessions.length?`<div class="detail-section"><h3>Reading Sessions</h3><div class="session-mini-list">${sessions.map(s=>`<div class="session-mini">${s.mood||"📖"} ${s.startPage||0} → ${s.endPage||0} · ${s.minutes||0} min · ${s.date||""}</div>`).join("")}</div></div>`:""}`;
-  } else if(b.status==="finished"){
-    const dayText=dur.days===null?"—":`${dur.days} ${dur.days===1?"day":"days"}`;
-    actions=`<div class="reading-actions"><button class="secondary" onclick="editBook('${b.id}')">✏️ Edit Journal</button></div>`;
-    extra=`<div class="reading-time-card">
-      <strong>Reading time</strong>
-      <p class="meta">${dayText} · ${sessionMinutes} min logged</p>
-      <p class="meta">${b.dateStarted||"—"} → ${b.dateFinished||"—"}</p>
-    </div>
-    ${b.review?`<div class="detail-section"><h3>My Thoughts</h3><p>${escapeHtml(b.review).replace(/\n/g,"<br>")}</p></div>`:""}
-    ${b.spoilers?`<div class="detail-section"><h3>Story Memory</h3><button class="secondary small" onclick="this.nextElementSibling.classList.toggle('hidden')">🔒 Reveal / Hide Spoilers</button><p class="hidden">${escapeHtml(b.spoilers).replace(/\n/g,"<br>")}</p></div>`:""}`;
-  } else {
-    actions=`<div class="reading-actions"><button class="primary" onclick="editBook('${b.id}')">✏️ Edit / Start Reading</button></div>`;
-    extra=`<div class="reading-time-card"><strong>TBR</strong><p class="meta">Move this book to Reading when you start it.</p></div>`;
-  }
-
-  els.detail.innerHTML=`<article class="book-summary">
-    <div class="book-summary-top">
-      ${coverHTML(b)}
-      <div>
-        <p class="eyebrow">${statusLabel(b.status)}</p>
-        <h2>${escapeHtml(b.title)}</h2>
-        <p class="muted">${escapeHtml(b.author||"Unknown author")}</p>
-        <div class="summary-meta">
-          <span class="pill">${genreEmoji(b.genre)} ${escapeHtml(b.genre||"No genre")}</span>
-          <span class="pill">${b.format==="Kindle"?"📱":b.format==="Audiobook"?"🎧":b.format==="Hardcover"?"📕":b.format==="Paperback"?"📖":"✨"} ${escapeHtml(b.format||"Format not set")}</span>
-          ${b.status==="finished"?`<span class="pill">${stars(Number(b.rating||0))}</span>`:""}
-        </div>
-        ${b.status==="finished"&&b.pages?`<p class="meta">${b.pages} pages</p>`:""}
-      </div>
-    </div>
-    ${extra}
-    ${actions}
-    <div class="detail-actions"><button class="secondary" onclick="document.getElementById('detailDialog').close()">Close</button></div>
-  </article>`;
-  els.detailDialog.showModal(); updateFabVisibility();
-};
-
-window.openDetail = window.openStatusBook;
-
-
-function normalizeGenreName(value){ return value.trim().replace(/\s+/g," "); }
-
-window.renameGenre = index => {
-  const input = document.querySelector(`[data-genre-index="${index}"]`);
-  const next = normalizeGenreName(input?.value || "");
-  const old = genres[index];
-  if(!next) return alert("Genre name cannot be empty.");
-  if(genres.some((g,i)=>i!==index && g.toLowerCase()===next.toLowerCase())) return alert("That genre already exists.");
-  genres[index] = next;
-  books = books.map(b => b.genre === old ? {...b, genre: next} : b);
-  localStorage.setItem(KEY, JSON.stringify(books));
-  saveGenres();
-  render();
-};
-
-window.deleteGenre = index => {
-  const name = genres[index];
-  if(!confirm(`Remove "${name}" from your genre choices? Existing books will keep this genre.`)) return;
-  genres.splice(index,1);
-  saveGenres();
-};
-
-$("#manageGenresBtn").addEventListener("click",()=>{
-  renderGenreManager();
-  els.genreDialog.showModal();
-});
-$("#closeGenreDialog").addEventListener("click",()=>els.genreDialog.close());
-$("#addGenreBtn").addEventListener("click",()=>{
-  const input=$("#newGenreInput");
-  const value=normalizeGenreName(input.value);
-  if(!value) return;
-  if(genres.some(g=>g.toLowerCase()===value.toLowerCase())) return alert("That genre already exists.");
-  genres.push(value);
-  input.value="";
-  saveGenres();
-});
-$("#newGenreInput").addEventListener("keydown",e=>{
-  if(e.key==="Enter"){ e.preventDefault(); $("#addGenreBtn").click(); }
-});
-
-els.add.addEventListener("click", openAdd);
-$("#floatingAddBookBtn")?.addEventListener("click", openAdd);
-
-function updateFabVisibility(){
-  const anyDialog=[...document.querySelectorAll("dialog")].some(d=>d.open);
-  const fab=$("#floatingAddBookBtn");
-  if(fab) fab.classList.toggle("fab-hidden",anyDialog);
+function showFinish(b){
+  justFinishedBookId=b.id;$("#finishTitle").textContent=`You finished ${b.title}!`;$("#finishSubtitle").textContent=b.rating?`${stars(b.rating)} · Welcome to the finished shelf.`:"Another story has joined your library.";
+  $("#finishCoverWrap").innerHTML=coverHTML(b);$("#finishFavoriteBtn").textContent=b.favoriteBook?"❤️ In Hall of Fame":"❤️ Hall of Fame";$("#finishDialog").showModal();setDialogOpen(true);
 }
-document.querySelectorAll("dialog").forEach(d=>d.addEventListener("close",updateFabVisibility));
-els.close.addEventListener("click",()=>els.dialog.close());
-els.cancel.addEventListener("click",()=>els.dialog.close());
-els.search.addEventListener("input",renderStatusShelves);
-if(els.filter) els.filter.addEventListener("change",renderStatusShelves);
-els.filterGenre.addEventListener("change",renderStatusShelves);
-$("#statsYear").addEventListener("change",renderStats);
-document.querySelectorAll(".tab-btn").forEach(btn=>btn.addEventListener("click",()=>setView(btn.dataset.view)));
+$("#finishCloseBtn").onclick=()=>$("#finishDialog").close();
+$("#finishFavoriteBtn").onclick=()=>{const b=books.find(x=>x.id===justFinishedBookId);if(!b)return;b.favoriteBook=true;saveBooks();$("#finishFavoriteBtn").textContent="❤️ In Hall of Fame";};
 
-$("#saveSyncSettings").addEventListener("click",()=>{
-  const url=$("#supabaseUrl").value.trim().replace(/\/$/,"");
-  const key=$("#supabaseKey").value.trim();
-  if(!url || !key){
-    alert("Enter both the Supabase Project URL and Publishable key.");
-    return;
-  }
-  if(!/^https:\/\/.+\.supabase\.co$/i.test(url)){
-    if(!confirm("This URL does not look like a standard Supabase project URL. Save it anyway?")) return;
-  }
-  syncSettings={url,key};
-  localStorage.setItem(SYNC_KEY,JSON.stringify(syncSettings));
-  renderSyncStatus();
-  alert("Supabase connection saved. Now sign in below.");
-});
+$("#tbrSearch").oninput=renderTbr;$("#tbrGenre").onchange=renderTbr;$("#finishedSearch").oninput=renderFinished;$("#finishedGenre").onchange=renderFinished;$("#finishedYear").onchange=renderFinished;$("#statsYear").onchange=renderStats;
 
-$("#clearSyncSettings").addEventListener("click",()=>{
-  if(!confirm("Clear the Supabase connection from this device?")) return;
-  syncSettings={url:"",key:""};
-  syncSession=null;
-  localStorage.removeItem(SYNC_KEY);
-  localStorage.removeItem(SESSION_KEY);
-  renderSyncStatus();
-});
-
-$("#signInBtn").addEventListener("click",async()=>{
-  const email=$("#syncEmail").value.trim();
-  const password=$("#syncPassword").value;
-  if(!email || !password){ alert("Enter your email and password."); return; }
-  const btn=$("#signInBtn");
-  const old=btn.textContent;
-  btn.disabled=true; btn.textContent="Signing in…";
+/* SUPABASE AUTH + AUTO SYNC */
+function configured(){return !!(syncSettings.url&&syncSettings.key);}
+function signedIn(){return !!(syncSession?.access_token&&syncSession?.user?.id);}
+function authHeaders(access=false){const h={apikey:syncSettings.key,"Content-Type":"application/json"};if(access&&signedIn())h.Authorization=`Bearer ${syncSession.access_token}`;return h;}
+function renderSyncStatus(){
+  $("#supabaseUrl").value=syncSettings.url||"";$("#supabaseKey").value=syncSettings.key||"";
+  if(signedIn())$("#syncStatus").innerHTML=`<span class="status-dot good"></span><div><strong>Cloud sync active</strong><p class="meta">Signed in securely with Supabase Authentication.</p></div>`;
+  else if(configured())$("#syncStatus").innerHTML=`<span class="status-dot"></span><div><strong>Connection saved</strong><p class="meta">Sign in below to start syncing.</p></div>`;
+  else $("#syncStatus").innerHTML=`<span class="status-dot"></span><div><strong>Local mode</strong><p class="meta">Your books are saved on this device.</p></div>`;
+  $("#signedOutPanel").classList.toggle("hidden",signedIn());$("#signedInPanel").classList.toggle("hidden",!signedIn());
+  if(signedIn())$("#signedInEmail").textContent=syncSession.user.email||"Reading Room account";
+}
+async function refreshSession(){
+  if(!syncSession?.refresh_token||!configured())return false;const exp=Number(syncSession.expires_at||0)*1000;if(exp&&Date.now()<exp-60000)return true;
+  try{const r=await fetch(`${syncSettings.url.replace(/\/$/,"")}/auth/v1/token?grant_type=refresh_token`,{method:"POST",headers:authHeaders(),body:JSON.stringify({refresh_token:syncSession.refresh_token})});if(!r.ok)throw Error();syncSession=await r.json();localStorage.setItem(SESSION_KEY,JSON.stringify(syncSession));return true;}
+  catch{syncSession=null;localStorage.removeItem(SESSION_KEY);renderSyncStatus();return false;}
+}
+async function signIn(email,password){
+  const r=await fetch(`${syncSettings.url.replace(/\/$/,"")}/auth/v1/token?grant_type=password`,{method:"POST",headers:authHeaders(),body:JSON.stringify({email,password})});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.msg||d.error_description||"Sign in failed.");syncSession=d;localStorage.setItem(SESSION_KEY,JSON.stringify(d));renderSyncStatus();
+}
+async function cloudSync(force=false){
+  if(!configured()||!signedIn())return false;if(!(await refreshSession()))return false;
   try{
-    await signInToSupabase(email,password);
-    $("#syncPassword").value="";
-    setLastSync("Signed in. Synchronizing…");
-    await cloudSync();
-    alert("Signed in successfully. Reading Room cloud sync is active.");
-  }catch(err){
-    alert(err.message);
-  }finally{
-    btn.disabled=false; btn.textContent=old;
-  }
-});
-
-$("#signOutBtn").addEventListener("click",async()=>{
-  await signOutFromSupabase();
-});
-
-$("#syncNowBtn").addEventListener("click",async()=>{
-  const btn=$("#syncNowBtn");
-  const old=btn.textContent;
-  btn.disabled=true; btn.textContent="Syncing…";
-  await cloudSync();
-  btn.disabled=false; btn.textContent=old;
-});
-
-$("#exportBackup").addEventListener("click",()=>{
-  const blob = new Blob([JSON.stringify({version:2, exportedAt:new Date().toISOString(), books, genres}, null, 2)],{type:"application/json"});
-  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
-  a.download=`reading-room-backup-${new Date().toISOString().slice(0,10)}.json`; a.click();
-  URL.revokeObjectURL(a.href);
-});
-$("#importBackupBtn").addEventListener("click",()=>$("#importBackupInput").click());
-$("#importBackupInput").addEventListener("change",async e=>{
-  const file=e.target.files[0]; if(!file) return;
-  try{
-    const data=JSON.parse(await file.text());
-    if(!Array.isArray(data.books)) throw new Error("Invalid backup");
-    if(!confirm(`Restore ${data.books.length} books from this backup? This replaces current local data.`)) return;
-    books=data.books; if(Array.isArray(data.genres)) genres=data.genres;
-    localStorage.setItem(KEY,JSON.stringify(books)); localStorage.setItem(GENRE_KEY,JSON.stringify(genres));
-    localStorage.setItem("readingRoomLastChangedV2",String(Date.now()));
-    renderGenreOptions(""); renderGenreFilter(); render(); cloudSync();
-    alert("Backup restored.");
-  }catch(err){ alert("That file is not a valid Reading Room backup."); }
-  e.target.value="";
-});
-
-if("serviceWorker" in navigator){
-  window.addEventListener("load", async()=>{
-    try{
-      const reg = await navigator.serviceWorker.register("./sw.js", {updateViaCache:"none"});
-
-      // Always ask the browser/GitHub Pages whether a newer service worker exists.
-      await reg.update();
-
-      reg.addEventListener("updatefound", ()=>{
-        const worker = reg.installing;
-        if(!worker) return;
-        worker.addEventListener("statechange", ()=>{
-          if(worker.state==="installed" && navigator.serviceWorker.controller){
-            // New SW is ready. It calls skipWaiting(), so controllerchange follows.
-          }
-        });
-      });
-
-      // Reload exactly once when a new service worker takes control.
-      let refreshing = false;
-      navigator.serviceWorker.addEventListener("controllerchange", ()=>{
-        if(refreshing) return;
-        refreshing = true;
-        window.location.reload();
-      });
-
-      // Re-check when the user returns to the app after it has been in the background.
-      document.addEventListener("visibilitychange", ()=>{
-        if(document.visibilityState==="visible") reg.update().catch(()=>{});
-      });
-    }catch(err){
-      console.warn("Reading Room service worker:", err);
+    const uid=syncSession.user.id,base=`${syncSettings.url.replace(/\/$/,"")}/rest/v1/reading_room_sync`,ep=`${base}?user_id=eq.${encodeURIComponent(uid)}&select=user_id,payload,updated_at_ms`;
+    $("#lastSyncText")&&($("#lastSyncText").textContent="Checking cloud…");
+    const gr=await fetch(ep,{headers:authHeaders(true)});if(!gr.ok)throw Error("Cloud read failed");const rows=await gr.json();
+    const local=Number(localStorage.getItem(CHANGE_KEY)||0),last=Number(localStorage.getItem(SYNCED_KEY)||0);
+    if(rows.length&&rows[0].payload){
+      const remote=Number(rows[0].updated_at_ms||0);
+      if(!force&&remote>local){
+        books=Array.isArray(rows[0].payload.books)?rows[0].payload.books:books;genres=Array.isArray(rows[0].payload.genres)?rows[0].payload.genres:genres;
+        localStorage.setItem(BOOK_KEY,JSON.stringify(books));localStorage.setItem(GENRE_KEY,JSON.stringify(genres));localStorage.setItem(CHANGE_KEY,String(remote));localStorage.setItem(SYNCED_KEY,String(remote));renderAll();
+        $("#lastSyncText")&&($("#lastSyncText").textContent=`Downloaded latest · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);return true;
+      }
     }
+    if(rows.length&&!force&&local<=last){$("#lastSyncText")&&($("#lastSyncText").textContent=`Up to date · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);return true;}
+    const now=Date.now(),payload={user_id:uid,payload:{books,genres},updated_at_ms:now};
+    const pr=await fetch(`${base}?on_conflict=user_id`,{method:"POST",headers:{...authHeaders(true),Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(payload)});if(!pr.ok)throw Error("Cloud write failed");
+    localStorage.setItem(CHANGE_KEY,String(now));localStorage.setItem(SYNCED_KEY,String(now));$("#lastSyncText")&&($("#lastSyncText").textContent=`Synced automatically · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);return true;
+  }catch(e){console.warn("Reading Room sync:",e);$("#lastSyncText")&&($("#lastSyncText").textContent="Sync failed — check connection or policies.");return false;}
+}
+$("#saveSyncSettings").onclick=()=>{const url=$("#supabaseUrl").value.trim().replace(/\/$/,""),key=$("#supabaseKey").value.trim();if(!url||!key)return alert("Enter Project URL and Publishable key.");syncSettings={url,key};localStorage.setItem(SYNC_KEY,JSON.stringify(syncSettings));renderSyncStatus();alert("Supabase connection saved.");};
+$("#clearSyncSettings").onclick=()=>{if(!confirm("Clear Supabase connection from this device?"))return;syncSettings={url:"",key:""};syncSession=null;localStorage.removeItem(SYNC_KEY);localStorage.removeItem(SESSION_KEY);renderSyncStatus();};
+$("#signInBtn").onclick=async()=>{const email=$("#syncEmail").value.trim(),password=$("#syncPassword").value;if(!email||!password)return alert("Enter email and password.");const b=$("#signInBtn"),t=b.textContent;b.disabled=true;b.textContent="Signing in…";try{await signIn(email,password);$("#syncPassword").value="";await cloudSync();alert("Signed in successfully. Automatic cloud sync is active.");}catch(e){alert(e.message);}finally{b.disabled=false;b.textContent=t;}};
+$("#signOutBtn").onclick=async()=>{if(signedIn()){try{await fetch(`${syncSettings.url.replace(/\/$/,"")}/auth/v1/logout`,{method:"POST",headers:authHeaders(true)});}catch{}}syncSession=null;localStorage.removeItem(SESSION_KEY);renderSyncStatus();};
+$("#syncNowBtn").onclick=()=>cloudSync(true);
+
+$("#exportBackup").onclick=()=>{const blob=new Blob([JSON.stringify({version:5,exportedAt:new Date().toISOString(),books,genres},null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`reading-room-backup-${todayISO()}.json`;a.click();URL.revokeObjectURL(a.href);};
+$("#importBackupBtn").onclick=()=>$("#importBackupInput").click();
+$("#importBackupInput").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!Array.isArray(d.books))throw Error();if(!confirm(`Restore ${d.books.length} books? This replaces current local data.`))return;books=d.books;if(Array.isArray(d.genres))genres=d.genres;localStorage.setItem(BOOK_KEY,JSON.stringify(books));localStorage.setItem(GENRE_KEY,JSON.stringify(genres));markChanged();renderAll();cloudSync();alert("Backup restored.");}catch{alert("Invalid Reading Room backup.");}e.target.value="";};
+
+renderGenreOptions();renderAll();renderSyncStatus();cloudSync();
+window.addEventListener("focus",()=>{if(signedIn())cloudSync();});
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&signedIn())cloudSync();});
+window.addEventListener("online",()=>{if(signedIn())cloudSync();});
+setInterval(()=>{if(document.visibilityState==="visible"&&signedIn())cloudSync();},60000);
+
+/* PWA auto-update without stale app-shell cache */
+if("serviceWorker" in navigator){
+  window.addEventListener("load",async()=>{
+    try{
+      const reg=await navigator.serviceWorker.register("./sw.js",{updateViaCache:"none"});await reg.update();
+      let refreshing=false;navigator.serviceWorker.addEventListener("controllerchange",()=>{if(refreshing)return;refreshing=true;location.reload();});
+      document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")reg.update().catch(()=>{});});
+    }catch(e){console.warn("Service worker:",e);}
   });
 }
-renderGenreOptions("");
-renderGenreFilter();
-render();
-renderSyncStatus();
-cloudSync();
-console.info(`Reading Room v${READING_ROOM_VERSION}`);
-
-/* Automatic cloud synchronization */
-window.addEventListener("focus",()=>{ if(isSignedIn()) cloudSync(); });
-document.addEventListener("visibilitychange",()=>{
-  if(document.visibilityState==="visible" && isSignedIn()) cloudSync();
-});
-window.addEventListener("online",()=>{ if(isSignedIn()) cloudSync(); });
-setInterval(()=>{ if(document.visibilityState==="visible" && isSignedIn()) cloudSync(); }, 60000);
-
+console.info(`Reading Room v${APP_VERSION}`);
