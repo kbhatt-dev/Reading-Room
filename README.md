@@ -1,5 +1,17 @@
 # My Reading Room — V5
 
+## V6.8.2 — Calendar Stability Hotfix
+
+- Fixed Add Session from empty calendar dates and made the action use the calendar-session flow directly.
+- Calendar session creation can choose from Currently Reading or Finished books, which also supports backdated sessions.
+- Fixed day-dialog refresh after session deletion so an already-open modal is updated safely.
+- Removed duplicate Journal Tools event-listener registration from `renderFinished()`.
+- Reworked startup order: local data renders first, cloud sync reconciles second, and the active page is rendered again after sync. This fixes pages appearing empty/stale on first load or reload.
+- Stats explicitly re-renders after cloud downloads.
+- Improved iPhone responsiveness for calendar-day/session dialogs with safe viewport widths, scrolling, single-column form fields, 16px inputs, and larger action buttons.
+- No data schema or Supabase storage structure changed.
+
+
 ## V6.8.1 — Calendar Session Hub
 
 - Every real date in the monthly Reading Calendar is now interactive, including days with no existing reading.

@@ -1,4 +1,4 @@
-const VERSION="reading-room-v6-8-0-clean-stats-calendar";
+const VERSION="reading-room-v6-8-2-calendar-stability-hotfix";
 self.addEventListener("install",()=>self.skipWaiting());
 self.addEventListener("activate",event=>{
   event.waitUntil(caches.keys().then(keys=>Promise.all(keys.map(k=>caches.delete(k)))).then(()=>self.clients.claim()));

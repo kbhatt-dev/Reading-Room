@@ -902,3 +902,39 @@ body.customizing-shelf .year-block .full-bookcase::after{
   .calendar-day-dialog .session-manager-actions{width:100%}
   .calendar-day-dialog .session-manager-actions button{flex:1}
 }
+
+
+/* V6.8.2 — calendar/session stability + responsive hotfix */
+.calendar-day-dialog,
+#sessionDialog{
+  width:min(650px,calc(100vw - 28px));
+  max-width:calc(100vw - 28px);
+  max-height:min(88dvh,760px);
+  overflow:auto;
+}
+.calendar-day-dialog .small-form,
+#sessionDialog .small-form{min-width:0}
+.calendar-day-dialog .session-manager-item{min-width:0}
+.calendar-day-dialog .session-manager-item>div:first-child{min-width:0;overflow-wrap:anywhere}
+#calendarSessionBook,#sessionDate,#sessionStart,#sessionEnd,#sessionMinutes,#sessionMood{min-width:0;width:100%}
+
+@media(max-width:600px){
+  .calendar-day-dialog,#sessionDialog{
+    width:calc(100vw - 16px);
+    max-width:calc(100vw - 16px);
+    max-height:90dvh;
+    border-radius:18px;
+    margin:auto;
+  }
+  .calendar-day-dialog .small-form,#sessionDialog .small-form{padding:14px}
+  .calendar-day-dialog .dialog-header,#sessionDialog .dialog-header{gap:8px;align-items:flex-start}
+  .calendar-day-dialog .dialog-header h2,#sessionDialog .dialog-header h2{font-size:1.35rem;overflow-wrap:anywhere}
+  .calendar-day-dialog .session-manager-item{display:grid;grid-template-columns:1fr;gap:10px}
+  .calendar-day-dialog .session-manager-actions{display:grid;grid-template-columns:1fr 1fr;width:100%;gap:8px}
+  .calendar-day-dialog .session-manager-actions button{width:100%;min-height:44px}
+  #sessionDialog .form-grid.two{grid-template-columns:1fr}
+  #sessionDialog input,#sessionDialog select{font-size:16px;min-height:44px}
+  #sessionDialog .button-row{display:grid;grid-template-columns:1fr 1fr;width:100%}
+  #sessionDialog .button-row button{width:100%;min-height:44px}
+  .calendar-day-dialog #addCalendarDaySession{width:100%;min-height:46px}
+}

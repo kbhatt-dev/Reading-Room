@@ -205,7 +205,7 @@ function routeTo(route,{replace=false}={}){
 }
 window.addEventListener("popstate",()=>routeTo(location.hash.slice(1)||"home",{replace:true}));
 $$("[data-route]").forEach(btn=>btn.addEventListener("click",()=>routeTo(btn.dataset.route)));
-routeTo(location.hash.slice(1)||"home",{replace:true});
+const initialRoute=location.hash.slice(1)||"home";
 
 function renderGenreOptions(selected){
   const bookSelect=$("#genre");
@@ -417,8 +417,6 @@ function renderJournalCollections(){
 function renderFinished(){
   if($("#journalTools")?.open)renderJournalCollections();
   const q=$("#finishedSearch").value.trim().toLowerCase(),g=$("#finishedGenre").value,y=$("#finishedYear").value;
-$("#quoteSearch").addEventListener("input",renderJournalCollections);$("#memorySearch").addEventListener("input",renderJournalCollections);
-$("#journalTools")?.addEventListener("toggle",e=>{const hint=e.currentTarget.querySelector(".journal-tools-hint");if(hint)hint.textContent=e.currentTarget.open?"Close":"Open";if(e.currentTarget.open)renderJournalCollections();});
   const all=books.filter(b=>b.status==="finished");
   const years=[...new Set(all.map(bookYear))].sort((a,b)=>b-a);
   const old=$("#finishedYear").value||"all";
@@ -523,7 +521,7 @@ function openCalendarDay(date){
         <button type="button" class="danger compact" onclick="deleteCalendarDaySession('${s._book.id}',${s._index},'${date}')">${icon("trash")} Delete</button>
       </div>
     </article>`).join(""):`<div class="session-manager-empty">Nothing logged on this date yet.</div>`;
-  $("#calendarDayDialog").showModal();setDialogOpen(true);
+  if(!$("#calendarDayDialog").open)$("#calendarDayDialog").showModal();setDialogOpen(true);
 }
 window.openCalendarDay=openCalendarDay;
 window.editCalendarDaySession=(bookId,index,date)=>openSession(bookId,index,date);
@@ -1073,7 +1071,7 @@ async function cloudSync(force=false){
           goalSettings=rows[0].payload.goalSettings;
           localStorage.setItem(GOAL_KEY,JSON.stringify(goalSettings));
         }
-        localStorage.setItem(BOOK_KEY,JSON.stringify(books));localStorage.setItem(GENRE_KEY,JSON.stringify(genres));localStorage.setItem(CHANGE_KEY,String(remote));localStorage.setItem(SYNCED_KEY,String(remote));renderAll();applyDecorations();
+        localStorage.setItem(BOOK_KEY,JSON.stringify(books));localStorage.setItem(GENRE_KEY,JSON.stringify(genres));localStorage.setItem(CHANGE_KEY,String(remote));localStorage.setItem(SYNCED_KEY,String(remote));renderGenreOptions();renderAll();applyDecorations();if(lastRoute==="stats")renderStats();
         $("#lastSyncText")&&($("#lastSyncText").textContent=`Downloaded latest · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);return true;
       }
     }
@@ -1126,10 +1124,13 @@ $("#confirmResetReadingData").onclick=async()=>{
   }finally{btn.textContent=old;}
 };
 $("#closeCalendarDayDialog")?.addEventListener("click",()=>$("#calendarDayDialog").close());
-$("#addCalendarDaySession")?.addEventListener("click",()=>{if(calendarSelectedDate)openCalendarSession(calendarSelectedDate);});
+$("#addCalendarDaySession")?.addEventListener("click",()=>{if(calendarSelectedDate)window.openCalendarSession(calendarSelectedDate);});
 $("#calendarPrevMonth")?.addEventListener("click",()=>{const year=Number($("#statsYear").value)||new Date().getFullYear();if(!statsCalendarMonth||statsCalendarMonth.year!==year)statsCalendarMonth={year,month:0};statsCalendarMonth.month--;if(statsCalendarMonth.month<0){statsCalendarMonth.month=11;statsCalendarMonth.year--;}renderMonthlyReadingCalendar(statsCalendarMonth.year);});
 $("#calendarNextMonth")?.addEventListener("click",()=>{const year=Number($("#statsYear").value)||new Date().getFullYear();if(!statsCalendarMonth||statsCalendarMonth.year!==year)statsCalendarMonth={year,month:0};statsCalendarMonth.month++;if(statsCalendarMonth.month>11){statsCalendarMonth.month=0;statsCalendarMonth.year++;}renderMonthlyReadingCalendar(statsCalendarMonth.year);});
 $("#statsYear")?.addEventListener("change",()=>{statsCalendarMonth=null;renderStats();});
+$("#quoteSearch")?.addEventListener("input",renderJournalCollections);
+$("#memorySearch")?.addEventListener("input",renderJournalCollections);
+$("#journalTools")?.addEventListener("toggle",e=>{const hint=e.currentTarget.querySelector(".journal-tools-hint");if(hint)hint.textContent=e.currentTarget.open?"Close":"Open";if(e.currentTarget.open)renderJournalCollections();});
 $("#storageUsageDetails")?.addEventListener("toggle",e=>{if(e.currentTarget.open)renderStorageUsage();});
 $("#refreshStorageUsage")?.addEventListener("click",renderStorageUsage);
 $("#openAdvancedSearch").onclick=()=>{populateAdvancedSearchFilters();renderAdvancedSearch();$("#advancedSearchDialog").showModal();setDialogOpen(true);setTimeout(()=>$("#advancedSearchQuery").focus(),50);};
@@ -1137,7 +1138,34 @@ $("#closeAdvancedSearch").onclick=()=>$("#advancedSearchDialog").close();
 ["advancedSearchQuery","advancedSearchStatus","advancedSearchGenre","advancedSearchYear","advancedSearchRating"].forEach(id=>$("#"+id).addEventListener(id==="advancedSearchQuery"?"input":"change",renderAdvancedSearch));
 $("#clearAdvancedSearch").onclick=()=>{$("#advancedSearchQuery").value="";$("#advancedSearchStatus").value="all";$("#advancedSearchGenre").value="all";$("#advancedSearchYear").value="all";$("#advancedSearchRating").value="all";renderAdvancedSearch();};
 
-renderGenreOptions();renderAll();applyDecorations();renderSyncStatus();cloudSync().then(()=>setTimeout(async()=>{const r=await optimizeExistingCovers();if(r.changed)cloudSync(true);},250));
+async function initializeReadingRoom(){
+  renderGenreOptions();
+  renderAll();
+  applyDecorations();
+  renderSyncStatus();
+  routeTo(initialRoute,{replace:true});
+
+  if(configured()&&signedIn()){
+    await cloudSync();
+    renderGenreOptions();
+    renderAll();
+    applyDecorations();
+    renderSyncStatus();
+    if(lastRoute==="stats")renderStats();
+  }
+
+  const optimized=await optimizeExistingCovers();
+  if(optimized.changed){
+    if(configured()&&signedIn())await cloudSync(true);
+    renderAll();
+    if(lastRoute==="stats")renderStats();
+  }
+}
+initializeReadingRoom().catch(e=>{
+  console.warn("Reading Room initialization:",e);
+  renderGenreOptions();renderAll();applyDecorations();renderSyncStatus();
+  routeTo(initialRoute,{replace:true});
+});
 window.addEventListener("focus",()=>{if(signedIn())cloudSync();});
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&signedIn())cloudSync();});
 window.addEventListener("online",()=>{if(signedIn())cloudSync();});
