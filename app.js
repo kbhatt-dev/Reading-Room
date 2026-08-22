@@ -1,4 +1,4 @@
-const APP_VERSION="6.7.2";
+const APP_VERSION="6.8.0";
 const icon=n=>`<svg class="ui-icon" aria-hidden="true"><use href="#i-${n}"></use></svg>`;
 const BOOK_KEY="readingRoomBooksV1";
 const GENRE_KEY="readingRoomGenresV1";
@@ -300,7 +300,8 @@ function renderAdvancedSearch(){
     if(status!=="all"&&b.status!==status)return false;
     if(genre!=="all"&&b.genre!==genre)return false;
     if(year!=="all"&&String(bookYear(b))!==year)return false;
-    if(rating!=="all"&&(Number(b.rating)||0)<Number(rating))return false;
+    if(rating==="hall"&&!b.favoriteBook)return false;
+    if(rating!=="all"&&rating!=="hall"&&(Number(b.rating)||0)<Number(rating))return false;
     return true;
   }):[];
   $("#advancedSearchCount").textContent=`${results.length} ${results.length===1?"result":"results"}`;
@@ -363,10 +364,6 @@ function renderHome(){
   $("#homeReadingEmpty").classList.toggle("hidden",reading.length>0);
   $("#homeFinishedShelf").innerHTML=finished.slice(0,9).map(woodBook).join("");
   $("#homeTbrShelf").innerHTML=tbr.slice(0,9).map(woodBook).join("");
-  const favs=books.filter(b=>b.favoriteBook);
-  $("#homeFavoritesSection").classList.toggle("hidden",favs.length===0);
-  $("#homeFavorites").innerHTML=favs.map(b=>`<button class="cover-card" onclick="openBook('${b.id}')">${coverHTML(b)}<span>${escapeHtml(b.title)}</span></button>`).join("");
-
   const goalYear=new Date().getFullYear(),goal=goalProgress(goalYear);
   $("#homeGoalYear").textContent=goalYear;
   $("#homeGoalCount").textContent=goal.target?`${goal.finished} of ${goal.target} books`:`${goal.finished} books finished`;
@@ -462,10 +459,52 @@ function streakStats(activity,year){
   if(!set.has(cursor)&&set.has(cursor-1))cursor--;while(set.has(cursor)){current++;cursor--;}
   return {current,longest};
 }
-function renderReadingHeatmap(year,activity){
-  const root=$("#readingHeatmap"),empty=$("#heatmapEmpty");if(!root)return;const start=new Date(year,0,1,12),end=new Date(year,11,31,12),max=Math.max(1,...Object.values(activity));
-  const days=[];for(let d=new Date(start);d<=end;d.setDate(d.getDate()+1)){const date=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`,minutes=activity[date]||0,level=!minutes?0:Math.min(4,Math.max(1,Math.ceil(minutes/max*4)));days.push(`<span class="heat-day" data-level="${level}" title="${date}: ${minutes} min" aria-label="${date}, ${minutes} minutes"></span>`);}
-  root.innerHTML=`<div class="heat-spacer" style="--offset:${start.getDay()}"></div>`+days.join("");empty.classList.toggle("hidden",Object.keys(activity).length>0);$("#heatmapTitle").textContent=`${year} Reading Calendar`;
+let statsCalendarMonth=null;
+
+function calendarSessionRows(year,month){
+  const rows=[];
+  books.forEach(b=>(Array.isArray(b.sessions)?b.sessions:[]).forEach(s=>{
+    const date=sessionDateValue(s);
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(date))return;
+    const d=new Date(date+"T12:00:00");
+    if(d.getFullYear()===year&&d.getMonth()===month)rows.push({...s,_date:date,_book:b});
+  }));
+  return rows;
+}
+function renderMonthlyReadingCalendar(year){
+  if(!$("#readingCalendarGrid"))return;
+  const today=new Date();
+  if(!statsCalendarMonth||statsCalendarMonth.year!==year){
+    statsCalendarMonth={year,month:year===today.getFullYear()?today.getMonth():0};
+  }
+  const month=statsCalendarMonth.month,first=new Date(year,month,1,12),daysInMonth=new Date(year,month+1,0,12).getDate();
+  const rows=calendarSessionRows(year,month),byDate={};
+  rows.forEach(s=>(byDate[s._date]??=[]).push(s));
+  $("#calendarMonthLabel").textContent=first.toLocaleDateString([],{month:"long",year:"numeric"});
+
+  const cells=[];
+  for(let i=0;i<first.getDay();i++)cells.push(`<span class="calendar-day blank" aria-hidden="true"></span>`);
+  for(let day=1;day<=daysInMonth;day++){
+    const date=`${year}-${String(month+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`,
+          sessions=byDate[date]||[],
+          minutes=sessions.reduce((n,s)=>n+(Number(s.minutes)||0),0),
+          isToday=date===todayISO(),
+          active=sessions.length>0;
+    cells.push(`<button type="button" class="calendar-day ${active?"has-reading":""} ${isToday?"today":""}" data-calendar-date="${date}" ${active?"":'disabled'}>
+      <span class="calendar-date-number">${day}</span>
+      ${active?`<span class="calendar-minutes">${minutes} min</span><span class="calendar-session-count">${sessions.length} ${sessions.length===1?"session":"sessions"}</span>`:""}
+    </button>`);
+  }
+  $("#readingCalendarGrid").innerHTML=cells.join("");
+  $("#calendarDayDetails").textContent=rows.length?"Tap a highlighted day to see what you read.":"No reading sessions logged in this month.";
+  $$("[data-calendar-date]").forEach(btn=>btn.addEventListener("click",()=>{
+    const date=btn.dataset.calendarDate,sessions=byDate[date]||[],minutes=sessions.reduce((n,s)=>n+(Number(s.minutes)||0),0);
+    const bookGroups={};
+    sessions.forEach(s=>{const title=s._book?.title||"Unknown book";bookGroups[title]=(bookGroups[title]||0)+(Number(s.minutes)||0);});
+    const booksText=Object.entries(bookGroups).map(([title,mins])=>`${title} · ${mins} min`).join(" • ");
+    $("#calendarDayDetails").innerHTML=`<strong>${new Date(date+"T12:00:00").toLocaleDateString([],{weekday:"long",month:"long",day:"numeric"})}</strong><span>${sessions.length} ${sessions.length===1?"session":"sessions"} · ${minutes} min</span>${booksText?`<span>${escapeHtml(booksText)}</span>`:""}`;
+    $$(".calendar-day.selected").forEach(x=>x.classList.remove("selected"));btn.classList.add("selected");
+  }));
 }
 
 function renderStats(){
@@ -486,8 +525,6 @@ function renderStats(){
   const withDays=list.map(b=>({b,d:dateDiffDays(b.dateStarted,b.dateFinished)})).filter(x=>x.d!==null).sort((a,b)=>a.d-b.d);
   $("#statFastest").textContent=withDays.length?`${withDays[0].d}d`:"—";
   const longest=[...list].sort((a,b)=>(Number(b.pages)||0)-(Number(a.pages)||0))[0];$("#statLongest").textContent=longest?.pages?`${longest.pages}p`:"—";
-  const detectiveBooks=list.map(b=>detectiveScoreForBook(b)).filter(v=>v!==null);
-  $("#statDetective").textContent=detectiveBooks.length?`${Math.round(detectiveBooks.reduce((a,b)=>a+b,0)/detectiveBooks.length)}%`:"—";
   const months=Array(12).fill(0);list.forEach(b=>{if(b.dateFinished){const d=new Date(b.dateFinished+"T00:00:00");if(!Number.isNaN(d))months[d.getMonth()]++;}});
   const max=Math.max(1,...months),names=["J","F","M","A","M","J","J","A","S","O","N","D"];
   $("#monthlyBars").innerHTML=months.map((n,i)=>`<div class="bar-col"><div class="bar-fill" style="height:${Math.max(2,n/max*100)}%"><b>${n||""}</b></div><small>${names[i]}</small></div>`).join("");
@@ -499,7 +536,7 @@ function renderStats(){
   $("#statAvgSession").textContent=yearSessions.length?`${Math.round(totalSessionMinutes/yearSessions.length)} min`:`—`;
   $("#statCurrentStreak").textContent=`${streak.current} ${streak.current===1?"day":"days"}`;
   $("#statLongestStreak").textContent=`${streak.longest} ${streak.longest===1?"day":"days"}`;
-  renderReadingHeatmap(year,activity);
+  renderMonthlyReadingCalendar(year);
 }
 
 function setDialogOpen(open){document.body.classList.toggle("dialog-open",open);}
@@ -1050,6 +1087,9 @@ $("#confirmResetReadingData").onclick=async()=>{
     alert(`${e.message}\n\nYour local Reading Room is empty. Do not run normal Sync until the cloud reset succeeds, or older cloud data may download again.`);
   }finally{btn.textContent=old;}
 };
+$("#calendarPrevMonth")?.addEventListener("click",()=>{const year=Number($("#statsYear").value)||new Date().getFullYear();if(!statsCalendarMonth||statsCalendarMonth.year!==year)statsCalendarMonth={year,month:0};statsCalendarMonth.month--;if(statsCalendarMonth.month<0){statsCalendarMonth.month=11;statsCalendarMonth.year--;}renderMonthlyReadingCalendar(statsCalendarMonth.year);});
+$("#calendarNextMonth")?.addEventListener("click",()=>{const year=Number($("#statsYear").value)||new Date().getFullYear();if(!statsCalendarMonth||statsCalendarMonth.year!==year)statsCalendarMonth={year,month:0};statsCalendarMonth.month++;if(statsCalendarMonth.month>11){statsCalendarMonth.month=0;statsCalendarMonth.year++;}renderMonthlyReadingCalendar(statsCalendarMonth.year);});
+$("#statsYear")?.addEventListener("change",()=>{statsCalendarMonth=null;renderStats();});
 $("#storageUsageDetails")?.addEventListener("toggle",e=>{if(e.currentTarget.open)renderStorageUsage();});
 $("#refreshStorageUsage")?.addEventListener("click",renderStorageUsage);
 $("#openAdvancedSearch").onclick=()=>{populateAdvancedSearchFilters();renderAdvancedSearch();$("#advancedSearchDialog").showModal();setDialogOpen(true);setTimeout(()=>$("#advancedSearchQuery").focus(),50);};

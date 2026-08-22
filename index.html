@@ -159,18 +159,6 @@
           <div class="wood-board"></div>
         </div>
       </section>
-
-      <section id="homeFavoritesSection" class="home-section hidden">
-        <div class="section-head">
-          <div>
-            <p class="eyebrow">Forever favourites</p>
-            <h2>Hall of Fame</h2>
-          </div>
-        </div>
-        <div id="homeFavorites" class="cover-carousel"></div>
-      </section>
-
-
     </section>
 
     <!-- TBR -->
@@ -327,7 +315,6 @@
         <article class="stat-card"><span class="stat-icon"><svg class="ui-icon"><use href="#i-session"></use></svg></span><strong id="statMinutes">0</strong><small>Logged minutes</small></article>
         <article class="stat-card"><span class="stat-icon"><svg class="ui-icon"><use href="#i-stats"></use></svg></span><strong id="statFastest">—</strong><small>Fastest read</small></article>
         <article class="stat-card"><span class="stat-icon"><svg class="ui-icon"><use href="#i-reading"></use></svg></span><strong id="statLongest">—</strong><small>Longest book</small></article>
-        <article class="stat-card"><span class="stat-icon"><svg class="ui-icon"><use href="#i-target"></use></svg></span><strong id="statDetective">—</strong><small>Detective score</small></article>
       </div>
 
       <div class="insight-grid">
@@ -346,10 +333,23 @@
           <article class="stat-card"><span class="stat-icon"><svg class="ui-icon"><use href="#i-target"></use></svg></span><strong id="statCurrentStreak">0 days</strong><small>Current streak</small></article>
           <article class="stat-card"><span class="stat-icon"><svg class="ui-icon"><use href="#i-trophy"></use></svg></span><strong id="statLongestStreak">0 days</strong><small>Longest streak</small></article>
         </div>
-        <article class="heatmap-card">
-          <div class="heatmap-heading"><div><h3 id="heatmapTitle">Reading Calendar</h3><p class="muted">Each square is a day. Darker squares mean more logged reading time.</p></div><div class="heatmap-legend"><span>Less</span><i data-level="0"></i><i data-level="1"></i><i data-level="2"></i><i data-level="3"></i><i data-level="4"></i><span>More</span></div></div>
-          <div id="readingHeatmap" class="reading-heatmap" aria-label="Reading activity calendar"></div>
-          <p id="heatmapEmpty" class="muted heatmap-empty hidden">Add reading sessions to build your calendar and streaks.</p>
+        <article class="reading-calendar-card">
+          <div class="reading-calendar-heading">
+            <div>
+              <h3>Reading Calendar</h3>
+              <p class="muted">Browse your logged reading sessions month by month.</p>
+            </div>
+            <div class="calendar-nav">
+              <button type="button" id="calendarPrevMonth" class="secondary compact" aria-label="Previous month">‹</button>
+              <strong id="calendarMonthLabel">Month</strong>
+              <button type="button" id="calendarNextMonth" class="secondary compact" aria-label="Next month">›</button>
+            </div>
+          </div>
+          <div class="calendar-weekdays" aria-hidden="true">
+            <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+          </div>
+          <div id="readingCalendarGrid" class="reading-calendar-grid" aria-label="Monthly reading calendar"></div>
+          <div id="calendarDayDetails" class="calendar-day-details muted">Tap a reading day to see its sessions.</div>
         </article>
       </section>
     </section>
@@ -551,6 +551,7 @@
           <select id="advancedSearchYear"><option value="all">All years</option></select>
           <select id="advancedSearchRating">
             <option value="all">Any rating</option>
+            <option value="hall">Hall of Fame</option>
             <option value="5">5 stars</option>
             <option value="4">4+ stars</option>
             <option value="3">3+ stars</option>

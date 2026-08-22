@@ -1,5 +1,15 @@
 # My Reading Room — V5
 
+## V6.8.0 — Clean Stats & Calendar
+
+- Removed the Detective Score tile from Stats as unnecessary visual clutter.
+- Replaced the GitHub-style yearly heatmap with a familiar monthly Reading Calendar showing actual dates, highlighted reading days, logged minutes, and session counts.
+- Added Previous/Next month controls and tap/click day details showing the books and minutes read that day.
+- Removed the separate Hall of Fame gallery from the Room page to improve mobile layout.
+- Hall of Fame data is preserved. Advanced Search now includes a Hall of Fame filter using the existing `favoriteBook` flag.
+- No Hall of Fame data, sessions, journal information, goals, or cloud storage structure was removed.
+
+
 ## V6.7.2 — Clean Start & Tiny Covers
 
 - New and existing embedded covers now target about 6–10 KB, with an 8 KB target and ~10 KB soft maximum.
