@@ -1,4 +1,8 @@
-const APP_VERSION="7.0.2";
+/*
+ * My Reading Room
+ * Copyright © 2026 Krishna Bhatt. All rights reserved.
+ */
+const APP_VERSION="7.0.3";
 const icon=n=>`<svg class="ui-icon" aria-hidden="true"><use href="#i-${n}"></use></svg>`;
 const BOOK_KEY="readingRoomBooksV1";
 const GENRE_KEY="readingRoomGenresV1";
