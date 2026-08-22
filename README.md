@@ -1,5 +1,12 @@
 # My Reading Room — V5
 
+## V6.2.2 — Fairy String Lights Hotfix
+
+- Moved fairy lights beneath each wooden shelf board.
+- Added a thin connecting wire/string so the bulbs look like actual fairy lights rather than isolated yellow dots.
+- Preserved the shelf themes, natural plant, and all existing app functionality.
+
+
 V5 is a full UI architecture rebuild focused on mobile usability and clear separation between parts of the reading journey.
 
 ## Pages

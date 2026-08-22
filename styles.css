@@ -583,29 +583,40 @@ body.customizing-shelf .year-block .full-bookcase::after{
   isolation:isolate;
 }
 
-/* Fairy-light string fixed into the shelf */
+/* V6.2.2 — fairy lights hang beneath each wooden shelf board.
+   A thin warm wire connects the bulbs so they read as real string lights. */
 .custom-decor-zone::before,
 .year-block .full-bookcase::before{
+  display:none!important;
+}
+.custom-decor-zone{
+  padding-bottom:18px;
+}
+.custom-decor-zone .wood-board{
+  position:relative;
+  z-index:8;
+}
+.custom-decor-zone .wood-board::after{
   content:"";
   position:absolute;
-  left:20px;right:20px;top:12px;height:22px;
-  z-index:7;
-  pointer-events:none;
+  left:14px;right:14px;top:14px;height:17px;
+  z-index:9;pointer-events:none;
   background:
-    radial-gradient(circle at 2% 55%,#ffd987 0 3px,transparent 4px),
-    radial-gradient(circle at 10% 45%,#ffe4a1 0 3px,transparent 4px),
-    radial-gradient(circle at 18% 58%,#ffd987 0 3px,transparent 4px),
-    radial-gradient(circle at 26% 42%,#ffe4a1 0 3px,transparent 4px),
-    radial-gradient(circle at 34% 56%,#ffd987 0 3px,transparent 4px),
-    radial-gradient(circle at 42% 45%,#ffe4a1 0 3px,transparent 4px),
-    radial-gradient(circle at 50% 58%,#ffd987 0 3px,transparent 4px),
-    radial-gradient(circle at 58% 42%,#ffe4a1 0 3px,transparent 4px),
-    radial-gradient(circle at 66% 56%,#ffd987 0 3px,transparent 4px),
-    radial-gradient(circle at 74% 45%,#ffe4a1 0 3px,transparent 4px),
-    radial-gradient(circle at 82% 58%,#ffd987 0 3px,transparent 4px),
-    radial-gradient(circle at 90% 44%,#ffe4a1 0 3px,transparent 4px),
-    radial-gradient(circle at 98% 55%,#ffd987 0 3px,transparent 4px);
-  filter:drop-shadow(0 0 6px rgba(255,214,118,.9));
+    radial-gradient(circle at 2% 55%,#ffd987 0 2.5px,transparent 3.5px),
+    radial-gradient(circle at 10% 72%,#ffe4a1 0 2.5px,transparent 3.5px),
+    radial-gradient(circle at 18% 55%,#ffd987 0 2.5px,transparent 3.5px),
+    radial-gradient(circle at 26% 72%,#ffe4a1 0 2.5px,transparent 3.5px),
+    radial-gradient(circle at 34% 55%,#ffd987 0 2.5px,transparent 3.5px),
+    radial-gradient(circle at 42% 72%,#ffe4a1 0 2.5px,transparent 3.5px),
+    radial-gradient(circle at 50% 55%,#ffd987 0 2.5px,transparent 3.5px),
+    radial-gradient(circle at 58% 72%,#ffe4a1 0 2.5px,transparent 3.5px),
+    radial-gradient(circle at 66% 55%,#ffd987 0 2.5px,transparent 3.5px),
+    radial-gradient(circle at 74% 72%,#ffe4a1 0 2.5px,transparent 3.5px),
+    radial-gradient(circle at 82% 55%,#ffd987 0 2.5px,transparent 3.5px),
+    radial-gradient(circle at 90% 72%,#ffe4a1 0 2.5px,transparent 3.5px),
+    radial-gradient(circle at 98% 55%,#ffd987 0 2.5px,transparent 3.5px),
+    linear-gradient(176deg,transparent 0 5px,rgba(91,67,47,.82) 5.5px 6.5px,transparent 7px 100%);
+  filter:drop-shadow(0 0 5px rgba(255,214,118,.82));
 }
 
 /* One natural-looking potted plant, visually part of the shelf */
@@ -648,8 +659,7 @@ body.customizing-shelf .year-block .full-bookcase::after{
 }
 
 @media(max-width:700px){
-  .custom-decor-zone::before,
-  .year-block .full-bookcase::before{left:10px;right:10px}
+  .custom-decor-zone .wood-board::after{left:8px;right:8px}
   .custom-decor-zone::after,
   .year-block .full-bookcase::after{
     right:10px;bottom:30px;transform:scale(.82);transform-origin:bottom right;
