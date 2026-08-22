@@ -217,19 +217,13 @@ All V5.3.1 features, Supabase sync, Reading Sessions, PWA updates, and existing 
 - Book data and Supabase schema are unchanged.
 
 
-## V6.2 — Cozy Shelf Refinement
-- Removed free drag-and-drop decoration placement.
-- Removed floating decoration icons completely.
-- Added six shelf finishes:
-  - Classic Walnut
-  - Light Oak
-  - Dark Espresso
-  - Honey Maple
-  - Warm Mahogany
-  - Sage Oak
-- Added built-in fairy lights attached across every shelf.
-- Added one natural potted plant fixed into the shelf design.
-- Removed Plant / Candle / Coffee / Sparkle icons from shelf corners.
-- Kept independent shelf colors for Room, TBR, and Finished pages.
-- Preserved Book Memory Cards on Finished.
-- Preserved all existing V6 functionality, books, sync, sessions, and journal data.
+## V6.2.1 — Cozy Shelf Hotfix
+- Rebuilt from the working V6.1 codebase after the broken V6.2 patch.
+- Preserved all application helpers, routing, rendering, sync, sessions, stats, and book features.
+- Removed drag/drop decoration logic.
+- Removed all floating decoration icons.
+- Removed top-corner decoration icons.
+- Added built-in fairy lights.
+- Added one fixed natural-looking plant.
+- Added six shelf finishes.
+- Kept independent shelf styles for Room, TBR, and Finished.

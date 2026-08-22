@@ -1,4 +1,4 @@
-const APP_VERSION="6.2";
+const APP_VERSION="6.2.1";
 const icon=n=>`<svg class="ui-icon" aria-hidden="true"><use href="#i-${n}"></use></svg>`;
 const BOOK_KEY="readingRoomBooksV1";
 const GENRE_KEY="readingRoomGenresV1";
@@ -21,25 +21,169 @@ let justFinishedBookId=null;
 let activeFullBookId=null;
 let sessionsManagerBookId=null;
 let decorSettings=JSON.parse(localStorage.getItem(DECOR_KEY)||"null");
-
 if(!decorSettings || !decorSettings.themes){
-  decorSettings={
-    themes:{home:"classic",tbr:"classic",finished:"classic"}
-  };
+  const oldTheme=decorSettings?.theme||"classic";
+  decorSettings={themes:{home:oldTheme,tbr:oldTheme,finished:oldTheme}};
+  localStorage.setItem(DECOR_KEY,JSON.stringify(decorSettings));
 }
 decorSettings.themes??={home:"classic",tbr:"classic",finished:"classic"};
-
 let activeDecorZone=null;
+
+const $=s=>document.querySelector(s);
+const $$=s=>[...document.querySelectorAll(s)];
+
+function escapeHtml(v=""){return String(v).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));}
+function todayISO(){return new Date().toISOString().slice(0,10);}
+function statusLabel(s){return ({want:"TBR",reading:"Reading",finished:"Finished",dnf:"DNF"})[s]||s;}
+function genreIcon(name=""){
+  const g=name.toLowerCase();
+  if(g.includes("thriller")||g.includes("mystery"))return"search";
+  if(g.includes("romance"))return"heart";
+  if(g.includes("fantasy")||g.includes("science fiction"))return"sparkle";
+  if(g.includes("historical")||g.includes("biography")||g.includes("non-fiction")||g.includes("nonfiction")||g.includes("self-help")||g.includes("literary"))return"note";
+  return"genre";
+}
+function formatIcon(){return"format";}
+function stars(r){r=Number(r)||0;if(!r)return"Not rated";return `${"★".repeat(Math.floor(r))}${r%1?"½":""} ${r}/5`;}
+function pct(b){if(!b.pages||!b.currentPage)return 0;return Math.min(100,Math.round((Number(b.currentPage)/Number(b.pages))*100));}
+function bookYear(b){const raw=b.dateFinished||b.dateStarted;if(raw){const y=new Date(raw+"T00:00:00").getFullYear();if(!Number.isNaN(y))return y;}return new Date().getFullYear();}
+function dateDiffDays(a,b){if(!a||!b)return null;const d=Math.round((new Date(b+"T00:00:00")-new Date(a+"T00:00:00"))/86400000);return Number.isFinite(d)&&d>=0?d:null;}
+
+function sessionMinutes(b){return (Array.isArray(b.sessions)?b.sessions:[]).reduce((n,s)=>n+(Number(s.minutes)||0),0);}
+function moodLabel(value=""){
+  const map={
+    loved:"Loved it",intense:"Intense","mind-blown":"Mind blown",emotional:"Emotional",cozy:"Cozy",neutral:"Neutral",
+    "😍":"Loved it","😱":"Intense","🤯":"Mind blown","😭":"Emotional","😌":"Cozy","😐":"Neutral"
+  };
+  return map[value]||value||"No mood";
+}
+
+function detectiveScoreForBook(b){
+  if(!b.prediction || !b.predictionResult)return null;
+  if(b.predictionResult==="yes")return 100;
+  if(b.predictionResult==="partial")return 50;
+  if(b.predictionResult==="no")return 0;
+  return null;
+}
+function detectiveLabel(score){
+  if(score===null)return "No score";
+  if(score>=90)return "Master Detective";
+  if(score>=70)return "Sharp Reader";
+  if(score>=50)return "Good Hunch";
+  if(score>0)return "Close Call";
+  return "Plot Twist Won";
+}
+function memoryCardHTML(b){
+  const days=dateDiffDays(b.dateStarted,b.dateFinished);
+  const score=detectiveScoreForBook(b);
+  const quote=b.favoriteQuote?`<div class="memory-card-quote">“${escapeHtml(b.favoriteQuote)}”</div>`:"";
+  return `<article class="book-memory-card">
+    <div class="memory-card-top">
+      ${coverHTML(b)}
+      <div>
+        <p class="eyebrow">Reading memory</p>
+        <h3>${escapeHtml(b.title)}</h3>
+        <div class="memory-card-meta">${escapeHtml(b.author||"Unknown author")} · ${b.dateFinished||"Finished"}</div>
+      </div>
+    </div>
+    <div class="memory-card-body">
+      <div class="pills">
+        <span class="pill">${escapeHtml(b.genre||"No genre")}</span>
+        <span class="pill">${stars(b.rating)}</span>
+        ${days!==null?`<span class="pill">${days} ${days===1?"day":"days"}</span>`:""}
+      </div>
+      ${quote}
+      ${b.favoriteCharacter?`<div class="memory-card-meta"><strong>Favourite character:</strong> ${escapeHtml(b.favoriteCharacter)}</div>`:""}
+    </div>
+    <div class="memory-card-footer">
+      ${score!==null?`<span class="memory-score">${icon("target")} ${score}% · ${detectiveLabel(score)}</span>`:`<span></span>`}
+      <button class="secondary compact memory-card-action" onclick="openFullBook('${b.id}')">${icon("reading")} Open</button>
+    </div>
+  </article>`;
+}
+function progressHTML(b){
+  const current=Number(b.currentPage)||0,total=Number(b.pages)||0;
+  if(total>0){
+    const percent=Math.min(100,Math.max(0,Math.round(current/total*100)));
+    return `<div class="progress-wrap"><div class="progress"><span style="width:${percent}%"></span></div><span class="progress-percent">${percent}%</span></div>
+      <div class="progress-copy"><span class="progress-primary">Page ${current} of ${total}</span><span class="progress-secondary">${Math.max(0,total-current)} pages remaining</span></div>`;
+  }
+  return `<div class="progress-wrap"><div class="progress no-total"><span></span></div><span class="progress-percent">Page ${current}</span></div>
+    <div class="progress-copy"><span class="progress-primary">Current page: ${current}</span><span class="progress-secondary">Set total pages to calculate %</span></div>`;
+}
+function coverHTML(b,cls="cover"){return b.cover?`<img class="${cls}" src="${b.cover}" alt="${escapeHtml(b.title)} cover">`:`<div class="${cls} placeholder">${escapeHtml(b.title||"Book")}</div>`;}
+
+function markChanged(){localStorage.setItem(CHANGE_KEY,String(Date.now()));}
+function saveBooks({sync=true}={}){
+  localStorage.setItem(BOOK_KEY,JSON.stringify(books));markChanged();renderAll();if(sync)cloudSync();
+}
+function saveGenres({sync=true}={}){
+  localStorage.setItem(GENRE_KEY,JSON.stringify(genres));markChanged();renderGenreOptions();renderAll();if(sync)cloudSync();
+}
+
+function routeTo(route,{replace=false}={}){
+  const valid=["home","tbr","reading","finished","book-detail","stats","sync"];
+  if(!valid.includes(route))route="home";
+  lastRoute=route;
+  $$(".page").forEach(p=>p.classList.toggle("active",p.dataset.page===route));
+  $$("[data-route]").forEach(b=>b.classList.toggle("active",b.dataset.route===route));
+  if(replace)history.replaceState({route},"",`#${route}`); else if(location.hash!==`#${route}`)history.pushState({route},"",`#${route}`);
+  window.scrollTo({top:0,behavior:"instant"});
+  if(route==="stats")renderStats();
+  if(route==="sync")renderSyncStatus();
+}
+window.addEventListener("popstate",()=>routeTo(location.hash.slice(1)||"home",{replace:true}));
+$$("[data-route]").forEach(btn=>btn.addEventListener("click",()=>routeTo(btn.dataset.route)));
+routeTo(location.hash.slice(1)||"home",{replace:true});
+
+function renderGenreOptions(selected){
+  const bookSelect=$("#genre");
+  if(bookSelect){
+    const current=selected!==undefined?selected:bookSelect.value;
+    const list=[...genres];
+    if(current&&!list.includes(current))list.unshift(current);
+    bookSelect.innerHTML=`<option value="">Choose genre…</option>`+list.map(g=>`<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join("");
+    bookSelect.value=current||"";
+  }
+  ["tbrGenre","finishedGenre"].forEach(id=>{
+    const el=$("#"+id);if(!el)return;const current=el.value||"all";
+    el.innerHTML=`<option value="all">All genres</option>`+genres.map(g=>`<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join("");
+    el.value=genres.includes(current)?current:"all";
+  });
+}
+function renderGenreManager(){
+  $("#genreList").innerHTML=genres.map((g,i)=>`<div class="genre-row">
+    <input data-genre-index="${i}" value="${escapeHtml(g)}">
+    <button type="button" class="secondary compact" onclick="renameGenre(${i})">Save</button>
+    <button type="button" class="danger compact" onclick="deleteGenre(${i})">Delete</button>
+  </div>`).join("");
+}
+window.renameGenre=i=>{
+  const input=document.querySelector(`[data-genre-index="${i}"]`);const next=(input?.value||"").trim().replace(/\s+/g," ");const old=genres[i];
+  if(!next)return alert("Genre name cannot be empty.");
+  if(genres.some((g,j)=>j!==i&&g.toLowerCase()===next.toLowerCase()))return alert("That genre already exists.");
+  genres[i]=next;books=books.map(b=>b.genre===old?{...b,genre:next}:b);localStorage.setItem(BOOK_KEY,JSON.stringify(books));saveGenres();
+};
+window.deleteGenre=i=>{const name=genres[i];if(!confirm(`Remove "${name}" from future choices? Existing books keep it.`))return;genres.splice(i,1);saveGenres();};
+
+function woodBook(b){return `<button class="wood-book" onclick="openBook('${b.id}')">${coverHTML(b)}<span>${escapeHtml(b.title)}</span></button>`;}
+function shelfCard(b){return `<button class="shelf-card" onclick="openBook('${b.id}')">${coverHTML(b)}<strong>${escapeHtml(b.title)}</strong><small>${escapeHtml(b.author||"Unknown")}</small></button>`;}
+
 
 function decorThemeFor(zone){
   return decorSettings.themes?.[zone]||"classic";
 }
 
 function applyDecorations(){
-  const roots=$$("[data-decor-zone]");
-  roots.forEach(root=>{
+  $$("[data-decor-zone]").forEach(root=>{
     const zone=root.dataset.decorZone;
     root.dataset.shelfTheme=decorThemeFor(zone);
+    root.querySelectorAll(".decor-layer").forEach(x=>x.remove());
+  });
+
+  $$(".year-block .full-bookcase").forEach(root=>{
+    root.dataset.decorZone="finished";
+    root.dataset.shelfTheme=decorThemeFor("finished");
     root.querySelectorAll(".decor-layer").forEach(x=>x.remove());
   });
 }
@@ -448,14 +592,12 @@ function openDecorDesigner(zone){
   $("#decorTheme").value=decorThemeFor(zone);
   if(!$("#decorDialog").open)$("#decorDialog").show();
 }
-
 $$(".customize-shelf-btn").forEach(btn=>btn.onclick=()=>openDecorDesigner(btn.dataset.customizeZone));
 
 function closeDecorDesigner(){
   activeDecorZone=null;
   $("#decorDialog").close();
 }
-
 $("#closeDecorDialog").onclick=closeDecorDesigner;
 $("#doneDecorBtn").onclick=closeDecorDesigner;
 
@@ -471,8 +613,6 @@ $("#resetDecorBtn").onclick=()=>{
   $("#decorTheme").value="classic";
   saveDecorSettings();
 };
-
-applyDecorations();
 
 /* SUPABASE AUTH + AUTO SYNC */
 function configured(){return !!(syncSettings.url&&syncSettings.key);}

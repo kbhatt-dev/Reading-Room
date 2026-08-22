@@ -562,24 +562,10 @@ body.customizing-shelf .year-block .full-bookcase::after{
 }
 
 
-/* ==========================================================
-   V6.2 — Cozy Shelves (fixed decor, built-in fairy lights)
-   ========================================================== */
-
-:root{
-  --fairy-glow: rgba(255,224,141,.95);
-}
-
-/* Remove all floating decoration behaviour from V6.1 */
-.decor-layer,
-.placed-decor,
-.placed-decor-remove,
-.decor-tray,
-.decor-tray-item,
-.designer-status{
+/* V6.2.1 — fixed cozy shelf decor */
+.decor-layer,.placed-decor,.placed-decor-remove,.decor-tray,.decor-tray-item,.designer-status{
   display:none!important;
 }
-
 body.customizing-shelf .custom-decor-zone,
 body.customizing-shelf .year-block .full-bookcase{
   outline:none!important;
@@ -588,8 +574,8 @@ body.customizing-shelf .custom-decor-zone::after,
 body.customizing-shelf .year-block .full-bookcase::after{
   display:none!important;
 }
+.bookcase-top-decor{display:none!important}
 
-/* Every shelf receives one elegant plant + built-in fairy lights */
 .custom-decor-zone,
 .year-block .full-bookcase{
   position:relative;
@@ -597,187 +583,75 @@ body.customizing-shelf .year-block .full-bookcase::after{
   isolation:isolate;
 }
 
-/* Fairy light wire */
+/* Fairy-light string fixed into the shelf */
 .custom-decor-zone::before,
 .year-block .full-bookcase::before{
   content:"";
   position:absolute;
-  left:18px;
-  right:18px;
-  top:12px;
-  height:22px;
+  left:20px;right:20px;top:12px;height:22px;
   z-index:7;
   pointer-events:none;
   background:
-    radial-gradient(circle at 2% 55%, var(--fairy-glow) 0 3px, transparent 4px),
-    radial-gradient(circle at 10% 45%, var(--fairy-glow) 0 3px, transparent 4px),
-    radial-gradient(circle at 18% 58%, var(--fairy-glow) 0 3px, transparent 4px),
-    radial-gradient(circle at 26% 42%, var(--fairy-glow) 0 3px, transparent 4px),
-    radial-gradient(circle at 34% 56%, var(--fairy-glow) 0 3px, transparent 4px),
-    radial-gradient(circle at 42% 45%, var(--fairy-glow) 0 3px, transparent 4px),
-    radial-gradient(circle at 50% 58%, var(--fairy-glow) 0 3px, transparent 4px),
-    radial-gradient(circle at 58% 42%, var(--fairy-glow) 0 3px, transparent 4px),
-    radial-gradient(circle at 66% 56%, var(--fairy-glow) 0 3px, transparent 4px),
-    radial-gradient(circle at 74% 45%, var(--fairy-glow) 0 3px, transparent 4px),
-    radial-gradient(circle at 82% 58%, var(--fairy-glow) 0 3px, transparent 4px),
-    radial-gradient(circle at 90% 44%, var(--fairy-glow) 0 3px, transparent 4px),
-    radial-gradient(circle at 98% 55%, var(--fairy-glow) 0 3px, transparent 4px);
-  filter:drop-shadow(0 0 6px rgba(255,220,120,.9));
-  opacity:.95;
+    radial-gradient(circle at 2% 55%,#ffd987 0 3px,transparent 4px),
+    radial-gradient(circle at 10% 45%,#ffe4a1 0 3px,transparent 4px),
+    radial-gradient(circle at 18% 58%,#ffd987 0 3px,transparent 4px),
+    radial-gradient(circle at 26% 42%,#ffe4a1 0 3px,transparent 4px),
+    radial-gradient(circle at 34% 56%,#ffd987 0 3px,transparent 4px),
+    radial-gradient(circle at 42% 45%,#ffe4a1 0 3px,transparent 4px),
+    radial-gradient(circle at 50% 58%,#ffd987 0 3px,transparent 4px),
+    radial-gradient(circle at 58% 42%,#ffe4a1 0 3px,transparent 4px),
+    radial-gradient(circle at 66% 56%,#ffd987 0 3px,transparent 4px),
+    radial-gradient(circle at 74% 45%,#ffe4a1 0 3px,transparent 4px),
+    radial-gradient(circle at 82% 58%,#ffd987 0 3px,transparent 4px),
+    radial-gradient(circle at 90% 44%,#ffe4a1 0 3px,transparent 4px),
+    radial-gradient(circle at 98% 55%,#ffd987 0 3px,transparent 4px);
+  filter:drop-shadow(0 0 6px rgba(255,214,118,.9));
 }
 
-/* Natural potted plant attached to the shelf */
+/* One natural-looking potted plant, visually part of the shelf */
 .custom-decor-zone::after,
 .year-block .full-bookcase::after{
   content:"";
   position:absolute;
-  right:24px;
+  right:28px;
   bottom:34px;
-  width:58px;
-  height:78px;
+  width:54px;height:72px;
   z-index:6;
   pointer-events:none;
   background:
-    radial-gradient(ellipse at 48% 28%, #6f9f58 0 8px, transparent 9px),
-    radial-gradient(ellipse at 30% 36%, #7cab62 0 9px, transparent 10px),
-    radial-gradient(ellipse at 68% 38%, #5f8e4e 0 9px, transparent 10px),
-    radial-gradient(ellipse at 42% 48%, #80ad68 0 10px, transparent 11px),
-    radial-gradient(ellipse at 58% 54%, #628f4e 0 10px, transparent 11px),
-    linear-gradient(#7f5a3b,#7f5a3b) center 47px/2px 25px no-repeat,
-    linear-gradient(#9d6d45,#6f472e) center bottom/34px 22px no-repeat;
-  border-radius:8px 8px 14px 14px;
-  filter:drop-shadow(0 8px 8px rgba(45,30,20,.18));
+    radial-gradient(ellipse at 50% 18%,#6f9d58 0 8px,transparent 9px),
+    radial-gradient(ellipse at 28% 31%,#7cac62 0 9px,transparent 10px),
+    radial-gradient(ellipse at 72% 32%,#5d8c4c 0 9px,transparent 10px),
+    radial-gradient(ellipse at 36% 45%,#83b06a 0 10px,transparent 11px),
+    radial-gradient(ellipse at 64% 48%,#638f50 0 10px,transparent 11px),
+    linear-gradient(#6d8c50,#6d8c50) center 42px/2px 18px no-repeat,
+    linear-gradient(#a46f48,#72472f) center bottom/34px 22px no-repeat;
+  border-radius:6px 6px 12px 12px;
+  filter:drop-shadow(0 8px 7px rgba(45,30,20,.16));
 }
 
-/* Cozy shelf colors */
-[data-shelf-theme="classic"]{
-  --local-board:#6f4933;
-  --local-board-dark:#4a2f22;
-  --local-room:#e8dfd5;
-}
-[data-shelf-theme="light"]{
-  --local-board:#b88761;
-  --local-board-dark:#8f6547;
-  --local-room:#efe5d7;
-}
-[data-shelf-theme="dark"]{
-  --local-board:#3f2a20;
-  --local-board-dark:#241712;
-  --local-room:#d8cec2;
-}
-[data-shelf-theme="honey"]{
-  --local-board:#c98a3d;
-  --local-board-dark:#8b5a27;
-  --local-room:#f0dfc5;
-}
-[data-shelf-theme="mahogany"]{
-  --local-board:#7c3f32;
-  --local-board-dark:#4d241d;
-  --local-room:#ead8cf;
-}
-[data-shelf-theme="sage"]{
-  --local-board:#8b7b58;
-  --local-board-dark:#62583f;
-  --local-room:#dfe5d7;
-}
+/* Six cozy shelf finishes */
+[data-shelf-theme="classic"]{--local-board:#6f4933;--local-dark:#472e22;--local-bg:#e8dfd5}
+[data-shelf-theme="light"]{--local-board:#b98a63;--local-dark:#8f6548;--local-bg:#f0e5d7}
+[data-shelf-theme="dark"]{--local-board:#3e2920;--local-dark:#241611;--local-bg:#d8cec2}
+[data-shelf-theme="honey"]{--local-board:#c7893d;--local-dark:#8b5927;--local-bg:#f0dfc5}
+[data-shelf-theme="mahogany"]{--local-board:#7e4234;--local-dark:#4b251e;--local-bg:#ead7cf}
+[data-shelf-theme="sage"]{--local-board:#8b7d59;--local-dark:#5f563e;--local-bg:#dfe5d7}
 
 [data-shelf-theme]{
-  background:linear-gradient(180deg,
-    color-mix(in srgb,var(--local-room) 92%, white 8%),
-    color-mix(in srgb,var(--local-room) 78%, #d7c9ba 22%))!important;
+  background:linear-gradient(180deg,var(--local-bg),color-mix(in srgb,var(--local-bg) 82%,#d7c7b7 18%))!important;
 }
-
 [data-shelf-theme] .wood-board{
-  background:
-    linear-gradient(180deg,rgba(255,255,255,.08),transparent 35%),
-    linear-gradient(90deg,var(--local-board),var(--local-board-dark),var(--local-board))!important;
+  background:linear-gradient(180deg,rgba(255,255,255,.08),transparent 35%),
+             linear-gradient(90deg,var(--local-board),var(--local-dark),var(--local-board))!important;
   box-shadow:0 5px 12px rgba(54,33,20,.28)!important;
 }
 
-/* Keep books above the background but below lights */
-.custom-decor-zone .shelf-book,
-.custom-decor-zone .library-book,
-.custom-decor-zone .shelf-card,
-.year-block .full-bookcase .shelf-book,
-.year-block .full-bookcase .shelf-card{
-  position:relative;
-  z-index:3;
-}
-
-/* Remove old top-right decor icons completely */
-.bookcase-top-decor{display:none!important;}
-
-/* Preview in customizer */
-.cozy-preview-card{
-  position:relative;
-  overflow:hidden;
-  border:1px solid var(--line);
-  border-radius:16px;
-  height:170px;
-  background:linear-gradient(180deg,#ebe2d8,#ddd0c0);
-  margin:12px 0 14px;
-}
-.cozy-preview-card p{
-  position:absolute;
-  left:14px;
-  bottom:10px;
-  right:14px;
-  margin:0;
-  font-size:.74rem;
-  color:#6f6258;
-  z-index:3;
-}
-.mini-board{
-  position:absolute;
-  left:12px;right:12px;bottom:32px;height:16px;
-  border-radius:8px;
-  background:linear-gradient(90deg,#7a5038,#4d3022,#7a5038);
-}
-.mini-fairy{
-  position:absolute;left:16px;right:16px;top:12px;height:18px;
-  background:
-    radial-gradient(circle at 2% 55%, var(--fairy-glow) 0 3px, transparent 4px),
-    radial-gradient(circle at 12% 45%, var(--fairy-glow) 0 3px, transparent 4px),
-    radial-gradient(circle at 22% 58%, var(--fairy-glow) 0 3px, transparent 4px),
-    radial-gradient(circle at 32% 44%, var(--fairy-glow) 0 3px, transparent 4px),
-    radial-gradient(circle at 42% 58%, var(--fairy-glow) 0 3px, transparent 4px),
-    radial-gradient(circle at 52% 45%, var(--fairy-glow) 0 3px, transparent 4px),
-    radial-gradient(circle at 62% 58%, var(--fairy-glow) 0 3px, transparent 4px),
-    radial-gradient(circle at 72% 44%, var(--fairy-glow) 0 3px, transparent 4px),
-    radial-gradient(circle at 82% 58%, var(--fairy-glow) 0 3px, transparent 4px),
-    radial-gradient(circle at 92% 45%, var(--fairy-glow) 0 3px, transparent 4px);
-  filter:drop-shadow(0 0 6px rgba(255,220,120,.95));
-}
-.mini-plant{
-  position:absolute;right:22px;bottom:48px;width:42px;height:62px;
-}
-.mini-plant::after{
-  content:"";
-  position:absolute;bottom:0;left:7px;width:28px;height:18px;
-  background:linear-gradient(#a56f45,#71462f);
-  border-radius:5px 5px 10px 10px;
-}
-.mini-plant span{
-  position:absolute;width:14px;height:26px;border-radius:100% 0 100% 0;
-  background:linear-gradient(135deg,#8fbd6c,#5d8b49);
-  transform-origin:bottom center;
-}
-.mini-plant span:nth-child(1){left:14px;bottom:18px;transform:rotate(-8deg)}
-.mini-plant span:nth-child(2){left:3px;bottom:18px;transform:rotate(-38deg)}
-.mini-plant span:nth-child(3){right:2px;bottom:18px;transform:rotate(32deg)}
-.mini-plant span:nth-child(4){left:8px;bottom:29px;transform:rotate(-18deg)}
-.mini-plant span:nth-child(5){right:8px;bottom:29px;transform:rotate(18deg)}
-
 @media(max-width:700px){
+  .custom-decor-zone::before,
+  .year-block .full-bookcase::before{left:10px;right:10px}
   .custom-decor-zone::after,
   .year-block .full-bookcase::after{
-    transform:scale(.82);
-    transform-origin:bottom right;
-    right:10px;
-    bottom:30px;
-  }
-  .custom-decor-zone::before,
-  .year-block .full-bookcase::before{
-    left:10px;right:10px;
+    right:10px;bottom:30px;transform:scale(.82);transform-origin:bottom right;
   }
 }
