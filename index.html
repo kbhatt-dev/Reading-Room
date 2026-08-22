@@ -360,7 +360,7 @@
         <div>
           <p class="eyebrow">Across your devices</p>
           <h1>Cloud Sync</h1>
-          <p class="muted">Automatic Supabase sync with local backup.</p>
+          <p class="muted">Automatic Firebase Firestore sync with local backup.</p>
         </div>
       </div>
 
@@ -368,16 +368,16 @@
         <div id="syncStatus" class="sync-status"></div>
 
         <section class="sync-block">
-          <h3>Supabase Connection</h3>
+          <h3>Firebase Connection</h3>
           <div class="form-grid two">
-            <label>Project URL<input id="supabaseUrl" placeholder="https://xxxx.supabase.co" autocomplete="off"></label>
-            <label>Publishable key<input id="supabaseKey" type="password" placeholder="sb_publishable_..." autocomplete="off"></label>
+            <label>Web API Key<input id="firebaseApiKey" type="password" placeholder="AIza..." autocomplete="off"></label>
+            <label>Project ID<input id="firebaseProjectId" placeholder="my-reading-room" autocomplete="off"></label>
           </div>
           <div class="button-row">
             <button id="clearSyncSettings" class="secondary">Clear</button>
             <button id="saveSyncSettings" class="primary">Save Connection</button>
           </div>
-          <p class="note">Use only the Project URL and Publishable key. Never use a secret/service-role key in the browser.</p>
+          <p class="note">Primary setup: paste your Firebase Web configuration into firebase-config.js. When that file is configured, these fields become read-only. Firebase Web config values are public identifiers; Firestore Security Rules protect your private reading data.</p>
         </section>
 
         <section class="sync-block">
@@ -409,7 +409,7 @@
             </summary>
 
             <div class="storage-monitor-content">
-              <p class="muted storage-note">These figures are estimates for My Reading Room. The cloud figure is the payload this app syncs to Supabase, not your entire Supabase project.</p>
+              <p class="muted storage-note">These figures are estimates for My Reading Room. Firestore stores books separately, so the cloud figure is an approximate total of persistent Reading Room content rather than a single upload payload.</p>
 
               <div class="storage-grid">
                 <article class="storage-card">
@@ -423,9 +423,9 @@
                   <small id="localCoverCount">0 covers</small>
                 </article>
                 <article class="storage-card">
-                  <span class="storage-label">Cloud sync payload</span>
+                  <span class="storage-label">Approx. cloud content</span>
                   <strong id="cloudPayloadSize">—</strong>
-                  <small>Estimated size of the persistent JSON sent by this app</small>
+                  <small>Approximate Reading Room data before Firestore document overhead</small>
                 </article>
                 <article class="storage-card">
                   <span class="storage-label">Browser storage available</span>
@@ -439,9 +439,9 @@
                 <div><span>Average optimized cover</span><strong id="averageCoverSize">—</strong></div>
               </div>
 
-              <div class="storage-supabase-note">
-                <strong>Supabase project quota</strong>
-                <p>This app does not use an admin key, so it cannot securely read your full Supabase project quota or remaining allowance. Use the Supabase Dashboard → Organization → Usage → Database Size for the real project figure.</p>
+              <div class="storage-cloud-note">
+                <strong>Firebase / Firestore quota</strong>
+                <p>The app does not use an admin credential and cannot read your full Firebase billing/quota usage. Use Firebase Console → Firestore Database → Usage for the real project figures.</p>
               </div>
 
               <button type="button" id="refreshStorageUsage" class="secondary compact">
@@ -477,9 +477,9 @@
             <summary><span><strong>Data Management</strong><small>Reset test/library data</small></span><span class="danger-zone-hint">Open</span></summary>
             <div class="danger-zone-content">
               <h3>Reset Reading Room Data</h3>
-              <p class="muted">Use this when you are finished testing and want a clean library. Your Supabase account, login/profile, and saved connection stay intact.</p>
+              <p class="muted">Use this when you are finished testing and want a clean library. Your Firebase Authentication account/profile and saved connection stay intact.</p>
               <div class="danger-zone-warning"><strong>This permanently clears:</strong><p>Books and covers, TBR/Reading/Finished/DNF data, reading sessions, journal memories, quotes, predictions, goals/challenges, Hall of Fame/library state, custom genres, and shelf customization.</p></div>
-              <p class="note">If you are signed in, the reset also replaces your synced Reading Room cloud payload with the empty library so old dummy books do not download again.</p>
+              <p class="note">If you are signed in, the reset deletes your Reading Room Firestore documents (books, deletion markers and settings) while keeping your Firebase Authentication profile.</p>
               <button type="button" id="openResetReadingData" class="danger">Reset Reading Data…</button>
             </div>
           </details>
@@ -504,7 +504,7 @@
   <dialog id="resetReadingDataDialog" class="small-dialog reset-data-dialog">
     <section class="small-dialog-card">
       <div class="dialog-header"><div><p class="eyebrow">Protected action</p><h2>Reset Reading Room?</h2></div><button type="button" id="closeResetReadingData" class="round-btn">✕</button></div>
-      <p>This permanently removes your Reading Room library data from this device and, when signed in, deletes your <code>reading_room_sync</code> cloud row from Supabase. It does <strong>not</strong> delete your Supabase account/profile or connection.</p>
+      <p>This permanently removes your Reading Room library data from this device and, when signed in, deletes your Reading Room documents from Firestore. It does <strong>not</strong> delete your Firebase Authentication account/profile or saved connection.</p>
       <div class="reset-backup-prompt"><strong>Recommended:</strong> Export a JSON backup first if there is anything you may want later.</div>
       <label>Type <strong>RESET</strong> to continue<input id="resetReadingDataConfirm" autocomplete="off" placeholder="RESET"></label>
       <div class="button-row end"><button type="button" id="resetExportFirst" class="secondary">Export Backup First</button><button type="button" id="confirmResetReadingData" class="danger" disabled>Reset Data</button></div>
@@ -804,6 +804,7 @@
     </section>
   </dialog>
 
+  <script src="firebase-config.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

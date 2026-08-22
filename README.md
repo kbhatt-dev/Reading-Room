@@ -1,3 +1,34 @@
+# My Reading Room V7.0.1 — Firebase Config File Hotfix
+
+## Firebase configuration file
+
+Firebase project values now live in the dedicated `firebase-config.js` file. Copy the standard Firebase Web App configuration values from Firebase Console into that file and reload the app. `firebase-config.js` must load before `app.js`, which is already configured in `index.html`.
+
+Do not place passwords, Admin SDK credentials, service-account JSON, or private keys in `firebase-config.js`. Only the normal Firebase Web configuration belongs there. Firestore Security Rules must restrict `users/{uid}/**` to the authenticated matching UID.
+
+## Backend migration
+
+- Replaced the Supabase runtime integration with Firebase Authentication + Cloud Firestore REST APIs.
+- The app remains local-first: all existing pages and offline/localStorage behavior continue to work even before Firebase is configured.
+- Firestore stores each book as its own document under `users/{uid}/books/{bookId}` instead of uploading one giant library snapshot. Reading sessions and journal/memory fields remain inside their parent book document so the existing UI/data model does not need a risky rewrite.
+- Small shared settings (genres, shelf themes, yearly goals and monthly challenges) are stored in `users/{uid}/settings/app`.
+- Deletion markers under `users/{uid}/deletions/{bookId}` make cross-device book deletions safe without resending the whole library.
+- Sync compares per-book content against the last common baseline, so a clean/stale device should download newer records instead of overwriting another device.
+- Reset Reading Data deletes the user's Reading Room Firestore documents while keeping the Firebase Authentication profile.
+- No Firebase Admin/service-account credential is used in the browser. Firestore Security Rules must restrict `users/{uid}/**` to the authenticated matching UID.
+
+## Lifetime cover policy
+
+- Changed the overly aggressive sub-8 KB policy to an approximately **8 KB target with a strict <10 KB maximum**.
+- Maximum initial thumbnail size increased to 260 × 390 px and WebP quality is reduced gradually before dimensions are reduced, improving shelf readability on iPhone.
+- Existing embedded covers at or above 10 KB are eligible for in-place recompression; already-small covers are not repeatedly degraded.
+
+## Compatibility
+
+- Room, TBR, Reading, Finished, Stats, Sync, sessions/calendar, goals, challenges, search, journal exports, JSON backup/import, Reset Reading Data, shelf customization, PWA behavior and mobile navigation are preserved.
+- V7 uses new Firebase-specific local configuration/session keys; old Supabase browser settings are ignored rather than used by the new runtime.
+- Firebase configuration is intentionally not hard-coded. Until a Firebase project/API key is entered on Sync, V7 operates in local mode.
+
 # Reading Room V6.8.9 — Cloud Data Reset Hotfix
 
 - Reworked sync decision logic around an explicit local-dirty marker: a clean device now always downloads a different cloud snapshot instead of ever pushing a stale cache.

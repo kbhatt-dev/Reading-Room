@@ -1,13 +1,17 @@
-const APP_VERSION="6.8.9";
+const APP_VERSION="7.0.1";
 const icon=n=>`<svg class="ui-icon" aria-hidden="true"><use href="#i-${n}"></use></svg>`;
 const BOOK_KEY="readingRoomBooksV1";
 const GENRE_KEY="readingRoomGenresV1";
-const SYNC_KEY="readingRoomSyncSettingsV2";
-const SESSION_KEY="readingRoomSupabaseSessionV2";
+const SYNC_KEY="readingRoomFirebaseSettingsV1";
+const SESSION_KEY="readingRoomFirebaseSessionV1";
 const CHANGE_KEY="readingRoomLastChangedV2";
 const SYNCED_KEY="readingRoomLastSyncedV2";
-const SYNC_HASH_KEY="readingRoomLastSyncedPayloadHashV1";
-const SYNC_DIRTY_KEY="readingRoomSyncDirtyV1";
+const SYNC_DIRTY_KEY="readingRoomFirebaseDirtyV1";
+const FB_BOOK_BASELINE_KEY="readingRoomFirebaseBookBaselineV1";
+const FB_BOOK_TIME_KEY="readingRoomFirebaseBookTimesV1";
+const FB_SETTINGS_BASELINE_KEY="readingRoomFirebaseSettingsBaselineV1";
+const FB_SETTINGS_TIME_KEY="readingRoomFirebaseSettingsTimeV1";
+const FB_RESET_HOLD_KEY="readingRoomFirebaseResetHoldV1";
 const DECOR_KEY="readingRoomDecorV1";
 const GOAL_KEY="readingRoomGoalsV1";
 const LAST_BACKUP_KEY="readingRoomLastBackupExportV1";
@@ -16,7 +20,10 @@ const DEFAULT_GENRES=["Thriller","Mystery","Horror","Romance","Fantasy","Science
 
 let books=JSON.parse(localStorage.getItem(BOOK_KEY)||"[]");
 let genres=JSON.parse(localStorage.getItem(GENRE_KEY)||"null")||[...DEFAULT_GENRES];
-let syncSettings=JSON.parse(localStorage.getItem(SYNC_KEY)||"null")||{url:"",key:""};
+const FIREBASE_FILE_CONFIG=(window.READING_ROOM_FIREBASE_CONFIG&&typeof window.READING_ROOM_FIREBASE_CONFIG==="object")?window.READING_ROOM_FIREBASE_CONFIG:{};
+const SAVED_FIREBASE_CONFIG=JSON.parse(localStorage.getItem(SYNC_KEY)||"null")||{};
+const FILE_FIREBASE_READY=!!(String(FIREBASE_FILE_CONFIG.apiKey||"").trim()&&String(FIREBASE_FILE_CONFIG.projectId||"").trim());
+let syncSettings=FILE_FIREBASE_READY?{...FIREBASE_FILE_CONFIG}:{...FIREBASE_FILE_CONFIG,...SAVED_FIREBASE_CONFIG};
 let syncSession=JSON.parse(localStorage.getItem(SESSION_KEY)||"null");
 let selectedRating=0;
 let workingCover="";
@@ -69,7 +76,7 @@ function saveYearlyGoal(year,target){
   if(!value)return false;
   goalSettings.yearly[String(year)]=value;
   localStorage.setItem(GOAL_KEY,JSON.stringify(goalSettings));
-  markChanged();renderAll();cloudSync();return true;
+  markSettingsChanged();renderAll();cloudSync();return true;
 }
 
 function sessionMinutes(b){return (Array.isArray(b.sessions)?b.sessions:[]).reduce((n,s)=>n+(Number(s.minutes)||0),0);}
@@ -109,11 +116,10 @@ function progressHTML(b){
 function coverHTML(b,cls="cover"){return b.cover?`<img class="${cls}" src="${b.cover}" alt="${escapeHtml(b.title)} cover">`:`<div class="${cls} placeholder">${escapeHtml(b.title||"Book")}</div>`;}
 
 
-/* V6.8.7 Extra-Tiny Cover Hardening.
-   Covers are display thumbnails, so storage size is prioritized over source-image fidelity.
-   Every newly processed embedded cover targets ~6 KB and must finish below 8 KB.
-   Existing covers above the hard limit are recompressed in-place on startup. */
-const COVER_MAX_W=220,COVER_MAX_H=330,COVER_QUALITY=.46,COVER_TARGET_BYTES=6*1024,COVER_HARD_MAX_BYTES=8*1024,COVER_HARD_INPUT_BYTES=12*1024*1024;
+/* V7.0 Lifetime cover policy.
+   Covers remain tiny enough for long-term cloud use without sacrificing shelf readability.
+   New and oversized embedded covers target ~8 KB and must finish below 10 KB. */
+const COVER_MAX_W=260,COVER_MAX_H=390,COVER_QUALITY=.62,COVER_TARGET_BYTES=8*1024,COVER_HARD_MAX_BYTES=10*1024,COVER_HARD_INPUT_BYTES=12*1024*1024;
 function dataUrlBytes(s=""){const i=s.indexOf(",");return i<0?0:Math.ceil((s.length-i-1)*3/4);}
 function readBlobAsDataURL(blob){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(blob);});}
 function loadImage(src){return new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(new Error("This image format could not be processed."));img.src=src;});}
@@ -123,53 +129,33 @@ async function compressCoverSource(src,{force=false}={}){
   if(!force&&src.startsWith("data:image/webp")&&originalBytes<COVER_HARD_MAX_BYTES)return src;
 
   const img=await loadImage(src),ratio=Math.min(1,COVER_MAX_W/img.naturalWidth,COVER_MAX_H/img.naturalHeight);
-  let w=Math.max(1,Math.round(img.naturalWidth*ratio)),
-      h=Math.max(1,Math.round(img.naturalHeight*ratio)),
-      quality=COVER_QUALITY,
-      best=src,
-      bestBytes=originalBytes||Number.MAX_SAFE_INTEGER;
-
-  const encode=async(width,height,q,type="image/webp")=>{
-    const c=document.createElement("canvas");
-    c.width=width;c.height=height;
-    const ctx=c.getContext("2d",{alpha:false});
-    ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality="high";
+  let w=Math.max(1,Math.round(img.naturalWidth*ratio)),h=Math.max(1,Math.round(img.naturalHeight*ratio)),quality=COVER_QUALITY,best=src,bestBytes=originalBytes||Number.MAX_SAFE_INTEGER;
+  const encode=async(width,height,q)=>{
+    const c=document.createElement("canvas");c.width=width;c.height=height;
+    const ctx=c.getContext("2d",{alpha:false});ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality="high";
     ctx.fillStyle="#f7f0e7";ctx.fillRect(0,0,width,height);ctx.drawImage(img,0,0,width,height);
-    return new Promise(resolve=>c.toBlob(resolve,type,q));
+    return new Promise(resolve=>c.toBlob(resolve,"image/webp",q));
   };
-  const remember=async blob=>{
-    if(!blob)return false;
-    if(blob.size<bestBytes){best=await readBlobAsDataURL(blob);bestBytes=blob.size;}
-    return blob.size<COVER_HARD_MAX_BYTES;
-  };
+  const remember=async blob=>{if(!blob)return false;if(blob.size<bestBytes){best=await readBlobAsDataURL(blob);bestBytes=blob.size;}return blob.size<COVER_HARD_MAX_BYTES;};
 
-  /* Quality pass first. */
-  for(let pass=0;pass<12;pass++){
-    const blob=await encode(w,h,quality);
-    await remember(blob);
+  /* Preserve useful detail first by stepping WebP quality down gradually. */
+  for(let pass=0;pass<11;pass++){
+    const blob=await encode(w,h,quality);await remember(blob);
     if(blob&&blob.size<=COVER_TARGET_BYTES)break;
-    quality=Math.max(.08,quality-.04);
+    quality=Math.max(.16,quality-.045);
   }
 
-  /* Then shrink dimensions aggressively until the real encoded blob is < 8 KB.
-     The 48x72 floor is intentionally tiny: covers are never shown at source size. */
-  while(bestBytes>=COVER_HARD_MAX_BYTES&&(w>48||h>72)){
-    w=Math.max(48,Math.round(w*.82));
-    h=Math.max(72,Math.round(h*.82));
-    const blob=await encode(w,h,.08);
-    if(await remember(blob)&&bestBytes<=COVER_TARGET_BYTES)break;
+  /* Only reduce dimensions when quality alone cannot stay below the 10 KB cap. */
+  while(bestBytes>=COVER_HARD_MAX_BYTES&&(w>72||h>108)){
+    w=Math.max(72,Math.round(w*.88));h=Math.max(108,Math.round(h*.88));
+    const blob=await encode(w,h,.16);if(await remember(blob)&&bestBytes<=COVER_TARGET_BYTES)break;
   }
-
-  /* Last-resort encodes for unusually noisy iPhone photos/screenshots. */
   if(bestBytes>=COVER_HARD_MAX_BYTES){
-    for(const [tw,th,q] of [[44,66,.06],[40,60,.05],[36,54,.04],[32,48,.03]]){
-      const blob=await encode(tw,th,q);
-      await remember(blob);
-      if(bestBytes<COVER_HARD_MAX_BYTES)break;
+    for(const [tw,th,q] of [[68,102,.14],[64,96,.12],[60,90,.10],[56,84,.08]]){
+      const blob=await encode(tw,th,q);await remember(blob);if(bestBytes<COVER_HARD_MAX_BYTES)break;
     }
   }
-
-  if(bestBytes>=COVER_HARD_MAX_BYTES)throw new Error("This cover could not be reduced below 8 KB. Please choose a different image.");
+  if(bestBytes>=COVER_HARD_MAX_BYTES)throw new Error("This cover could not be reduced below 10 KB. Please choose a different image.");
   return best;
 }
 async function optimizeCoverFile(file){
@@ -185,17 +171,10 @@ async function optimizeExistingCovers(){
     if(String(b.cover).startsWith("data:image/webp")&&oldBytes<COVER_HARD_MAX_BYTES){after+=oldBytes;continue;}
     try{
       const optimized=await compressCoverSource(b.cover,{force:true}),newBytes=dataUrlBytes(optimized);
-      if(newBytes&&newBytes<oldBytes&&newBytes<COVER_HARD_MAX_BYTES){
-        /* Replace the old embedded cover in-place. No duplicate cover is retained. */
-        b.cover=optimized;changed++;after+=newBytes;
-      }else after+=oldBytes;
+      if(newBytes&&newBytes<oldBytes&&newBytes<COVER_HARD_MAX_BYTES){b.cover=optimized;changed++;after+=newBytes;}else after+=oldBytes;
     }catch{after+=oldBytes;}
   }
-  if(changed){
-    localStorage.setItem(BOOK_KEY,JSON.stringify(books));
-    markChanged();
-    renderAll();
-  }
+  if(changed){localStorage.setItem(BOOK_KEY,JSON.stringify(books));markBookChanges([],books,{onlyExisting:true});markChanged();renderAll();}
   return {changed,before,after};
 }
 function coverKey(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return `c${(h>>>0).toString(36)}_${s.length}`;}
@@ -210,12 +189,25 @@ function unpackBooksFromStorage(payload){
 }
 function persistentSyncPayload(){const packed=packBooksForStorage(books);return {books:packed.books,covers:packed.covers,genres,decorSettings,goalSettings,storageVersion:3};}
 
-function markChanged(){localStorage.setItem(CHANGE_KEY,String(Date.now()));localStorage.setItem(SYNC_DIRTY_KEY,"1");}
+function markChanged(){localStorage.removeItem(FB_RESET_HOLD_KEY);localStorage.setItem(CHANGE_KEY,String(Date.now()));localStorage.setItem(SYNC_DIRTY_KEY,"1");}
+function readBookTimes(){try{return JSON.parse(localStorage.getItem(FB_BOOK_TIME_KEY)||"{}")}catch{return {}}}
+function writeBookTimes(v){localStorage.setItem(FB_BOOK_TIME_KEY,JSON.stringify(v));}
+function bookContentHash(book){return syncPayloadHash(book||null);}
+function markBookChanges(previous,current,{onlyExisting=false}={}){
+  const prevMap=new Map((Array.isArray(previous)?previous:[]).map(b=>[String(b.id),b]));
+  const nextMap=new Map((Array.isArray(current)?current:[]).map(b=>[String(b.id),b]));
+  const times=readBookTimes(),now=Date.now();
+  for(const [id,b] of nextMap){const old=prevMap.get(id);if((onlyExisting||!old)||!old||bookContentHash(old)!==bookContentHash(b))times[id]={updatedAtMs:now};}
+  if(!onlyExisting)for(const [id] of prevMap)if(!nextMap.has(id))times[id]={deletedAtMs:now};
+  writeBookTimes(times);
+}
+function markSettingsChanged(){localStorage.setItem(FB_SETTINGS_TIME_KEY,String(Date.now()));markChanged();}
 function saveBooks({sync=true}={}){
-  localStorage.setItem(BOOK_KEY,JSON.stringify(books));markChanged();renderAll();if(sync)cloudSync();
+  let previous=[];try{previous=JSON.parse(localStorage.getItem(BOOK_KEY)||"[]")}catch{}
+  markBookChanges(previous,books);localStorage.setItem(BOOK_KEY,JSON.stringify(books));markChanged();renderAll();if(sync)cloudSync();
 }
 function saveGenres({sync=true}={}){
-  localStorage.setItem(GENRE_KEY,JSON.stringify(genres));markChanged();renderGenreOptions();renderAll();if(sync)cloudSync();
+  localStorage.setItem(GENRE_KEY,JSON.stringify(genres));markSettingsChanged();renderGenreOptions();renderAll();if(sync)cloudSync();
 }
 
 function routeTo(route,{replace=false}={}){
@@ -288,7 +280,7 @@ function applyDecorations(){
 
 function saveDecorSettings({sync=true}={}){
   localStorage.setItem(DECOR_KEY,JSON.stringify(decorSettings));
-  markChanged();
+  markSettingsChanged();
   applyDecorations();
   if(sync)cloudSync();
 }
@@ -971,10 +963,18 @@ $("#resetDecorBtn").onclick=()=>{
   saveDecorSettings();
 };
 
-/* SUPABASE AUTH + AUTO SYNC */
-function configured(){return !!(syncSettings.url&&syncSettings.key);}
-function signedIn(){return !!(syncSession?.access_token&&syncSession?.user?.id);}
-function authHeaders(access=false){const h={apikey:syncSettings.key,"Content-Type":"application/json"};if(access&&signedIn())h.Authorization=`Bearer ${syncSession.access_token}`;return h;}
+/* FIREBASE AUTH + FIRESTORE AUTO SYNC — V7.0.1
+   Uses Firebase REST endpoints so the PWA keeps a small local app shell and does not
+   depend on a third-party JavaScript SDK. Only the public Web API key + Project ID
+   are stored on-device. Firestore Security Rules must restrict users/{uid}/** to uid. */
+function configured(){return !!(syncSettings.apiKey&&syncSettings.projectId);}
+function signedIn(){return !!(syncSession?.idToken&&syncSession?.localId);}
+function firebaseAuthUrl(path){return `https://identitytoolkit.googleapis.com/v1/${path}?key=${encodeURIComponent(syncSettings.apiKey)}`;}
+function firebaseRefreshUrl(){return `https://securetoken.googleapis.com/v1/token?key=${encodeURIComponent(syncSettings.apiKey)}`;}
+function firestoreBase(){return `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(syncSettings.projectId)}/databases/(default)/documents`; }
+function firestoreHeaders(){return {Authorization:`Bearer ${syncSession.idToken}`,"Content-Type":"application/json"};}
+function firestoreStringDoc(data,updatedAtMs=Date.now()){return {fields:{data:{stringValue:JSON.stringify(data)},updatedAtMs:{integerValue:String(Math.max(0,Math.round(updatedAtMs)))}}};}
+function firestoreParseDoc(doc){try{return {data:JSON.parse(doc?.fields?.data?.stringValue||"null"),updatedAtMs:Number(doc?.fields?.updatedAtMs?.integerValue||0),name:doc?.name||""};}catch{return {data:null,updatedAtMs:0,name:doc?.name||""};}}
 
 function byteSize(value){return new TextEncoder().encode(typeof value==="string"?value:JSON.stringify(value)).length;}
 function storageUsageSnapshot(){
@@ -1070,216 +1070,191 @@ function downloadTextFile(text,name,type){
 function renderSyncStatus(){
   if($("#storageUsageDetails")?.open)renderStorageUsage();
   renderBackupHealth();
-  $("#supabaseUrl").value=syncSettings.url||"";$("#supabaseKey").value=syncSettings.key||"";
-  if(signedIn())$("#syncStatus").innerHTML=`<span class="status-dot good"></span><div><strong>Cloud sync active</strong><p class="meta">Signed in securely with Supabase Authentication.</p></div>`;
-  else if(configured())$("#syncStatus").innerHTML=`<span class="status-dot"></span><div><strong>Connection saved</strong><p class="meta">Sign in below to start syncing.</p></div>`;
-  else $("#syncStatus").innerHTML=`<span class="status-dot"></span><div><strong>Local mode</strong><p class="meta">Your books are saved on this device.</p></div>`;
+  $("#firebaseApiKey").value=syncSettings.apiKey||"";$("#firebaseProjectId").value=syncSettings.projectId||"";
+  if(FILE_FIREBASE_READY){$("#firebaseApiKey").readOnly=true;$("#firebaseProjectId").readOnly=true;$("#saveSyncSettings").classList.add("hidden");$("#clearSyncSettings").classList.add("hidden");}
+  if(signedIn())$("#syncStatus").innerHTML=`<span class="status-dot good"></span><div><strong>Cloud sync active</strong><p class="meta">Signed in securely with Firebase Authentication + Firestore${FILE_FIREBASE_READY?" · config loaded from firebase-config.js":""}.</p></div>`;
+  else if(configured())$("#syncStatus").innerHTML=`<span class="status-dot"></span><div><strong>Firebase connection ready</strong><p class="meta">${FILE_FIREBASE_READY?"firebase-config.js loaded successfully. ":"Connection saved on this device. "}Sign in below to start syncing.</p></div>`;
+  else $("#syncStatus").innerHTML=`<span class="status-dot"></span><div><strong>Local mode</strong><p class="meta">Add your Firebase Web configuration to firebase-config.js, then reload the app.</p></div>`;
   $("#signedOutPanel").classList.toggle("hidden",signedIn());$("#signedInPanel").classList.toggle("hidden",!signedIn());
-  if(signedIn())$("#signedInEmail").textContent=syncSession.user.email||"Reading Room account";
+  if(signedIn())$("#signedInEmail").textContent=syncSession.email||"Reading Room account";
 }
 async function refreshSession(){
-  if(!syncSession?.refresh_token||!configured())return false;const exp=Number(syncSession.expires_at||0)*1000;if(exp&&Date.now()<exp-60000)return true;
-  try{const r=await fetch(`${syncSettings.url.replace(/\/$/,"")}/auth/v1/token?grant_type=refresh_token`,{method:"POST",headers:authHeaders(),body:JSON.stringify({refresh_token:syncSession.refresh_token})});if(!r.ok)throw Error();syncSession=await r.json();localStorage.setItem(SESSION_KEY,JSON.stringify(syncSession));return true;}
-  catch{syncSession=null;localStorage.removeItem(SESSION_KEY);renderSyncStatus();return false;}
+  if(!syncSession?.refreshToken||!configured())return false;
+  if(Number(syncSession.expiresAt||0)>Date.now()+60000)return true;
+  try{
+    const r=await fetch(firebaseRefreshUrl(),{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:new URLSearchParams({grant_type:"refresh_token",refresh_token:syncSession.refreshToken})});
+    const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d?.error?.message||"Session refresh failed.");
+    syncSession={...syncSession,idToken:d.id_token,refreshToken:d.refresh_token||syncSession.refreshToken,localId:d.user_id||syncSession.localId,expiresAt:Date.now()+Number(d.expires_in||3600)*1000};
+    localStorage.setItem(SESSION_KEY,JSON.stringify(syncSession));return true;
+  }catch(e){console.warn("Firebase session refresh:",e);syncSession=null;localStorage.removeItem(SESSION_KEY);renderSyncStatus();return false;}
 }
 async function signIn(email,password){
-  const r=await fetch(`${syncSettings.url.replace(/\/$/,"")}/auth/v1/token?grant_type=password`,{method:"POST",headers:authHeaders(),body:JSON.stringify({email,password})});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.msg||d.error_description||"Sign in failed.");syncSession=d;localStorage.setItem(SESSION_KEY,JSON.stringify(d));renderSyncStatus();
+  if(!configured())throw Error("Save your Firebase API Key and Project ID first.");
+  const r=await fetch(firebaseAuthUrl("accounts:signInWithPassword"),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,password,returnSecureToken:true})});
+  const d=await r.json().catch(()=>({}));if(!r.ok)throw Error((d?.error?.message||"Sign in failed.").replaceAll("_"," "));
+  syncSession={idToken:d.idToken,refreshToken:d.refreshToken,localId:d.localId,email:d.email||email,expiresAt:Date.now()+Number(d.expiresIn||3600)*1000};
+  localStorage.setItem(SESSION_KEY,JSON.stringify(syncSession));renderSyncStatus();
 }
 
 function resetLocalReadingData(){
-  books=[];
-  genres=[...DEFAULT_GENRES];
-  decorSettings={themes:{home:"classic",tbr:"classic",finished:"classic"}};
-  goalSettings={yearly:{},monthly:{}};
-  localStorage.setItem(BOOK_KEY,JSON.stringify(books));
-  localStorage.setItem(GENRE_KEY,JSON.stringify(genres));
-  localStorage.setItem(DECOR_KEY,JSON.stringify(decorSettings));
-  localStorage.setItem(GOAL_KEY,JSON.stringify(goalSettings));
-  localStorage.removeItem(LAST_BACKUP_KEY);
-  markChanged();
-  renderGenreOptions();renderAll();applyDecorations();renderSyncStatus();
+  books=[];genres=[...DEFAULT_GENRES];decorSettings={themes:{home:"classic",tbr:"classic",finished:"classic"}};goalSettings={yearly:{},monthly:{}};
+  localStorage.setItem(BOOK_KEY,JSON.stringify(books));localStorage.setItem(GENRE_KEY,JSON.stringify(genres));localStorage.setItem(DECOR_KEY,JSON.stringify(decorSettings));localStorage.setItem(GOAL_KEY,JSON.stringify(goalSettings));
+  localStorage.removeItem(LAST_BACKUP_KEY);localStorage.removeItem(FB_BOOK_BASELINE_KEY);localStorage.removeItem(FB_BOOK_TIME_KEY);localStorage.removeItem(FB_SETTINGS_BASELINE_KEY);localStorage.removeItem(FB_SETTINGS_TIME_KEY);localStorage.removeItem(SYNC_DIRTY_KEY);localStorage.setItem(FB_RESET_HOLD_KEY,"1");
+  localStorage.setItem(CHANGE_KEY,String(Date.now()));renderGenreOptions();renderAll();applyDecorations();renderSyncStatus();
+}
+async function firestoreList(collectionPath){
+  const out=[];let token="";
+  do{
+    const url=`${firestoreBase()}/${collectionPath}?pageSize=300${token?`&pageToken=${encodeURIComponent(token)}`:""}`;
+    const r=await fetch(url,{headers:firestoreHeaders()});if(!r.ok){const d=await r.json().catch(()=>({}));throw Error(d?.error?.message||"Cloud read failed.");}
+    const d=await r.json();out.push(...(d.documents||[]));token=d.nextPageToken||"";
+  }while(token);
+  return out;
+}
+async function firestoreGet(path){
+  const r=await fetch(`${firestoreBase()}/${path}`,{headers:firestoreHeaders()});
+  if(r.status===404)return null;if(!r.ok){const d=await r.json().catch(()=>({}));throw Error(d?.error?.message||"Cloud read failed.");}return r.json();
+}
+async function firestorePut(path,data,updatedAtMs=Date.now()){
+  const r=await fetch(`${firestoreBase()}/${path}`,{method:"PATCH",headers:firestoreHeaders(),body:JSON.stringify(firestoreStringDoc(data,updatedAtMs))});
+  if(!r.ok){const d=await r.json().catch(()=>({}));throw Error(d?.error?.message||"Cloud write failed.");}return r.json();
+}
+async function firestoreDelete(path,{ignoreMissing=true}={}){
+  const r=await fetch(`${firestoreBase()}/${path}`,{method:"DELETE",headers:firestoreHeaders()});
+  if(r.status===404&&ignoreMissing)return true;if(!r.ok){const d=await r.json().catch(()=>({}));throw Error(d?.error?.message||"Cloud delete failed.");}return true;
+}
+function docIdFromName(name=""){return decodeURIComponent(name.split("/").pop()||"");}
+function settingsPayload(){return {genres,decorSettings,goalSettings,storageVersion:4};}
+function readJsonMap(key){try{return JSON.parse(localStorage.getItem(key)||"{}")}catch{return {}}}
+function writeJsonMap(key,value){localStorage.setItem(key,JSON.stringify(value));}
+function updateLocalPersistentStorage(){
+  localStorage.setItem(BOOK_KEY,JSON.stringify(books));localStorage.setItem(GENRE_KEY,JSON.stringify(genres));localStorage.setItem(DECOR_KEY,JSON.stringify(decorSettings));localStorage.setItem(GOAL_KEY,JSON.stringify(goalSettings));
+}
+function applyRemoteSettings(data){
+  if(Array.isArray(data?.genres))genres=data.genres;
+  if(data?.decorSettings?.themes)decorSettings=data.decorSettings;
+  if(data?.goalSettings&&typeof data.goalSettings==="object")goalSettings=data.goalSettings;
+  goalSettings.yearly??={};goalSettings.monthly??={};updateLocalPersistentStorage();
 }
 async function deleteCloudReadingData(){
-  if(!configured()||!signedIn())return false;
-  if(!(await refreshSession()))throw Error("Your Supabase session could not be refreshed.");
-  const uid=syncSession.user.id,base=`${syncSettings.url.replace(/\/$/,"")}/rest/v1/reading_room_sync`;
-  const r=await fetch(`${base}?user_id=eq.${encodeURIComponent(uid)}`,{method:"DELETE",headers:{...authHeaders(true),Prefer:"return=minimal"}});
-  if(!r.ok){
-    const detail=await r.text().catch(()=>"");
-    throw Error(`The local reset succeeded, but Supabase would not delete your Reading Room data row.${detail?`\n\n${detail}`:""}`);
-  }
-  localStorage.removeItem(syncHashStorageKey(uid));
-  localStorage.removeItem(SYNC_DIRTY_KEY);
-  const now=Date.now();
-  localStorage.setItem(CHANGE_KEY,String(now));
-  localStorage.setItem(SYNCED_KEY,String(now));
-  return true;
+  if(!configured()||!signedIn())return false;if(!(await refreshSession()))throw Error("Your Firebase session could not be refreshed.");
+  const uid=encodeURIComponent(syncSession.localId),bookDocs=await firestoreList(`users/${uid}/books`),deletionDocs=await firestoreList(`users/${uid}/deletions`);
+  for(const doc of [...bookDocs,...deletionDocs]){const relative=doc.name.split('/documents/')[1];if(relative)await firestoreDelete(relative);}
+  await firestoreDelete(`users/${uid}/settings/app`);await firestoreDelete(`users/${uid}/meta/state`);
+  localStorage.removeItem(FB_BOOK_BASELINE_KEY);localStorage.removeItem(FB_BOOK_TIME_KEY);localStorage.removeItem(FB_SETTINGS_BASELINE_KEY);localStorage.removeItem(FB_SETTINGS_TIME_KEY);localStorage.removeItem(SYNC_DIRTY_KEY);
+  localStorage.setItem(SYNCED_KEY,String(Date.now()));return true;
 }
 async function resetReadingRoomData(){
   const wasSignedIn=configured()&&signedIn();
-  resetLocalReadingData();
-  if(wasSignedIn)await deleteCloudReadingData();
-  localStorage.removeItem(SYNC_DIRTY_KEY);
-  return wasSignedIn;
+  /* Delete cloud first while the local IDs are still available, then clear local. */
+  if(wasSignedIn)await deleteCloudReadingData();resetLocalReadingData();return wasSignedIn;
 }
+
 let cloudSyncQueue=Promise.resolve();
 function canonicalJSONStringify(value){
   if(value===null||typeof value!=="object")return JSON.stringify(value);
   if(Array.isArray(value))return `[${value.map(canonicalJSONStringify).join(",")}]`;
   return `{${Object.keys(value).sort().map(k=>`${JSON.stringify(k)}:${canonicalJSONStringify(value[k])}`).join(",")}}`;
 }
-function syncHashStorageKey(uid){return `${SYNC_HASH_KEY}:${uid}`;}
-function syncPayloadHash(payload){
-  const text=canonicalJSONStringify(payload);let h=2166136261;
-  for(let i=0;i<text.length;i++){h^=text.charCodeAt(i);h=Math.imul(h,16777619);}
-  return (h>>>0).toString(36);
-}
-function applyCloudPayload(payload,remoteStamp=Date.now()){
-  if(!payload||typeof payload!=="object")return false;
-  books=Array.isArray(payload.books)?unpackBooksFromStorage(payload):books;
-  genres=Array.isArray(payload.genres)?payload.genres:genres;
-  if(payload.decorSettings?.themes)decorSettings=payload.decorSettings;
-  if(payload.goalSettings&&typeof payload.goalSettings==="object"){
-    goalSettings=payload.goalSettings;
-    if(!goalSettings.yearly||typeof goalSettings.yearly!=="object")goalSettings.yearly={};
-    if(!goalSettings.monthly||typeof goalSettings.monthly!=="object")goalSettings.monthly={};
-  }
-  localStorage.setItem(BOOK_KEY,JSON.stringify(books));
-  localStorage.setItem(GENRE_KEY,JSON.stringify(genres));
-  localStorage.setItem(DECOR_KEY,JSON.stringify(decorSettings));
-  localStorage.setItem(GOAL_KEY,JSON.stringify(goalSettings));
-  localStorage.setItem(CHANGE_KEY,String(remoteStamp));
-  localStorage.setItem(SYNCED_KEY,String(remoteStamp));
-  localStorage.setItem(syncHashStorageKey(syncSession.user.id),syncPayloadHash(payload));
-  localStorage.removeItem(SYNC_DIRTY_KEY);
-  renderGenreOptions();renderAll();applyDecorations();if(lastRoute==="stats")renderStats();
-  return true;
-}
-async function performCloudSync(forceUpload=false){
-  if(!configured()||!signedIn())return false;
-  if(!(await refreshSession()))return false;
+function syncPayloadHash(payload){const text=canonicalJSONStringify(payload);let h=2166136261;for(let i=0;i<text.length;i++){h^=text.charCodeAt(i);h=Math.imul(h,16777619);}return (h>>>0).toString(36);}
+
+async function performCloudSync(){
+  if(!configured()||!signedIn())return false;if(!(await refreshSession()))return false;
   try{
-    const uid=syncSession.user.id,base=`${syncSettings.url.replace(/\/$/,"")}/rest/v1/reading_room_sync`,ep=`${base}?user_id=eq.${encodeURIComponent(uid)}&select=user_id,payload,updated_at_ms`;
-    $("#lastSyncText")&&($("#lastSyncText").textContent="Checking cloud…");
-    const gr=await fetch(ep,{headers:authHeaders(true)});if(!gr.ok)throw Error("Cloud read failed");
-    const rows=await gr.json(),row=rows[0]||null,remotePayload=row?.payload&&typeof row.payload==="object"?row.payload:null;
-    const localPayload=persistentSyncPayload(),localHash=syncPayloadHash(localPayload),remoteHash=remotePayload?syncPayloadHash(remotePayload):"";
-    const hashKey=syncHashStorageKey(uid),lastHash=localStorage.getItem(hashKey)||"";
-    const localStamp=Number(localStorage.getItem(CHANGE_KEY)||0),remoteStamp=Number(row?.updated_at_ms||0);
-    const dirty=forceUpload||localStorage.getItem(SYNC_DIRTY_KEY)==="1";
+    $("#lastSyncText")&&($("#lastSyncText").textContent="Checking Firestore…");
+    const uid=encodeURIComponent(syncSession.localId),bookPath=`users/${uid}/books`,deletePath=`users/${uid}/deletions`;
+    const [bookDocs,deletionDocs,settingsDoc,stateDoc]=await Promise.all([firestoreList(bookPath),firestoreList(deletePath),firestoreGet(`users/${uid}/settings/app`),firestoreGet(`users/${uid}/meta/state`)]);
+    const remoteBooks=new Map(),remoteDeletes=new Map(),cloudInitialized=!!stateDoc||bookDocs.length>0||deletionDocs.length>0||!!settingsDoc;
+    for(const doc of bookDocs){const parsed=firestoreParseDoc(doc),id=docIdFromName(doc.name);if(id&&parsed.data)remoteBooks.set(id,{book:parsed.data,updatedAtMs:parsed.updatedAtMs});}
+    for(const doc of deletionDocs){const parsed=firestoreParseDoc(doc),id=docIdFromName(doc.name);if(id)remoteDeletes.set(id,parsed.updatedAtMs);}
+    const baseline=readJsonMap(FB_BOOK_BASELINE_KEY),times=readBookTimes(),localMap=new Map(books.map(b=>[String(b.id),b]));
+    const ids=new Set([...Object.keys(baseline),...Object.keys(times),...localMap.keys(),...remoteBooks.keys(),...remoteDeletes.keys()]);
+    let changedLocal=false,uploaded=0,downloaded=0,deleted=0;
 
-    /* Identical snapshots are already synchronized. Always clear a stale dirty
-       marker here so a device cannot keep trying to overwrite the same cloud data. */
-    if(remotePayload&&localHash===remoteHash){
-      const stamp=Math.max(remoteStamp,localStamp,Date.now());
-      localStorage.setItem(hashKey,localHash);localStorage.setItem(SYNCED_KEY,String(stamp));localStorage.removeItem(SYNC_DIRTY_KEY);
-      $("#lastSyncText")&&($("#lastSyncText").textContent=`Up to date · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);
-      return true;
-    }
+    for(const id of ids){
+      const local=localMap.get(id)||null,localHash=local?bookContentHash(local):"",baseHash=baseline[id]||"";
+      const remoteEntry=remoteBooks.get(id)||null,remoteHash=remoteEntry?bookContentHash(remoteEntry.book):"";
+      const remoteDeleteAt=Number(remoteDeletes.get(id)||0),localUpdated=Number(times[id]?.updatedAtMs||0),localDeleted=Number(times[id]?.deletedAtMs||0),remoteUpdated=Number(remoteEntry?.updatedAtMs||0);
+      const localChanged=local?(!baseHash?localUpdated>0:localHash!==baseHash):!!(baseHash&&localDeleted>0);
+      const remoteChanged=remoteEntry?(!baseHash?true:remoteHash!==baseHash):!!(baseHash&&remoteDeleteAt>0);
 
-    /* A clean device must never upload its stale local cache. If the cloud
-       differs, download it immediately. This is the normal cross-device path. */
-    if(!dirty&&remotePayload){
-      applyCloudPayload(remotePayload,remoteStamp||Date.now());
-      localStorage.removeItem(SYNC_DIRTY_KEY);
-      $("#lastSyncText")&&($("#lastSyncText").textContent=`Downloaded latest · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);
-      return true;
-    }
+      if(local&&remoteEntry&&localHash===remoteHash){baseline[id]=localHash;delete times[id];if(remoteDeleteAt)await firestoreDelete(`${deletePath}/${encodeURIComponent(id)}`);continue;}
 
-    /* No cloud row can also mean the user deliberately used Reset Reading Data.
-       Never recreate an empty/stale cloud library from a clean device. A real
-       local edit is marked dirty and may create a fresh cloud row. On a device
-       that previously synced this account, a missing row propagates the reset
-       by clearing that device's Reading Room data as well. */
-    if(!remotePayload){
-      if(dirty){
-        const now=Date.now(),payload=persistentSyncPayload(),uploadedHash=syncPayloadHash(payload);
-        const pr=await fetch(`${base}?on_conflict=user_id`,{method:"POST",headers:{...authHeaders(true),Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({user_id:uid,payload,updated_at_ms:now})});
-        if(!pr.ok)throw Error("Cloud write failed");
-        localStorage.setItem(hashKey,uploadedHash);localStorage.setItem(SYNCED_KEY,String(now));localStorage.removeItem(SYNC_DIRTY_KEY);
-        $("#lastSyncText")&&($("#lastSyncText").textContent=`Uploaded library · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);
-        return true;
+      if(!baseHash){
+        if(remoteDeleteAt>=remoteUpdated&&remoteDeleteAt>0){if(local){localMap.delete(id);changedLocal=true;deleted++;}delete baseline[id];delete times[id];continue;}
+        if(remoteEntry&&(!local||localUpdated<=0)){localMap.set(id,remoteEntry.book);baseline[id]=remoteHash;delete times[id];changedLocal=true;downloaded++;continue;}
+        if(local&&!remoteEntry){
+          if(cloudInitialized&&localUpdated<=0){localMap.delete(id);delete baseline[id];delete times[id];changedLocal=true;deleted++;continue;}
+          const stamp=localUpdated||Date.now();await firestorePut(`${bookPath}/${encodeURIComponent(id)}`,local,stamp);await firestoreDelete(`${deletePath}/${encodeURIComponent(id)}`);baseline[id]=localHash;delete times[id];uploaded++;continue;
+        }
+        if(local&&remoteEntry){if(localUpdated>remoteUpdated){await firestorePut(`${bookPath}/${encodeURIComponent(id)}`,local,localUpdated);await firestoreDelete(`${deletePath}/${encodeURIComponent(id)}`);baseline[id]=localHash;uploaded++;}else{localMap.set(id,remoteEntry.book);baseline[id]=remoteHash;changedLocal=true;downloaded++;}delete times[id];continue;}
       }
-      if(lastHash){
-        books=[];
-        genres=[...DEFAULT_GENRES];
-        decorSettings={themes:{home:"classic",tbr:"classic",finished:"classic"}};
-        goalSettings={yearly:{},monthly:{}};
-        localStorage.setItem(BOOK_KEY,JSON.stringify(books));
-        localStorage.setItem(GENRE_KEY,JSON.stringify(genres));
-        localStorage.setItem(DECOR_KEY,JSON.stringify(decorSettings));
-        localStorage.setItem(GOAL_KEY,JSON.stringify(goalSettings));
-        localStorage.removeItem(LAST_BACKUP_KEY);
-        localStorage.removeItem(hashKey);localStorage.removeItem(SYNC_DIRTY_KEY);
-        const now=Date.now();localStorage.setItem(CHANGE_KEY,String(now));localStorage.setItem(SYNCED_KEY,String(now));
-        renderGenreOptions();renderAll();applyDecorations();if(lastRoute==="stats")renderStats();
-        $("#lastSyncText")&&($("#lastSyncText").textContent=`Cloud library cleared · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);
-        return true;
+
+      if(localChanged&&!remoteChanged){
+        if(local){const stamp=localUpdated||Date.now();await firestorePut(`${bookPath}/${encodeURIComponent(id)}`,local,stamp);await firestoreDelete(`${deletePath}/${encodeURIComponent(id)}`);baseline[id]=localHash;uploaded++;}
+        else{const stamp=localDeleted||Date.now();await firestoreDelete(`${bookPath}/${encodeURIComponent(id)}`);await firestorePut(`${deletePath}/${encodeURIComponent(id)}`,{deleted:true},stamp);delete baseline[id];deleted++;}
+        delete times[id];continue;
       }
-      $("#lastSyncText")&&($("#lastSyncText").textContent="Cloud library is empty");
-      return true;
-    }
-
-    /* Dirty local data with an unchanged cloud copy is safe to upload. */
-    if(dirty&&lastHash&&remoteHash===lastHash){
-      const now=Date.now(),payload=persistentSyncPayload(),uploadedHash=syncPayloadHash(payload);
-      const pr=await fetch(`${base}?on_conflict=user_id`,{method:"POST",headers:{...authHeaders(true),Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({user_id:uid,payload,updated_at_ms:now})});
-      if(!pr.ok)throw Error("Cloud write failed");
-      localStorage.setItem(hashKey,uploadedHash);localStorage.setItem(SYNCED_KEY,String(now));localStorage.removeItem(SYNC_DIRTY_KEY);
-      $("#lastSyncText")&&($("#lastSyncText").textContent=`Synced changes · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);
-      return true;
-    }
-
-    /* Migration / simultaneous-edit fallback. On a device that has never seen
-       this account's cloud fingerprint, protect an established cloud library
-       instead of silently replacing it with a stale local cache. If this device
-       has a clearly newer unsynced edit, preserve it by uploading; otherwise
-       download the cloud snapshot. */
-    if(!lastHash){
-      if(dirty&&localStamp>remoteStamp){
-        const now=Date.now(),payload=persistentSyncPayload(),uploadedHash=syncPayloadHash(payload);
-        const pr=await fetch(`${base}?on_conflict=user_id`,{method:"POST",headers:{...authHeaders(true),Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({user_id:uid,payload,updated_at_ms:now})});
-        if(!pr.ok)throw Error("Cloud write failed");
-        localStorage.setItem(hashKey,uploadedHash);localStorage.setItem(SYNCED_KEY,String(now));localStorage.removeItem(SYNC_DIRTY_KEY);
-        $("#lastSyncText")&&($("#lastSyncText").textContent=`Uploaded local changes · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);
-      }else{
-        applyCloudPayload(remotePayload,remoteStamp||Date.now());localStorage.removeItem(SYNC_DIRTY_KEY);
-        $("#lastSyncText")&&($("#lastSyncText").textContent=`Downloaded cloud library · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);
+      if(remoteChanged&&!localChanged){
+        if(remoteDeleteAt>remoteUpdated){if(local){localMap.delete(id);changedLocal=true;deleted++;}delete baseline[id];}
+        else if(remoteEntry){localMap.set(id,remoteEntry.book);baseline[id]=remoteHash;changedLocal=true;downloaded++;}
+        delete times[id];continue;
       }
-      return true;
+      if(localChanged&&remoteChanged){
+        const localStamp=Math.max(localUpdated,localDeleted),remoteStamp=Math.max(remoteUpdated,remoteDeleteAt);
+        if(localStamp>remoteStamp){
+          if(local){await firestorePut(`${bookPath}/${encodeURIComponent(id)}`,local,localStamp||Date.now());await firestoreDelete(`${deletePath}/${encodeURIComponent(id)}`);baseline[id]=localHash;uploaded++;}
+          else{await firestoreDelete(`${bookPath}/${encodeURIComponent(id)}`);await firestorePut(`${deletePath}/${encodeURIComponent(id)}`,{deleted:true},localStamp||Date.now());delete baseline[id];deleted++;}
+        }else{
+          if(remoteDeleteAt>remoteUpdated){if(local){localMap.delete(id);changedLocal=true;deleted++;}delete baseline[id];}
+          else if(remoteEntry){localMap.set(id,remoteEntry.book);baseline[id]=remoteHash;changedLocal=true;downloaded++;}
+        }
+        delete times[id];continue;
+      }
+
+      /* Missing cloud copy after a previous baseline means the cloud was cleared/reset. */
+      if(baseHash&&!remoteEntry&&!remoteDeleteAt&&localHash===baseHash){localMap.delete(id);delete baseline[id];delete times[id];localStorage.setItem(FB_RESET_HOLD_KEY,"1");changedLocal=true;deleted++;}
     }
 
-    /* Both sides changed since the last common snapshot. Prefer the snapshot
-       with the newer edit timestamp rather than allowing a clean/stale device
-       to win. This keeps the existing single-row Supabase schema intact. */
-    if(remoteStamp>localStamp&&!forceUpload){
-      applyCloudPayload(remotePayload,remoteStamp||Date.now());localStorage.removeItem(SYNC_DIRTY_KEY);
-      $("#lastSyncText")&&($("#lastSyncText").textContent=`Downloaded newer cloud copy · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);
-      return true;
+    books=[...localMap.values()];writeJsonMap(FB_BOOK_BASELINE_KEY,baseline);writeBookTimes(times);
+
+    const localSettings=settingsPayload(),localSettingsHash=syncPayloadHash(localSettings),settingsBaseline=localStorage.getItem(FB_SETTINGS_BASELINE_KEY)||"",settingsTime=Number(localStorage.getItem(FB_SETTINGS_TIME_KEY)||0);
+    const remoteSettings=settingsDoc?firestoreParseDoc(settingsDoc):null,remoteSettingsHash=remoteSettings?.data?syncPayloadHash(remoteSettings.data):"",remoteSettingsTime=Number(remoteSettings?.updatedAtMs||0);
+    if(remoteSettings?.data&&localSettingsHash===remoteSettingsHash){localStorage.setItem(FB_SETTINGS_BASELINE_KEY,localSettingsHash);localStorage.removeItem(FB_SETTINGS_TIME_KEY);}
+    else if(!settingsBaseline){
+      if(remoteSettings?.data&&settingsTime<=0){applyRemoteSettings(remoteSettings.data);localStorage.setItem(FB_SETTINGS_BASELINE_KEY,remoteSettingsHash);downloaded++;}
+      else{
+        const defaultSettings={genres:[...DEFAULT_GENRES],decorSettings:{themes:{home:"classic",tbr:"classic",finished:"classic"}},goalSettings:{yearly:{},monthly:{}},storageVersion:4};
+        const meaningfulSettings=syncPayloadHash(localSettings)!==syncPayloadHash(defaultSettings);
+        const resetHold=localStorage.getItem(FB_RESET_HOLD_KEY)==="1";
+        if(!resetHold&&(!cloudInitialized||settingsTime>0)&&(books.length>0||settingsTime>0||meaningfulSettings)){const stamp=settingsTime||Date.now();await firestorePut(`users/${uid}/settings/app`,localSettings,stamp);localStorage.setItem(FB_SETTINGS_BASELINE_KEY,localSettingsHash);uploaded++;}
+      }
+      localStorage.removeItem(FB_SETTINGS_TIME_KEY);
+    }else{
+      const localSettingsChanged=localSettingsHash!==settingsBaseline,remoteSettingsChanged=remoteSettingsHash!==settingsBaseline;
+      if(!remoteSettings?.data&&!localSettingsChanged){
+        genres=[...DEFAULT_GENRES];decorSettings={themes:{home:"classic",tbr:"classic",finished:"classic"}};goalSettings={yearly:{},monthly:{}};updateLocalPersistentStorage();localStorage.removeItem(FB_SETTINGS_BASELINE_KEY);localStorage.removeItem(FB_SETTINGS_TIME_KEY);localStorage.setItem(FB_RESET_HOLD_KEY,"1");changedLocal=true;downloaded++;
+      }else if(localSettingsChanged&&!remoteSettingsChanged){await firestorePut(`users/${uid}/settings/app`,localSettings,settingsTime||Date.now());localStorage.setItem(FB_SETTINGS_BASELINE_KEY,localSettingsHash);uploaded++;}
+      else if(remoteSettingsChanged&&!localSettingsChanged&&remoteSettings?.data){applyRemoteSettings(remoteSettings.data);localStorage.setItem(FB_SETTINGS_BASELINE_KEY,remoteSettingsHash);downloaded++;}
+      else if(localSettingsChanged&&remoteSettingsChanged){if((settingsTime||0)>remoteSettingsTime){await firestorePut(`users/${uid}/settings/app`,localSettings,settingsTime||Date.now());localStorage.setItem(FB_SETTINGS_BASELINE_KEY,localSettingsHash);uploaded++;}else if(remoteSettings?.data){applyRemoteSettings(remoteSettings.data);localStorage.setItem(FB_SETTINGS_BASELINE_KEY,remoteSettingsHash);downloaded++;}}
+      localStorage.removeItem(FB_SETTINGS_TIME_KEY);
     }
 
-    const now=Date.now(),payload=persistentSyncPayload(),uploadedHash=syncPayloadHash(payload);
-    const pr=await fetch(`${base}?on_conflict=user_id`,{method:"POST",headers:{...authHeaders(true),Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({user_id:uid,payload,updated_at_ms:now})});
-    if(!pr.ok)throw Error("Cloud write failed");
-    localStorage.setItem(hashKey,uploadedHash);localStorage.setItem(SYNCED_KEY,String(now));localStorage.removeItem(SYNC_DIRTY_KEY);
-    $("#lastSyncText")&&($("#lastSyncText").textContent=`Synced automatically · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);
+    if(changedLocal){updateLocalPersistentStorage();renderGenreOptions();renderAll();applyDecorations();if(lastRoute==="stats")renderStats();}
+    if(!stateDoc&&(uploaded>0||bookDocs.length>0||settingsDoc))await firestorePut(`users/${uid}/meta/state`,{schemaVersion:7,backend:"firestore"},Date.now());
+    if(uploaded>0)localStorage.removeItem(FB_RESET_HOLD_KEY);
+    localStorage.removeItem(SYNC_DIRTY_KEY);localStorage.setItem(SYNCED_KEY,String(Date.now()));
+    const pieces=[];if(uploaded)pieces.push(`${uploaded} uploaded`);if(downloaded)pieces.push(`${downloaded} downloaded`);if(deleted)pieces.push(`${deleted} deleted`);
+    $("#lastSyncText")&&($("#lastSyncText").textContent=`${pieces.length?pieces.join(" · "):"Up to date"} · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);
     return true;
-  }catch(e){
-    console.warn("Reading Room sync:",e);
-    $("#lastSyncText")&&($("#lastSyncText").textContent="Sync failed — check connection or policies.");
-    return false;
-  }
+  }catch(e){console.warn("Reading Room Firebase sync:",e);$("#lastSyncText")&&($("#lastSyncText").textContent=`Sync failed — ${e.message||"check Firebase configuration/rules."}`);return false;}
 }
-function cloudSync(forceUpload=false){
-  const run=()=>performCloudSync(forceUpload);
-  const task=cloudSyncQueue.then(run,run);
-  cloudSyncQueue=task.catch(()=>false);
-  return task;
-}
-$("#saveSyncSettings").onclick=()=>{const url=$("#supabaseUrl").value.trim().replace(/\/$/,""),key=$("#supabaseKey").value.trim();if(!url||!key)return alert("Enter Project URL and Publishable key.");syncSettings={url,key};localStorage.setItem(SYNC_KEY,JSON.stringify(syncSettings));renderSyncStatus();alert("Supabase connection saved.");};
-$("#clearSyncSettings").onclick=()=>{if(!confirm("Clear Supabase connection from this device?"))return;syncSettings={url:"",key:""};syncSession=null;localStorage.removeItem(SYNC_KEY);localStorage.removeItem(SESSION_KEY);renderSyncStatus();};
-$("#signInBtn").onclick=async()=>{const email=$("#syncEmail").value.trim(),password=$("#syncPassword").value;if(!email||!password)return alert("Enter email and password.");const b=$("#signInBtn"),t=b.textContent;b.disabled=true;b.textContent="Signing in…";try{await signIn(email,password);$("#syncPassword").value="";await cloudSync();alert("Signed in successfully. Automatic cloud sync is active.");}catch(e){alert(e.message);}finally{b.disabled=false;b.textContent=t;}};
-$("#signOutBtn").onclick=async()=>{if(signedIn()){try{await fetch(`${syncSettings.url.replace(/\/$/,"")}/auth/v1/logout`,{method:"POST",headers:authHeaders(true)});}catch{}}syncSession=null;localStorage.removeItem(SESSION_KEY);renderSyncStatus();};
+function cloudSync(){const run=()=>performCloudSync(),task=cloudSyncQueue.then(run,run);cloudSyncQueue=task.catch(()=>false);return task;}
+
+$("#saveSyncSettings").onclick=()=>{if(FILE_FIREBASE_READY)return alert("Firebase is configured in firebase-config.js. Edit that file to change the project connection.");const apiKey=$("#firebaseApiKey").value.trim(),projectId=$("#firebaseProjectId").value.trim();if(!apiKey||!projectId)return alert("Enter Firebase Web API Key and Project ID.");syncSettings={apiKey,projectId};localStorage.setItem(SYNC_KEY,JSON.stringify(syncSettings));renderSyncStatus();alert("Firebase connection saved.");};
+$("#clearSyncSettings").onclick=()=>{if(FILE_FIREBASE_READY)return alert("Firebase is configured in firebase-config.js. Clear the values in that file if you want local-only mode.");if(!confirm("Clear Firebase connection from this device?"))return;syncSettings={apiKey:"",projectId:""};syncSession=null;localStorage.removeItem(SYNC_KEY);localStorage.removeItem(SESSION_KEY);renderSyncStatus();};
+$("#signInBtn").onclick=async()=>{const email=$("#syncEmail").value.trim(),password=$("#syncPassword").value;if(!email||!password)return alert("Enter email and password.");const b=$("#signInBtn"),t=b.textContent;b.disabled=true;b.textContent="Signing in…";try{await signIn(email,password);$("#syncPassword").value="";await cloudSync();alert("Signed in successfully. Firebase cloud sync is active.");}catch(e){alert(e.message);}finally{b.disabled=false;b.textContent=t;}};
+$("#signOutBtn").onclick=()=>{syncSession=null;localStorage.removeItem(SESSION_KEY);renderSyncStatus();};
 $("#syncNowBtn").onclick=()=>cloudSync();
 
 $("#exportBackup").onclick=()=>{
@@ -1289,13 +1264,13 @@ $("#exportBackup").onclick=()=>{
 };
 $("#exportJournal").onclick=()=>downloadTextFile(createReadingJournalHTML(),`reading-room-journal-${todayISO()}.html`,"text/html");
 $("#importBackupBtn").onclick=()=>$("#importBackupInput").click();
-$("#importBackupInput").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!Array.isArray(d.books))throw Error();if(!confirm(`Restore ${d.books.length} books? This replaces current local data.`))return;books=unpackBooksFromStorage(d);if(Array.isArray(d.genres))genres=d.genres;if(d.decorSettings?.themes){decorSettings=d.decorSettings;localStorage.setItem(DECOR_KEY,JSON.stringify(decorSettings));}if(d.goalSettings?.yearly){goalSettings=d.goalSettings;localStorage.setItem(GOAL_KEY,JSON.stringify(goalSettings));}localStorage.setItem(BOOK_KEY,JSON.stringify(books));localStorage.setItem(GENRE_KEY,JSON.stringify(genres));markChanged();renderAll();applyDecorations();cloudSync();alert("Backup restored.");}catch{alert("Invalid Reading Room backup.");}e.target.value="";};
+$("#importBackupInput").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!Array.isArray(d.books))throw Error();if(!confirm(`Restore ${d.books.length} books? This replaces current local data.`))return;books=unpackBooksFromStorage(d);if(Array.isArray(d.genres))genres=d.genres;if(d.decorSettings?.themes){decorSettings=d.decorSettings;localStorage.setItem(DECOR_KEY,JSON.stringify(decorSettings));}if(d.goalSettings?.yearly){goalSettings=d.goalSettings;localStorage.setItem(GOAL_KEY,JSON.stringify(goalSettings));}const previousBooks=JSON.parse(localStorage.getItem(BOOK_KEY)||"[]");markBookChanges(previousBooks,books);localStorage.setItem(BOOK_KEY,JSON.stringify(books));localStorage.setItem(GENRE_KEY,JSON.stringify(genres));markSettingsChanged();renderAll();applyDecorations();cloudSync();alert("Backup restored.");}catch{alert("Invalid Reading Room backup.");}e.target.value="";};
 
 $("#readingFunDetails")?.addEventListener("toggle",e=>{const hint=e.currentTarget.querySelector(".reading-fun-hint");if(hint)hint.textContent=e.currentTarget.open?"Close":"Open";if(e.currentTarget.open)renderReadingExtras();});
 $("#editMonthlyChallenge").onclick=()=>{const key=currentMonthKey(),d=new Date();$("#monthlyChallengeLabel").textContent=d.toLocaleDateString([],{month:"long",year:"numeric"});$("#monthlyChallengeTarget").value=goalSettings.monthly[key]||"";$("#monthlyChallengeDialog").showModal();setDialogOpen(true);};
 $("#closeMonthlyChallenge").onclick=()=>$("#monthlyChallengeDialog").close();
-$("#monthlyChallengeForm").addEventListener("submit",e=>{e.preventDefault();const value=Math.max(1,Math.min(99,Math.round(Number($("#monthlyChallengeTarget").value)||0)));if(!value)return;goalSettings.monthly[currentMonthKey()]=value;localStorage.setItem(GOAL_KEY,JSON.stringify(goalSettings));markChanged();$("#monthlyChallengeDialog").close();renderReadingExtras();cloudSync();});
-$("#removeMonthlyChallenge").onclick=()=>{delete goalSettings.monthly[currentMonthKey()];localStorage.setItem(GOAL_KEY,JSON.stringify(goalSettings));markChanged();$("#monthlyChallengeDialog").close();renderReadingExtras();cloudSync();};
+$("#monthlyChallengeForm").addEventListener("submit",e=>{e.preventDefault();const value=Math.max(1,Math.min(99,Math.round(Number($("#monthlyChallengeTarget").value)||0)));if(!value)return;goalSettings.monthly[currentMonthKey()]=value;localStorage.setItem(GOAL_KEY,JSON.stringify(goalSettings));markSettingsChanged();$("#monthlyChallengeDialog").close();renderReadingExtras();cloudSync();});
+$("#removeMonthlyChallenge").onclick=()=>{delete goalSettings.monthly[currentMonthKey()];localStorage.setItem(GOAL_KEY,JSON.stringify(goalSettings));markSettingsChanged();$("#monthlyChallengeDialog").close();renderReadingExtras();cloudSync();};
 $("#pickNextBook").onclick=()=>{chooseRandomTbr();if(randomPickedBookId){$("#randomPickDialog").showModal();setDialogOpen(true);}};
 $("#pickAgain").onclick=chooseRandomTbr;
 $("#closeRandomPick").onclick=()=>$("#randomPickDialog").close();
@@ -1311,11 +1286,11 @@ $("#confirmResetReadingData").onclick=async()=>{
   try{
     const cloud=await resetReadingRoomData();
     $("#resetReadingDataDialog").close();
-    alert(cloud?"Reading Room data was deleted from this device and from Supabase. Your Supabase account/profile remains active.":"Reading Room data was cleared on this device. Your account/connection was not removed.");
+    alert(cloud?"Reading Room data was deleted from this device and from Firestore. Your Firebase Authentication profile remains active.":"Reading Room data was cleared on this device. Your account/connection was not removed.");
     routeTo("home");
   }catch(e){
     $("#resetReadingDataDialog").close();
-    alert(`${e.message}\n\nYour local Reading Room is empty. Your Supabase account/profile was not deleted. If Supabase rejected the DELETE request, add a DELETE RLS policy for reading_room_sync before trying Reset again.`);
+    alert(`${e.message}\n\nYour Firebase Authentication profile was not deleted. Check your Firestore Security Rules before trying Reset again.`);
   }finally{btn.textContent=old;}
 };
 $("#closeCalendarDayDialog")?.addEventListener("click",()=>$("#calendarDayDialog").close());
