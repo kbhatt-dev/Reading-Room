@@ -2,7 +2,7 @@
  * My Reading Room
  * Copyright © 2026 Krishna Bhatt. All rights reserved.
  */
-const APP_VERSION="7.0.9";
+const APP_VERSION="7.0.10";
 const icon=n=>`<svg class="ui-icon" aria-hidden="true"><use href="#i-${n}"></use></svg>`;
 const BOOK_KEY="readingRoomBooksV1";
 const GENRE_KEY="readingRoomGenresV1";
@@ -120,10 +120,10 @@ function progressHTML(b){
 function coverHTML(b,cls="cover"){return b.cover?`<img class="${cls}" src="${b.cover}" alt="${escapeHtml(b.title)} cover">`:`<div class="${cls} placeholder">${escapeHtml(b.title||"Book")}</div>`;}
 
 
-/* V7.0.9 Reliable lifetime cover policy.
-   Accept normal browser-decodable JPG/PNG/WebP, resize first, encode to WebP, then
+/* V7.0.10 Safari-safe lifetime cover policy.
+   Normal JPG/PNG/WebP -> resize -> prefer WebP -> automatically fall back to JPEG ->
    progressively reduce dimensions/quality until the stored binary is safely below 10 KB.
-   A 9.5 KB working target leaves headroom while preserving the strict 10 KB hard cap. */
+   A 9.5 KB working target leaves headroom for Base64/data-URL storage and Firestore sync. */
 const COVER_MAX_W=220,COVER_MAX_H=330,COVER_START_QUALITY=.86,COVER_MIN_QUALITY=.38,COVER_TARGET_BYTES=9500,COVER_HARD_MAX_BYTES=10*1024,COVER_HARD_INPUT_BYTES=20*1024*1024;
 function dataUrlBytes(s=""){const i=String(s).indexOf(",");return i<0?0:Math.ceil((String(s).length-i-1)*3/4);}
 function loadImage(src){return new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(new Error("This image format cannot be decoded by this browser. Please choose a JPG, PNG, or WebP cover."));img.src=src;});}
@@ -131,58 +131,75 @@ function readBlobAsDataURL(blob){return new Promise((resolve,reject)=>{const rea
 async function compressCoverSource(src,{force=false}={}){
   if(!src||!String(src).startsWith("data:image/"))return src;
   const originalBytes=dataUrlBytes(src);
-  if(!force&&src.startsWith("data:image/webp")&&originalBytes<COVER_HARD_MAX_BYTES)return src;
+  if(!force&&originalBytes<COVER_HARD_MAX_BYTES)return src;
 
   const img=await loadImage(src);
   const naturalW=Math.max(1,img.naturalWidth||img.width||1),naturalH=Math.max(1,img.naturalHeight||img.height||1);
   const aspect=naturalH/naturalW;
-  const encode=async(width,height,q)=>{
+
+  const makeCanvas=(width,height)=>{
     const c=document.createElement("canvas");c.width=width;c.height=height;
     const ctx=c.getContext("2d",{alpha:false});
     if(!ctx)throw new Error("Your browser could not prepare this cover image.");
     ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality="high";
     ctx.fillStyle="#f7f0e7";ctx.fillRect(0,0,width,height);ctx.drawImage(img,0,0,width,height);
-    const blob=await new Promise(resolve=>c.toBlob(resolve,"image/webp",q));
-    if(!blob||blob.type!=="image/webp")throw new Error("This browser could not create an optimized WebP cover.");
+    return c;
+  };
+  const canvasToBlob=(canvas,mime,q)=>new Promise(resolve=>canvas.toBlob(resolve,mime,q));
+  const encode=async(width,height,q,mime)=>{
+    const blob=await canvasToBlob(makeCanvas(width,height),mime,q);
+    if(!blob)return null;
+    /* Some Safari/WebKit builds may silently return PNG when WebP encoding is unavailable. */
+    if(mime==="image/webp"&&blob.type!=="image/webp")return null;
+    if(mime==="image/jpeg"&&blob.type!=="image/jpeg")return null;
     return blob;
   };
 
   const baseRatio=Math.min(1,COVER_MAX_W/naturalW,COVER_MAX_H/naturalH);
-  let w=Math.max(1,Math.round(naturalW*baseRatio)),h=Math.max(1,Math.round(naturalH*baseRatio));
+  const startW=Math.max(1,Math.round(naturalW*baseRatio)),startH=Math.max(1,Math.round(naturalH*baseRatio));
 
-  /* At each resolution, binary-search for the highest useful quality under target size. */
-  const bestAtSize=async(width,height,minQ,maxQ)=>{
-    const floor=await encode(width,height,minQ);
-    if(floor.size>COVER_TARGET_BYTES)return null;
-    let best=floor,low=minQ,high=maxQ;
-    for(let i=0;i<9;i++){
-      const q=(low+high)/2,blob=await encode(width,height,q);
-      if(blob.size<=COVER_TARGET_BYTES){best=blob;low=q;}else high=q;
+  const optimizeWithMime=async(mime)=>{
+    let w=startW,h=startH;
+    const bestAtSize=async(width,height,minQ,maxQ)=>{
+      const floor=await encode(width,height,minQ,mime);
+      if(!floor)return {unsupported:true,blob:null};
+      if(floor.size>COVER_TARGET_BYTES)return {unsupported:false,blob:null};
+      let best=floor,low=minQ,high=maxQ;
+      for(let i=0;i<9;i++){
+        const q=(low+high)/2,blob=await encode(width,height,q,mime);
+        if(!blob)return {unsupported:true,blob:null};
+        if(blob.size<=COVER_TARGET_BYTES){best=blob;low=q;}else high=q;
+      }
+      return {unsupported:false,blob:best};
+    };
+
+    while(w>=56&&h>=56){
+      const attempt=await bestAtSize(w,h,COVER_MIN_QUALITY,COVER_START_QUALITY);
+      if(attempt.unsupported)return {unsupported:true,blob:null};
+      if(attempt.blob)return {unsupported:false,blob:attempt.blob};
+      const nextW=Math.max(56,Math.floor(w*.86));
+      if(nextW===w)break;
+      w=nextW;h=Math.max(56,Math.round(w*aspect));
     }
-    return best;
+
+    /* Last-resort small shelf thumbnail. Quality stays usable; dimensions do the heavy lifting. */
+    for(const tw of [52,48,44,40,36,32]){
+      const th=Math.max(32,Math.round(tw*aspect));
+      const blob=await encode(tw,th,.34,mime);
+      if(!blob)return {unsupported:true,blob:null};
+      if(blob.size<=COVER_TARGET_BYTES)return {unsupported:false,blob};
+    }
+    return {unsupported:false,blob:null};
   };
 
-  let chosen=null;
-  /* Resolution is reduced before quality is crushed. The lower bound is deliberately small:
-     shelf covers are tiny, and this makes ordinary JPG/PNG/WebP uploads deterministic under 10 KB. */
-  while(w>=56&&h>=56){
-    chosen=await bestAtSize(w,h,COVER_MIN_QUALITY,COVER_START_QUALITY);
-    if(chosen)break;
-    const scale=.86,nextW=Math.max(56,Math.floor(w*scale));
-    if(nextW===w)break;
-    w=nextW;h=Math.max(56,Math.round(w*aspect));
-  }
-
-  /* Emergency final pass for unusually noisy/photo-heavy art. Still WebP and aspect-preserving. */
+  /* Prefer WebP for efficient Firestore storage. If Safari/WebKit cannot create it, use JPEG automatically. */
+  let attempt=await optimizeWithMime("image/webp"),chosen=attempt.blob;
   if(!chosen){
-    for(const tw of [52,48,44,40]){
-      const th=Math.max(40,Math.round(tw*aspect));
-      const blob=await encode(tw,th,.28);
-      if(blob.size<=COVER_TARGET_BYTES){chosen=blob;break;}
-    }
+    const jpegAttempt=await optimizeWithMime("image/jpeg");
+    chosen=jpegAttempt.blob;
   }
 
-  if(!chosen||chosen.size>=COVER_HARD_MAX_BYTES)throw new Error("This JPG/PNG/WebP cover could not be optimized safely under 10 KB on this device.");
+  if(!chosen||chosen.size>=COVER_HARD_MAX_BYTES)throw new Error("This cover could not be optimized under 10 KB. Please choose a normal JPG, PNG, or WebP image.");
   const result=await readBlobAsDataURL(chosen);
   if(dataUrlBytes(result)>=COVER_HARD_MAX_BYTES)throw new Error("The optimized cover exceeded the 10 KB safety limit.");
   return result;
