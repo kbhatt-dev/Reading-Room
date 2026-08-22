@@ -101,3 +101,10 @@ Restored features that were simplified or dropped during the V5 architecture reb
 - Existing custom SVG icon system preserved
 
 No storage keys or Supabase schema were changed.
+
+
+## V5.2.1 — JavaScript hotfix
+- Fixed malformed icon helper that prevented app JavaScript from loading.
+- Restored page rendering and all button/navigation behavior.
+- Added the missing dynamic genre icon helper.
+- No feature, data, layout, or Supabase schema changes.

@@ -1,4 +1,4 @@
-const APP_VERSION="5.2";
+const APP_VERSION="5.2.1";
 const icon=n=>`<svg class="ui-icon" aria-hidden="true"><use href="#i-${n}"></use></svg>`;
 const BOOK_KEY="readingRoomBooksV1";
 const GENRE_KEY="readingRoomGenresV1";
@@ -24,15 +24,15 @@ const $$=s=>[...document.querySelectorAll(s)];
 function escapeHtml(v=""){return String(v).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));}
 function todayISO(){return new Date().toISOString().slice(0,10);}
 function statusLabel(s){return ({want:"TBR",reading:"Reading",finished:"Finished",dnf:"DNF"})[s]||s;}
-function genreEmoji(name=""){
+function genreIcon(name=""){
   const g=name.toLowerCase();
-  if(g.includes("thriller"))return"🔪"; if(g.includes("mystery"))return"🕵️"; if(g.includes("horror"))return"👻";
-  if(g.includes("romance"))return"💗"; if(g.includes("fantasy"))return"🐉"; if(g.includes("science fiction"))return"🚀";
-  if(g.includes("historical"))return"🏛️"; if(g.includes("contemporary"))return"🌿"; if(g.includes("literary"))return"✒️";
-  if(g.includes("biography"))return"👤"; if(g.includes("self-help"))return"🌱"; if(g.includes("non-fiction")||g.includes("nonfiction"))return"🧠";
-  return"📚";
+  if(g.includes("thriller")||g.includes("mystery"))return"search";
+  if(g.includes("romance"))return"heart";
+  if(g.includes("fantasy")||g.includes("science fiction"))return"sparkle";
+  if(g.includes("historical")||g.includes("biography")||g.includes("non-fiction")||g.includes("nonfiction")||g.includes("self-help")||g.includes("literary"))return"note";
+  return"genre";
 }
-function formatIcon(){return"format";})[f]||"✨";}
+function formatIcon(){return"format";}
 function stars(r){r=Number(r)||0;if(!r)return"Not rated";return `${"★".repeat(Math.floor(r))}${r%1?"½":""} ${r}/5`;}
 function pct(b){if(!b.pages||!b.currentPage)return 0;return Math.min(100,Math.round((Number(b.currentPage)/Number(b.pages))*100));}
 function bookYear(b){const raw=b.dateFinished||b.dateStarted;if(raw){const y=new Date(raw+"T00:00:00").getFullYear();if(!Number.isNaN(y))return y;}return new Date().getFullYear();}
