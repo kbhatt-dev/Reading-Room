@@ -1,4 +1,4 @@
-const APP_VERSION="7.0.1";
+const APP_VERSION="7.0.2";
 const icon=n=>`<svg class="ui-icon" aria-hidden="true"><use href="#i-${n}"></use></svg>`;
 const BOOK_KEY="readingRoomBooksV1";
 const GENRE_KEY="readingRoomGenresV1";
@@ -1072,8 +1072,8 @@ function renderSyncStatus(){
   renderBackupHealth();
   $("#firebaseApiKey").value=syncSettings.apiKey||"";$("#firebaseProjectId").value=syncSettings.projectId||"";
   if(FILE_FIREBASE_READY){$("#firebaseApiKey").readOnly=true;$("#firebaseProjectId").readOnly=true;$("#saveSyncSettings").classList.add("hidden");$("#clearSyncSettings").classList.add("hidden");}
-  if(signedIn())$("#syncStatus").innerHTML=`<span class="status-dot good"></span><div><strong>Cloud sync active</strong><p class="meta">Signed in securely with Firebase Authentication + Firestore${FILE_FIREBASE_READY?" · config loaded from firebase-config.js":""}.</p></div>`;
-  else if(configured())$("#syncStatus").innerHTML=`<span class="status-dot"></span><div><strong>Firebase connection ready</strong><p class="meta">${FILE_FIREBASE_READY?"firebase-config.js loaded successfully. ":"Connection saved on this device. "}Sign in below to start syncing.</p></div>`;
+  if(signedIn())$("#syncStatus").innerHTML=`<span class="status-dot good"></span><div><strong>Cloud sync active</strong><p class="meta">Signed in securely with Firebase Authentication + Firestore.</p></div>`;
+  else if(configured())$("#syncStatus").innerHTML=`<span class="status-dot"></span><div><strong>Firebase connection ready</strong><p class="meta">Sign in below to start syncing.</p></div>`;
   else $("#syncStatus").innerHTML=`<span class="status-dot"></span><div><strong>Local mode</strong><p class="meta">Add your Firebase Web configuration to firebase-config.js, then reload the app.</p></div>`;
   $("#signedOutPanel").classList.toggle("hidden",signedIn());$("#signedInPanel").classList.toggle("hidden",!signedIn());
   if(signedIn())$("#signedInEmail").textContent=syncSession.email||"Reading Room account";

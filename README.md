@@ -1,4 +1,11 @@
-# My Reading Room V7.0.1 — Firebase Config File Hotfix
+# My Reading Room V7.0.2 — Firebase Lifetime Release
+
+
+## Final Sync UI polish
+
+- The Firebase Web API Key / Project ID setup panel is no longer shown in the normal Sync page once the app is packaged for use.
+- Firebase configuration continues to load from `firebase-config.js`; no backend or data-sync behavior was removed.
+- The Sync page now focuses on useful everyday controls: cloud status, signed-in account, Sync Now, Sign Out, backup/data-management tools, and storage information.
 
 ## Firebase configuration file
 

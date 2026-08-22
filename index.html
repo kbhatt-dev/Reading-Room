@@ -367,7 +367,7 @@
       <div class="sync-card">
         <div id="syncStatus" class="sync-status"></div>
 
-        <section class="sync-block">
+        <section class="sync-block hidden" id="firebaseConnectionPanel" aria-hidden="true">
           <h3>Firebase Connection</h3>
           <div class="form-grid two">
             <label>Web API Key<input id="firebaseApiKey" type="password" placeholder="AIza..." autocomplete="off"></label>
@@ -377,7 +377,7 @@
             <button id="clearSyncSettings" class="secondary">Clear</button>
             <button id="saveSyncSettings" class="primary">Save Connection</button>
           </div>
-          <p class="note">Primary setup: paste your Firebase Web configuration into firebase-config.js. When that file is configured, these fields become read-only. Firebase Web config values are public identifiers; Firestore Security Rules protect your private reading data.</p>
+          <p class="note">Firebase connection details are managed in firebase-config.js.</p>
         </section>
 
         <section class="sync-block">
