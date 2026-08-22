@@ -1,4 +1,4 @@
-const APP_VERSION="6.8.8";
+const APP_VERSION="6.8.9";
 const icon=n=>`<svg class="ui-icon" aria-hidden="true"><use href="#i-${n}"></use></svg>`;
 const BOOK_KEY="readingRoomBooksV1";
 const GENRE_KEY="readingRoomGenresV1";
@@ -1099,21 +1099,27 @@ function resetLocalReadingData(){
   markChanged();
   renderGenreOptions();renderAll();applyDecorations();renderSyncStatus();
 }
-async function overwriteCloudWithCurrentLibrary(){
+async function deleteCloudReadingData(){
   if(!configured()||!signedIn())return false;
   if(!(await refreshSession()))throw Error("Your Supabase session could not be refreshed.");
-  const uid=syncSession.user.id,base=`${syncSettings.url.replace(/\/$/,"")}/rest/v1/reading_room_sync`,now=Date.now();
-  const snapshot=persistentSyncPayload(),payload={user_id:uid,payload:snapshot,updated_at_ms:now};
-  const r=await fetch(`${base}?on_conflict=user_id`,{method:"POST",headers:{...authHeaders(true),Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(payload)});
-  if(!r.ok)throw Error("The local reset succeeded, but the empty library could not be written to Supabase.");
-  localStorage.setItem(CHANGE_KEY,String(now));localStorage.setItem(SYNCED_KEY,String(now));
-  localStorage.setItem(syncHashStorageKey(uid),syncPayloadHash(snapshot));localStorage.removeItem(SYNC_DIRTY_KEY);
+  const uid=syncSession.user.id,base=`${syncSettings.url.replace(/\/$/,"")}/rest/v1/reading_room_sync`;
+  const r=await fetch(`${base}?user_id=eq.${encodeURIComponent(uid)}`,{method:"DELETE",headers:{...authHeaders(true),Prefer:"return=minimal"}});
+  if(!r.ok){
+    const detail=await r.text().catch(()=>"");
+    throw Error(`The local reset succeeded, but Supabase would not delete your Reading Room data row.${detail?`\n\n${detail}`:""}`);
+  }
+  localStorage.removeItem(syncHashStorageKey(uid));
+  localStorage.removeItem(SYNC_DIRTY_KEY);
+  const now=Date.now();
+  localStorage.setItem(CHANGE_KEY,String(now));
+  localStorage.setItem(SYNCED_KEY,String(now));
   return true;
 }
 async function resetReadingRoomData(){
   const wasSignedIn=configured()&&signedIn();
   resetLocalReadingData();
-  if(wasSignedIn)await overwriteCloudWithCurrentLibrary();
+  if(wasSignedIn)await deleteCloudReadingData();
+  localStorage.removeItem(SYNC_DIRTY_KEY);
   return wasSignedIn;
 }
 let cloudSyncQueue=Promise.resolve();
@@ -1180,14 +1186,37 @@ async function performCloudSync(forceUpload=false){
       return true;
     }
 
-    /* First cloud snapshot: there is nothing remote to protect, so upload the
-       complete meaningful Reading Room payload. */
+    /* No cloud row can also mean the user deliberately used Reset Reading Data.
+       Never recreate an empty/stale cloud library from a clean device. A real
+       local edit is marked dirty and may create a fresh cloud row. On a device
+       that previously synced this account, a missing row propagates the reset
+       by clearing that device's Reading Room data as well. */
     if(!remotePayload){
-      const now=Date.now(),payload=persistentSyncPayload(),uploadedHash=syncPayloadHash(payload);
-      const pr=await fetch(`${base}?on_conflict=user_id`,{method:"POST",headers:{...authHeaders(true),Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({user_id:uid,payload,updated_at_ms:now})});
-      if(!pr.ok)throw Error("Cloud write failed");
-      localStorage.setItem(hashKey,uploadedHash);localStorage.setItem(SYNCED_KEY,String(now));localStorage.removeItem(SYNC_DIRTY_KEY);
-      $("#lastSyncText")&&($("#lastSyncText").textContent=`Uploaded library · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);
+      if(dirty){
+        const now=Date.now(),payload=persistentSyncPayload(),uploadedHash=syncPayloadHash(payload);
+        const pr=await fetch(`${base}?on_conflict=user_id`,{method:"POST",headers:{...authHeaders(true),Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({user_id:uid,payload,updated_at_ms:now})});
+        if(!pr.ok)throw Error("Cloud write failed");
+        localStorage.setItem(hashKey,uploadedHash);localStorage.setItem(SYNCED_KEY,String(now));localStorage.removeItem(SYNC_DIRTY_KEY);
+        $("#lastSyncText")&&($("#lastSyncText").textContent=`Uploaded library · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);
+        return true;
+      }
+      if(lastHash){
+        books=[];
+        genres=[...DEFAULT_GENRES];
+        decorSettings={themes:{home:"classic",tbr:"classic",finished:"classic"}};
+        goalSettings={yearly:{},monthly:{}};
+        localStorage.setItem(BOOK_KEY,JSON.stringify(books));
+        localStorage.setItem(GENRE_KEY,JSON.stringify(genres));
+        localStorage.setItem(DECOR_KEY,JSON.stringify(decorSettings));
+        localStorage.setItem(GOAL_KEY,JSON.stringify(goalSettings));
+        localStorage.removeItem(LAST_BACKUP_KEY);
+        localStorage.removeItem(hashKey);localStorage.removeItem(SYNC_DIRTY_KEY);
+        const now=Date.now();localStorage.setItem(CHANGE_KEY,String(now));localStorage.setItem(SYNCED_KEY,String(now));
+        renderGenreOptions();renderAll();applyDecorations();if(lastRoute==="stats")renderStats();
+        $("#lastSyncText")&&($("#lastSyncText").textContent=`Cloud library cleared · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);
+        return true;
+      }
+      $("#lastSyncText")&&($("#lastSyncText").textContent="Cloud library is empty");
       return true;
     }
 
@@ -1282,11 +1311,11 @@ $("#confirmResetReadingData").onclick=async()=>{
   try{
     const cloud=await resetReadingRoomData();
     $("#resetReadingDataDialog").close();
-    alert(cloud?"Reading Room data was cleared on this device and the synced cloud library was reset. Your account remains active.":"Reading Room data was cleared on this device. Your account/connection was not removed.");
+    alert(cloud?"Reading Room data was deleted from this device and from Supabase. Your Supabase account/profile remains active.":"Reading Room data was cleared on this device. Your account/connection was not removed.");
     routeTo("home");
   }catch(e){
     $("#resetReadingDataDialog").close();
-    alert(`${e.message}\n\nYour local Reading Room is empty. Do not run normal Sync until the cloud reset succeeds, or older cloud data may download again.`);
+    alert(`${e.message}\n\nYour local Reading Room is empty. Your Supabase account/profile was not deleted. If Supabase rejected the DELETE request, add a DELETE RLS policy for reading_room_sync before trying Reset again.`);
   }finally{btn.textContent=old;}
 };
 $("#closeCalendarDayDialog")?.addEventListener("click",()=>$("#calendarDayDialog").close());

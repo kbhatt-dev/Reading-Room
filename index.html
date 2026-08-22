@@ -504,7 +504,7 @@
   <dialog id="resetReadingDataDialog" class="small-dialog reset-data-dialog">
     <section class="small-dialog-card">
       <div class="dialog-header"><div><p class="eyebrow">Protected action</p><h2>Reset Reading Room?</h2></div><button type="button" id="closeResetReadingData" class="round-btn">✕</button></div>
-      <p>This removes your library and reading data from this device${signedIn?.name?" and, when signed in, your synced cloud library":""}. It does <strong>not</strong> delete your account/profile or Supabase connection.</p>
+      <p>This permanently removes your Reading Room library data from this device and, when signed in, deletes your <code>reading_room_sync</code> cloud row from Supabase. It does <strong>not</strong> delete your Supabase account/profile or connection.</p>
       <div class="reset-backup-prompt"><strong>Recommended:</strong> Export a JSON backup first if there is anything you may want later.</div>
       <label>Type <strong>RESET</strong> to continue<input id="resetReadingDataConfirm" autocomplete="off" placeholder="RESET"></label>
       <div class="button-row end"><button type="button" id="resetExportFirst" class="secondary">Export Backup First</button><button type="button" id="confirmResetReadingData" class="danger" disabled>Reset Data</button></div>

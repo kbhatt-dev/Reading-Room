@@ -1,4 +1,4 @@
-# Reading Room V6.8.8 — Cross-Device Data Consistency Hotfix
+# Reading Room V6.8.9 — Cloud Data Reset Hotfix
 
 - Reworked sync decision logic around an explicit local-dirty marker: a clean device now always downloads a different cloud snapshot instead of ever pushing a stale cache.
 - Local book/session/goal/genre/theme edits mark the device dirty; a successful upload or cloud download clears that marker.
@@ -87,7 +87,10 @@
 - Added a collapsed Data Management section on Sync with a protected Reset Reading Data action.
 - Reset requires typing RESET and offers Export Backup First.
 - Reset clears library/test data, covers, sessions, journal data, goals/challenges, custom genres, and shelf customization while preserving Supabase connection settings and the signed-in account/session.
-- When signed in, reset explicitly overwrites the user's existing `reading_room_sync` row with the new empty payload, preventing old dummy cloud data from being downloaded again.
+- When signed in, reset now **deletes the user's `reading_room_sync` row entirely** instead of storing an empty payload. The Supabase Auth account/profile remains untouched.
+- A clean previously-synced device treats a missing cloud row as a propagated reset and clears its local Reading Room cache instead of recreating stale cloud data.
+- A fresh cloud row is created again only after a genuine local Reading Room change is marked dirty and synced.
+- Supabase RLS must allow the signed-in user to `DELETE` their own `reading_room_sync` row (`auth.uid() = user_id`).
 - No Supabase Auth user/account deletion is performed.
 
 
