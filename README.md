@@ -1,5 +1,12 @@
 # My Reading Room — V5
 
+## V6.2.5 — Fairy Wire + Theme Sync
+
+- Refined shelf fairy lights into a thin, gently sagging wire with short bulb drops for a more natural string-light appearance on desktop and iPhone.
+- Shelf customization themes now travel inside the existing Supabase JSON sync payload, so Room, TBR, and per-year Finished shelf colors can follow the signed-in account across devices.
+- Local backups now include shelf themes as well. Older cloud payloads/backups without theme data remain compatible.
+
+
 ## V6.2.4 — Multi-Row Shelf Fix
 
 - Fixed wrapped bookshelf rows appearing to float when a shelf contains many books.

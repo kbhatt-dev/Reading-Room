@@ -1,4 +1,4 @@
-const APP_VERSION="6.2.1";
+const APP_VERSION="6.2.5";
 const icon=n=>`<svg class="ui-icon" aria-hidden="true"><use href="#i-${n}"></use></svg>`;
 const BOOK_KEY="readingRoomBooksV1";
 const GENRE_KEY="readingRoomGenresV1";
@@ -189,9 +189,11 @@ function applyDecorations(){
   });
 }
 
-function saveDecorSettings(){
+function saveDecorSettings({sync=true}={}){
   localStorage.setItem(DECOR_KEY,JSON.stringify(decorSettings));
+  markChanged();
   applyDecorations();
+  if(sync)cloudSync();
 }
 
 function renderHome(){
@@ -652,13 +654,18 @@ async function cloudSync(force=false){
     if(rows.length&&rows[0].payload){
       const remote=Number(rows[0].updated_at_ms||0);
       if(!force&&remote>local){
-        books=Array.isArray(rows[0].payload.books)?rows[0].payload.books:books;genres=Array.isArray(rows[0].payload.genres)?rows[0].payload.genres:genres;
-        localStorage.setItem(BOOK_KEY,JSON.stringify(books));localStorage.setItem(GENRE_KEY,JSON.stringify(genres));localStorage.setItem(CHANGE_KEY,String(remote));localStorage.setItem(SYNCED_KEY,String(remote));renderAll();
+        books=Array.isArray(rows[0].payload.books)?rows[0].payload.books:books;
+        genres=Array.isArray(rows[0].payload.genres)?rows[0].payload.genres:genres;
+        if(rows[0].payload.decorSettings?.themes){
+          decorSettings=rows[0].payload.decorSettings;
+          localStorage.setItem(DECOR_KEY,JSON.stringify(decorSettings));
+        }
+        localStorage.setItem(BOOK_KEY,JSON.stringify(books));localStorage.setItem(GENRE_KEY,JSON.stringify(genres));localStorage.setItem(CHANGE_KEY,String(remote));localStorage.setItem(SYNCED_KEY,String(remote));renderAll();applyDecorations();
         $("#lastSyncText")&&($("#lastSyncText").textContent=`Downloaded latest · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);return true;
       }
     }
     if(rows.length&&!force&&local<=last){$("#lastSyncText")&&($("#lastSyncText").textContent=`Up to date · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);return true;}
-    const now=Date.now(),payload={user_id:uid,payload:{books,genres},updated_at_ms:now};
+    const now=Date.now(),payload={user_id:uid,payload:{books,genres,decorSettings},updated_at_ms:now};
     const pr=await fetch(`${base}?on_conflict=user_id`,{method:"POST",headers:{...authHeaders(true),Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(payload)});if(!pr.ok)throw Error("Cloud write failed");
     localStorage.setItem(CHANGE_KEY,String(now));localStorage.setItem(SYNCED_KEY,String(now));$("#lastSyncText")&&($("#lastSyncText").textContent=`Synced automatically · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);return true;
   }catch(e){console.warn("Reading Room sync:",e);$("#lastSyncText")&&($("#lastSyncText").textContent="Sync failed — check connection or policies.");return false;}
@@ -669,9 +676,9 @@ $("#signInBtn").onclick=async()=>{const email=$("#syncEmail").value.trim(),passw
 $("#signOutBtn").onclick=async()=>{if(signedIn()){try{await fetch(`${syncSettings.url.replace(/\/$/,"")}/auth/v1/logout`,{method:"POST",headers:authHeaders(true)});}catch{}}syncSession=null;localStorage.removeItem(SESSION_KEY);renderSyncStatus();};
 $("#syncNowBtn").onclick=()=>cloudSync(true);
 
-$("#exportBackup").onclick=()=>{const blob=new Blob([JSON.stringify({version:5,exportedAt:new Date().toISOString(),books,genres},null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`reading-room-backup-${todayISO()}.json`;a.click();URL.revokeObjectURL(a.href);};
+$("#exportBackup").onclick=()=>{const blob=new Blob([JSON.stringify({version:6,exportedAt:new Date().toISOString(),books,genres,decorSettings},null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`reading-room-backup-${todayISO()}.json`;a.click();URL.revokeObjectURL(a.href);};
 $("#importBackupBtn").onclick=()=>$("#importBackupInput").click();
-$("#importBackupInput").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!Array.isArray(d.books))throw Error();if(!confirm(`Restore ${d.books.length} books? This replaces current local data.`))return;books=d.books;if(Array.isArray(d.genres))genres=d.genres;localStorage.setItem(BOOK_KEY,JSON.stringify(books));localStorage.setItem(GENRE_KEY,JSON.stringify(genres));markChanged();renderAll();cloudSync();alert("Backup restored.");}catch{alert("Invalid Reading Room backup.");}e.target.value="";};
+$("#importBackupInput").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!Array.isArray(d.books))throw Error();if(!confirm(`Restore ${d.books.length} books? This replaces current local data.`))return;books=d.books;if(Array.isArray(d.genres))genres=d.genres;if(d.decorSettings?.themes){decorSettings=d.decorSettings;localStorage.setItem(DECOR_KEY,JSON.stringify(decorSettings));}localStorage.setItem(BOOK_KEY,JSON.stringify(books));localStorage.setItem(GENRE_KEY,JSON.stringify(genres));markChanged();renderAll();applyDecorations();cloudSync();alert("Backup restored.");}catch{alert("Invalid Reading Room backup.");}e.target.value="";};
 
 renderGenreOptions();renderAll();applyDecorations();renderSyncStatus();cloudSync();
 window.addEventListener("focus",()=>{if(signedIn())cloudSync();});
