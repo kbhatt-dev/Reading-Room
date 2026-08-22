@@ -1,4 +1,4 @@
-const APP_VERSION="6.8.7";
+const APP_VERSION="6.8.8";
 const icon=n=>`<svg class="ui-icon" aria-hidden="true"><use href="#i-${n}"></use></svg>`;
 const BOOK_KEY="readingRoomBooksV1";
 const GENRE_KEY="readingRoomGenresV1";
@@ -7,6 +7,7 @@ const SESSION_KEY="readingRoomSupabaseSessionV2";
 const CHANGE_KEY="readingRoomLastChangedV2";
 const SYNCED_KEY="readingRoomLastSyncedV2";
 const SYNC_HASH_KEY="readingRoomLastSyncedPayloadHashV1";
+const SYNC_DIRTY_KEY="readingRoomSyncDirtyV1";
 const DECOR_KEY="readingRoomDecorV1";
 const GOAL_KEY="readingRoomGoalsV1";
 const LAST_BACKUP_KEY="readingRoomLastBackupExportV1";
@@ -209,7 +210,7 @@ function unpackBooksFromStorage(payload){
 }
 function persistentSyncPayload(){const packed=packBooksForStorage(books);return {books:packed.books,covers:packed.covers,genres,decorSettings,goalSettings,storageVersion:3};}
 
-function markChanged(){localStorage.setItem(CHANGE_KEY,String(Date.now()));}
+function markChanged(){localStorage.setItem(CHANGE_KEY,String(Date.now()));localStorage.setItem(SYNC_DIRTY_KEY,"1");}
 function saveBooks({sync=true}={}){
   localStorage.setItem(BOOK_KEY,JSON.stringify(books));markChanged();renderAll();if(sync)cloudSync();
 }
@@ -388,7 +389,7 @@ function renderHome(){
     <button class="secondary compact" onclick="openBook('${b.id}')">Open</button></div></article>`).join("");
   $("#homeReadingEmpty").classList.toggle("hidden",reading.length>0);
   $("#homeFinishedShelf").innerHTML=finished.slice(0,9).map(woodBook).join("");
-  $("#homeTbrShelf").innerHTML=tbr.slice(0,9).map(woodBook).join("");
+  $("#homeTbrShelf").innerHTML=tbr.map(woodBook).join("");
   const goalYear=new Date().getFullYear(),goal=goalProgress(goalYear);
   $("#homeGoalYear").textContent=goalYear;
   $("#homeGoalCount").textContent=goal.target?`${goal.finished} of ${goal.target} books`:`${goal.finished} books finished`;
@@ -1106,7 +1107,7 @@ async function overwriteCloudWithCurrentLibrary(){
   const r=await fetch(`${base}?on_conflict=user_id`,{method:"POST",headers:{...authHeaders(true),Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(payload)});
   if(!r.ok)throw Error("The local reset succeeded, but the empty library could not be written to Supabase.");
   localStorage.setItem(CHANGE_KEY,String(now));localStorage.setItem(SYNCED_KEY,String(now));
-  localStorage.setItem(syncHashStorageKey(uid),syncPayloadHash(snapshot));
+  localStorage.setItem(syncHashStorageKey(uid),syncPayloadHash(snapshot));localStorage.removeItem(SYNC_DIRTY_KEY);
   return true;
 }
 async function resetReadingRoomData(){
@@ -1144,6 +1145,7 @@ function applyCloudPayload(payload,remoteStamp=Date.now()){
   localStorage.setItem(CHANGE_KEY,String(remoteStamp));
   localStorage.setItem(SYNCED_KEY,String(remoteStamp));
   localStorage.setItem(syncHashStorageKey(syncSession.user.id),syncPayloadHash(payload));
+  localStorage.removeItem(SYNC_DIRTY_KEY);
   renderGenreOptions();renderAll();applyDecorations();if(lastRoute==="stats")renderStats();
   return true;
 }
@@ -1157,44 +1159,80 @@ async function performCloudSync(forceUpload=false){
     const rows=await gr.json(),row=rows[0]||null,remotePayload=row?.payload&&typeof row.payload==="object"?row.payload:null;
     const localPayload=persistentSyncPayload(),localHash=syncPayloadHash(localPayload),remoteHash=remotePayload?syncPayloadHash(remotePayload):"";
     const hashKey=syncHashStorageKey(uid),lastHash=localStorage.getItem(hashKey)||"";
-    const localStamp=Number(localStorage.getItem(CHANGE_KEY)||0),lastStamp=Number(localStorage.getItem(SYNCED_KEY)||0),remoteStamp=Number(row?.updated_at_ms||0);
+    const localStamp=Number(localStorage.getItem(CHANGE_KEY)||0),remoteStamp=Number(row?.updated_at_ms||0);
+    const dirty=forceUpload||localStorage.getItem(SYNC_DIRTY_KEY)==="1";
 
+    /* Identical snapshots are already synchronized. Always clear a stale dirty
+       marker here so a device cannot keep trying to overwrite the same cloud data. */
     if(remotePayload&&localHash===remoteHash){
-      const stamp=Math.max(remoteStamp,lastStamp,localStamp);
-      localStorage.setItem(hashKey,localHash);localStorage.setItem(SYNCED_KEY,String(stamp));
+      const stamp=Math.max(remoteStamp,localStamp,Date.now());
+      localStorage.setItem(hashKey,localHash);localStorage.setItem(SYNCED_KEY,String(stamp));localStorage.removeItem(SYNC_DIRTY_KEY);
       $("#lastSyncText")&&($("#lastSyncText").textContent=`Up to date · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);
       return true;
     }
 
-    if(!forceUpload&&remotePayload&&lastHash){
-      if(localHash===lastHash&&remoteHash!==lastHash){
-        applyCloudPayload(remotePayload,remoteStamp||Date.now());
-        $("#lastSyncText")&&($("#lastSyncText").textContent=`Downloaded latest · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);
-        return true;
-      }
-      if(remoteHash!==lastHash&&localHash!==lastHash&&remoteStamp>localStamp){
-        applyCloudPayload(remotePayload,remoteStamp||Date.now());
-        $("#lastSyncText")&&($("#lastSyncText").textContent=`Downloaded newer cloud copy · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);
-        return true;
-      }
+    /* A clean device must never upload its stale local cache. If the cloud
+       differs, download it immediately. This is the normal cross-device path. */
+    if(!dirty&&remotePayload){
+      applyCloudPayload(remotePayload,remoteStamp||Date.now());
+      localStorage.removeItem(SYNC_DIRTY_KEY);
+      $("#lastSyncText")&&($("#lastSyncText").textContent=`Downloaded latest · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);
+      return true;
     }
 
-    /* Migration path for devices upgrading from timestamp-only sync. If this
-       device has no payload fingerprint yet and has no unsynced local edit,
-       trust the existing cloud snapshot instead of pushing a stale shelf. */
-    if(!forceUpload&&remotePayload&&!lastHash){
-      const legacyLocalChanged=localStamp>lastStamp;
-      if(!legacyLocalChanged||remoteStamp>=localStamp){
-        applyCloudPayload(remotePayload,remoteStamp||Date.now());
+    /* First cloud snapshot: there is nothing remote to protect, so upload the
+       complete meaningful Reading Room payload. */
+    if(!remotePayload){
+      const now=Date.now(),payload=persistentSyncPayload(),uploadedHash=syncPayloadHash(payload);
+      const pr=await fetch(`${base}?on_conflict=user_id`,{method:"POST",headers:{...authHeaders(true),Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({user_id:uid,payload,updated_at_ms:now})});
+      if(!pr.ok)throw Error("Cloud write failed");
+      localStorage.setItem(hashKey,uploadedHash);localStorage.setItem(SYNCED_KEY,String(now));localStorage.removeItem(SYNC_DIRTY_KEY);
+      $("#lastSyncText")&&($("#lastSyncText").textContent=`Uploaded library · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);
+      return true;
+    }
+
+    /* Dirty local data with an unchanged cloud copy is safe to upload. */
+    if(dirty&&lastHash&&remoteHash===lastHash){
+      const now=Date.now(),payload=persistentSyncPayload(),uploadedHash=syncPayloadHash(payload);
+      const pr=await fetch(`${base}?on_conflict=user_id`,{method:"POST",headers:{...authHeaders(true),Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({user_id:uid,payload,updated_at_ms:now})});
+      if(!pr.ok)throw Error("Cloud write failed");
+      localStorage.setItem(hashKey,uploadedHash);localStorage.setItem(SYNCED_KEY,String(now));localStorage.removeItem(SYNC_DIRTY_KEY);
+      $("#lastSyncText")&&($("#lastSyncText").textContent=`Synced changes · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);
+      return true;
+    }
+
+    /* Migration / simultaneous-edit fallback. On a device that has never seen
+       this account's cloud fingerprint, protect an established cloud library
+       instead of silently replacing it with a stale local cache. If this device
+       has a clearly newer unsynced edit, preserve it by uploading; otherwise
+       download the cloud snapshot. */
+    if(!lastHash){
+      if(dirty&&localStamp>remoteStamp){
+        const now=Date.now(),payload=persistentSyncPayload(),uploadedHash=syncPayloadHash(payload);
+        const pr=await fetch(`${base}?on_conflict=user_id`,{method:"POST",headers:{...authHeaders(true),Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({user_id:uid,payload,updated_at_ms:now})});
+        if(!pr.ok)throw Error("Cloud write failed");
+        localStorage.setItem(hashKey,uploadedHash);localStorage.setItem(SYNCED_KEY,String(now));localStorage.removeItem(SYNC_DIRTY_KEY);
+        $("#lastSyncText")&&($("#lastSyncText").textContent=`Uploaded local changes · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);
+      }else{
+        applyCloudPayload(remotePayload,remoteStamp||Date.now());localStorage.removeItem(SYNC_DIRTY_KEY);
         $("#lastSyncText")&&($("#lastSyncText").textContent=`Downloaded cloud library · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);
-        return true;
       }
+      return true;
+    }
+
+    /* Both sides changed since the last common snapshot. Prefer the snapshot
+       with the newer edit timestamp rather than allowing a clean/stale device
+       to win. This keeps the existing single-row Supabase schema intact. */
+    if(remoteStamp>localStamp&&!forceUpload){
+      applyCloudPayload(remotePayload,remoteStamp||Date.now());localStorage.removeItem(SYNC_DIRTY_KEY);
+      $("#lastSyncText")&&($("#lastSyncText").textContent=`Downloaded newer cloud copy · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);
+      return true;
     }
 
     const now=Date.now(),payload=persistentSyncPayload(),uploadedHash=syncPayloadHash(payload);
     const pr=await fetch(`${base}?on_conflict=user_id`,{method:"POST",headers:{...authHeaders(true),Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({user_id:uid,payload,updated_at_ms:now})});
     if(!pr.ok)throw Error("Cloud write failed");
-    localStorage.setItem(hashKey,uploadedHash);localStorage.setItem(SYNCED_KEY,String(now));
+    localStorage.setItem(hashKey,uploadedHash);localStorage.setItem(SYNCED_KEY,String(now));localStorage.removeItem(SYNC_DIRTY_KEY);
     $("#lastSyncText")&&($("#lastSyncText").textContent=`Synced automatically · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);
     return true;
   }catch(e){

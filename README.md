@@ -1,3 +1,11 @@
+# Reading Room V6.8.8 — Cross-Device Data Consistency Hotfix
+
+- Reworked sync decision logic around an explicit local-dirty marker: a clean device now always downloads a different cloud snapshot instead of ever pushing a stale cache.
+- Local book/session/goal/genre/theme edits mark the device dirty; a successful upload or cloud download clears that marker.
+- Preserved the existing single-row Supabase schema and complete meaningful-data payload. Temporary UI state remains local-only.
+- Room → Next on TBR now renders the full TBR collection instead of silently truncating it to 9 books, so Room and TBR pages reflect the same saved TBR data.
+- Preserves V6.8.7 sub-8 KB cover hardening and all session/calendar fixes.
+
 # Reading Room V6.8.7 — Extra-Tiny Cover Hardening
 
 - Audited every persistent Reading Room storage key. Supabase sync now carries all meaningful app data: the complete books array (TBR, Reading, Finished, DNF, journal fields, predictions, Hall of Fame flag, reading sessions, dates/progress and covers), custom genres, shelf themes/customization, yearly goals and monthly challenges.
