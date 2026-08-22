@@ -1,4 +1,4 @@
-const APP_VERSION="5.3.1";
+const APP_VERSION="6.0";
 const icon=n=>`<svg class="ui-icon" aria-hidden="true"><use href="#i-${n}"></use></svg>`;
 const BOOK_KEY="readingRoomBooksV1";
 const GENRE_KEY="readingRoomGenresV1";
@@ -6,6 +6,7 @@ const SYNC_KEY="readingRoomSyncSettingsV2";
 const SESSION_KEY="readingRoomSupabaseSessionV2";
 const CHANGE_KEY="readingRoomLastChangedV2";
 const SYNCED_KEY="readingRoomLastSyncedV2";
+const DECOR_KEY="readingRoomDecorV1";
 
 const DEFAULT_GENRES=["Thriller","Mystery","Horror","Romance","Fantasy","Science Fiction","Contemporary","Historical Fiction","Literary Fiction","Non-Fiction","Biography","Self-Help","Other"];
 
@@ -19,6 +20,7 @@ let lastRoute="home";
 let justFinishedBookId=null;
 let activeFullBookId=null;
 let sessionsManagerBookId=null;
+let decorSettings=JSON.parse(localStorage.getItem(DECOR_KEY)||"null")||{theme:"classic",plant:true,candle:true,coffee:false,sparkle:true};
 
 const $=s=>document.querySelector(s);
 const $$=s=>[...document.querySelectorAll(s)];
@@ -47,6 +49,50 @@ function moodLabel(value=""){
     "😍":"Loved it","😱":"Intense","🤯":"Mind blown","😭":"Emotional","😌":"Cozy","😐":"Neutral"
   };
   return map[value]||value||"No mood";
+}
+
+function detectiveScoreForBook(b){
+  if(!b.prediction || !b.predictionResult)return null;
+  if(b.predictionResult==="yes")return 100;
+  if(b.predictionResult==="partial")return 50;
+  if(b.predictionResult==="no")return 0;
+  return null;
+}
+function detectiveLabel(score){
+  if(score===null)return "No score";
+  if(score>=90)return "Master Detective";
+  if(score>=70)return "Sharp Reader";
+  if(score>=50)return "Good Hunch";
+  if(score>0)return "Close Call";
+  return "Plot Twist Won";
+}
+function memoryCardHTML(b){
+  const days=dateDiffDays(b.dateStarted,b.dateFinished);
+  const score=detectiveScoreForBook(b);
+  const quote=b.favoriteQuote?`<div class="memory-card-quote">“${escapeHtml(b.favoriteQuote)}”</div>`:"";
+  return `<article class="book-memory-card">
+    <div class="memory-card-top">
+      ${coverHTML(b)}
+      <div>
+        <p class="eyebrow">Reading memory</p>
+        <h3>${escapeHtml(b.title)}</h3>
+        <div class="memory-card-meta">${escapeHtml(b.author||"Unknown author")} · ${b.dateFinished||"Finished"}</div>
+      </div>
+    </div>
+    <div class="memory-card-body">
+      <div class="pills">
+        <span class="pill">${escapeHtml(b.genre||"No genre")}</span>
+        <span class="pill">${stars(b.rating)}</span>
+        ${days!==null?`<span class="pill">${days} ${days===1?"day":"days"}</span>`:""}
+      </div>
+      ${quote}
+      ${b.favoriteCharacter?`<div class="memory-card-meta"><strong>Favourite character:</strong> ${escapeHtml(b.favoriteCharacter)}</div>`:""}
+    </div>
+    <div class="memory-card-footer">
+      ${score!==null?`<span class="memory-score">${icon("target")} ${score}% · ${detectiveLabel(score)}</span>`:`<span></span>`}
+      <button class="secondary compact memory-card-action" onclick="openFullBook('${b.id}')">${icon("reading")} Open</button>
+    </div>
+  </article>`;
 }
 function progressHTML(b){
   const current=Number(b.currentPage)||0,total=Number(b.pages)||0;
@@ -116,6 +162,30 @@ window.deleteGenre=i=>{const name=genres[i];if(!confirm(`Remove "${name}" from f
 function woodBook(b){return `<button class="wood-book" onclick="openBook('${b.id}')">${coverHTML(b)}<span>${escapeHtml(b.title)}</span></button>`;}
 function shelfCard(b){return `<button class="shelf-card" onclick="openBook('${b.id}')">${coverHTML(b)}<strong>${escapeHtml(b.title)}</strong><small>${escapeHtml(b.author||"Unknown")}</small></button>`;}
 
+
+function applyDecorations(){
+  document.body.dataset.shelfTheme=decorSettings.theme||"classic";
+  const sets=$$(".bookcase-top-decor");
+  sets.forEach(wrap=>{
+    wrap.innerHTML="";
+    const items=[];
+    if(decorSettings.plant)items.push("plant");
+    if(decorSettings.sparkle)items.push("sparkle");
+    if(decorSettings.candle)items.push("candle");
+    if(decorSettings.coffee)items.push("coffee");
+    items.forEach(name=>{
+      const span=document.createElement("span");
+      span.className="room-decor-slot";
+      span.innerHTML=icon(name);
+      wrap.appendChild(span);
+    });
+  });
+}
+function saveDecorSettings(){
+  localStorage.setItem(DECOR_KEY,JSON.stringify(decorSettings));
+  applyDecorations();
+}
+
 function renderHome(){
   const finished=books.filter(b=>b.status==="finished");
   const reading=books.filter(b=>b.status==="reading");
@@ -133,6 +203,12 @@ function renderHome(){
   const favs=books.filter(b=>b.favoriteBook);
   $("#homeFavoritesSection").classList.toggle("hidden",favs.length===0);
   $("#homeFavorites").innerHTML=favs.map(b=>`<button class="cover-card" onclick="openBook('${b.id}')">${coverHTML(b)}<span>${escapeHtml(b.title)}</span></button>`).join("");
+
+  const memoryBooks=finished.filter(b=>b.rating||b.favoriteQuote||b.favoriteCharacter||b.favoriteScene||b.review).slice(0,6);
+  $("#memoryCardsSection").classList.toggle("hidden",memoryBooks.length===0);
+  $("#memoryCards").innerHTML=memoryBooks.map(memoryCardHTML).join("");
+
+  applyDecorations();
 }
 function renderTbr(){
   const q=$("#tbrSearch").value.trim().toLowerCase(),g=$("#tbrGenre").value;
@@ -197,6 +273,8 @@ function renderStats(){
   const withDays=list.map(b=>({b,d:dateDiffDays(b.dateStarted,b.dateFinished)})).filter(x=>x.d!==null).sort((a,b)=>a.d-b.d);
   $("#statFastest").textContent=withDays.length?`${withDays[0].d}d`:"—";
   const longest=[...list].sort((a,b)=>(Number(b.pages)||0)-(Number(a.pages)||0))[0];$("#statLongest").textContent=longest?.pages?`${longest.pages}p`:"—";
+  const detectiveBooks=list.map(b=>detectiveScoreForBook(b)).filter(v=>v!==null);
+  $("#statDetective").textContent=detectiveBooks.length?`${Math.round(detectiveBooks.reduce((a,b)=>a+b,0)/detectiveBooks.length)}%`:"—";
   const months=Array(12).fill(0);list.forEach(b=>{if(b.dateFinished){const d=new Date(b.dateFinished+"T00:00:00");if(!Number.isNaN(d))months[d.getMonth()]++;}});
   const max=Math.max(1,...months),names=["J","F","M","A","M","J","J","A","S","O","N","D"];
   $("#monthlyBars").innerHTML=months.map((n,i)=>`<div class="bar-col"><div class="bar-fill" style="height:${Math.max(2,n/max*100)}%"><b>${n||""}</b></div><small>${names[i]}</small></div>`).join("");
@@ -357,6 +435,13 @@ function renderFullBookDetail(b){
 
     ${b.favoriteBook?`<div class="detail-section"><span class="pill">${icon("heart")} Hall of Fame</span></div>`:""}
 
+    ${detectiveScoreForBook(b)!==null?`<div class="detective-card">
+      <div class="detective-row">
+        <div><p class="eyebrow">Prediction accuracy</p><strong>${detectiveLabel(detectiveScoreForBook(b))}</strong></div>
+        <span class="detective-badge">${icon("target")} ${detectiveScoreForBook(b)}%</span>
+      </div>
+    </div>`:""}
+
     <div class="detail-actions">
       <button class="secondary" onclick="editBook('${b.id}')">${icon("edit")} Edit Journal</button>
       <button class="secondary" onclick="routeTo('finished')">${icon("back")} Back to Finished</button>
@@ -491,6 +576,38 @@ $("#finishFavoriteBtn").onclick=()=>{
 
 $("#tbrSearch").oninput=renderTbr;$("#tbrGenre").onchange=renderTbr;$("#finishedSearch").oninput=renderFinished;$("#finishedGenre").onchange=renderFinished;$("#finishedYear").onchange=renderFinished;$("#statsYear").onchange=renderStats;
 
+
+$("#openDecorSettings").onclick=()=>{
+  $("#decorTheme").value=decorSettings.theme||"classic";
+  $("#decorPlant").checked=!!decorSettings.plant;
+  $("#decorCandle").checked=!!decorSettings.candle;
+  $("#decorCoffee").checked=!!decorSettings.coffee;
+  $("#decorSparkle").checked=!!decorSettings.sparkle;
+  $("#decorDialog").showModal();
+  setDialogOpen(true);
+};
+$("#closeDecorDialog").onclick=()=>$("#decorDialog").close();
+$("#resetDecorBtn").onclick=()=>{
+  decorSettings={theme:"classic",plant:true,candle:true,coffee:false,sparkle:true};
+  $("#decorTheme").value=decorSettings.theme;
+  $("#decorPlant").checked=decorSettings.plant;
+  $("#decorCandle").checked=decorSettings.candle;
+  $("#decorCoffee").checked=decorSettings.coffee;
+  $("#decorSparkle").checked=decorSettings.sparkle;
+};
+$("#decorForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  decorSettings={
+    theme:$("#decorTheme").value,
+    plant:$("#decorPlant").checked,
+    candle:$("#decorCandle").checked,
+    coffee:$("#decorCoffee").checked,
+    sparkle:$("#decorSparkle").checked
+  };
+  saveDecorSettings();
+  $("#decorDialog").close();
+});
+
 /* SUPABASE AUTH + AUTO SYNC */
 function configured(){return !!(syncSettings.url&&syncSettings.key);}
 function signedIn(){return !!(syncSession?.access_token&&syncSession?.user?.id);}
@@ -542,7 +659,7 @@ $("#exportBackup").onclick=()=>{const blob=new Blob([JSON.stringify({version:5,e
 $("#importBackupBtn").onclick=()=>$("#importBackupInput").click();
 $("#importBackupInput").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!Array.isArray(d.books))throw Error();if(!confirm(`Restore ${d.books.length} books? This replaces current local data.`))return;books=d.books;if(Array.isArray(d.genres))genres=d.genres;localStorage.setItem(BOOK_KEY,JSON.stringify(books));localStorage.setItem(GENRE_KEY,JSON.stringify(genres));markChanged();renderAll();cloudSync();alert("Backup restored.");}catch{alert("Invalid Reading Room backup.");}e.target.value="";};
 
-renderGenreOptions();renderAll();renderSyncStatus();cloudSync();
+renderGenreOptions();renderAll();applyDecorations();renderSyncStatus();cloudSync();
 window.addEventListener("focus",()=>{if(signedIn())cloudSync();});
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&signedIn())cloudSync();});
 window.addEventListener("online",()=>{if(signedIn())cloudSync();});

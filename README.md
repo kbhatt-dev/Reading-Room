@@ -151,3 +151,44 @@ Existing book data, Supabase schema, automatic sync, and PWA behavior remain com
 - Fixed iPhone/Safari date input width and alignment.
 - Forced date fields to stay inside their form card.
 - Preserved all V5.3 features and data compatibility.
+
+
+# V6 — Personal Reading Experience
+
+## Book Memory Cards
+Finished books can now appear as visual memory cards on the Room page.
+A card can include:
+- cover
+- title and author
+- rating
+- genre
+- reading duration
+- favourite quote
+- favourite character
+- detective score when a prediction exists
+
+## Detective Score
+Prediction results now generate a score:
+- Correct: 100%
+- Partly right: 50%
+- Not correct: 0%
+
+Finished book details show the score and label.
+Statistics now include an average yearly Detective Score.
+
+## Shelf Decoration Customization
+The Room page now has a Customize Room action.
+Users can choose:
+- Classic Wood
+- Light Oak
+- Dark Walnut
+
+Decorations can be toggled:
+- Plant
+- Candle
+- Coffee
+- Sparkle
+
+Decoration preferences are stored locally and do not alter book data or Supabase schema.
+
+All V5.3.1 features, Supabase sync, Reading Sessions, PWA updates, and existing data remain compatible.

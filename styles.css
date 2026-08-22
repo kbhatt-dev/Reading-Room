@@ -328,3 +328,111 @@ button .ui-icon{margin-right:5px}
     min-width:0!important;
   }
 }
+
+
+/* V6 — personal reading experience */
+:root{
+  --shelf-board:#755038;
+  --shelf-board-dark:#513524;
+}
+body[data-shelf-theme="light"]{
+  --shelf-board:#9c7659;
+  --shelf-board-dark:#79553d;
+}
+body[data-shelf-theme="dark"]{
+  --shelf-board:#4b3022;
+  --shelf-board-dark:#2f1d15;
+}
+
+.wood-board{
+  background:linear-gradient(var(--shelf-board),var(--shelf-board-dark))!important;
+}
+.decorative-bookcase,.full-bookcase{
+  transition:background .2s ease,border-color .2s ease;
+}
+body[data-shelf-theme="light"] .decorative-bookcase,
+body[data-shelf-theme="light"] .full-bookcase{
+  background:linear-gradient(180deg,rgba(181,145,111,.08),rgba(155,118,87,.14));
+}
+body[data-shelf-theme="dark"] .decorative-bookcase,
+body[data-shelf-theme="dark"] .full-bookcase{
+  background:linear-gradient(180deg,rgba(76,47,31,.09),rgba(56,34,23,.18));
+}
+
+.memory-card-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
+  gap:14px;
+}
+.book-memory-card{
+  border:1px solid var(--line);
+  border-radius:22px;
+  overflow:hidden;
+  background:var(--paper);
+  box-shadow:0 10px 26px rgba(65,44,31,.08);
+}
+.memory-card-top{
+  display:grid;
+  grid-template-columns:74px 1fr;
+  gap:12px;
+  padding:14px;
+  background:linear-gradient(145deg,#f8efe6,#fffaf3);
+}
+.memory-card-top .cover{width:74px}
+.memory-card-top h3{font-size:1.15rem;margin:2px 0 4px}
+.memory-card-meta{font-size:.72rem;color:var(--muted)}
+.memory-card-body{padding:13px;display:grid;gap:8px}
+.memory-card-quote{
+  font-family:Georgia,serif;
+  font-style:italic;
+  color:#614a3a;
+  background:#f5ece3;
+  border-radius:12px;
+  padding:10px;
+}
+.memory-card-footer{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:0 13px 13px}
+.memory-score{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:6px 9px;border-radius:999px;background:#eee5dc;
+  font-size:.72rem;font-weight:800
+}
+
+.detective-card{
+  margin-top:14px;
+  padding:14px;
+  border-radius:16px;
+  background:linear-gradient(145deg,#f2e7da,#fff9f2);
+  border:1px solid var(--line);
+}
+.detective-row{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.detective-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  border-radius:999px;padding:7px 10px;background:var(--wood);color:white;font-weight:850;font-size:.75rem
+}
+
+.decor-fieldset{
+  border:1px solid var(--line);
+  border-radius:14px;
+  padding:12px;
+  margin:0 0 14px;
+}
+.decor-fieldset legend{font-weight:850;padding:0 5px}
+.decor-option{
+  display:flex!important;
+  grid-template-columns:auto 1fr!important;
+  align-items:center!important;
+  gap:8px!important;
+  margin-bottom:8px!important;
+  background:#f7efe7;
+  border-radius:10px;
+  padding:8px 10px!important;
+}
+.decor-option input{width:auto!important}
+.room-decor-slot{display:grid;place-items:center}
+.room-decor-slot.hidden{display:none!important}
+.memory-card-action{display:inline-flex;align-items:center;gap:5px}
+
+@media(max-width:700px){
+  .memory-card-grid{grid-template-columns:1fr}
+  #openDecorSettings{width:auto}
+}
