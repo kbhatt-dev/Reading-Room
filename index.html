@@ -87,6 +87,21 @@
         </div>
       </div>
 
+      <section class="home-section home-goal-section">
+        <div class="reading-goal-card compact-goal-card">
+          <div class="goal-card-heading">
+            <div>
+              <p class="eyebrow">Reading goal</p>
+              <h2><span id="homeGoalYear"></span> Goal</h2>
+            </div>
+            <button class="secondary compact" data-route="stats"><svg class="ui-icon" aria-hidden="true"><use href="#i-target"></use></svg> Edit Goal</button>
+          </div>
+          <div class="goal-summary"><strong id="homeGoalCount">0 books finished</strong><span id="homeGoalPercent">No goal set</span></div>
+          <div class="goal-track" aria-hidden="true"><span id="homeGoalBar"></span></div>
+          <p id="homeGoalMessage" class="goal-message muted"></p>
+        </div>
+      </section>
+
       <section class="home-section">
         <div class="section-head">
           <div>
@@ -209,16 +224,6 @@
 
       <div id="finishedYearShelves" class="year-shelves"></div>
       <div id="finishedEmpty" class="empty-card">Finished books will appear here.</div>
-
-      <section id="memoryCardsSection" class="finished-memory-section hidden">
-        <div class="section-head">
-          <div>
-            <p class="eyebrow">Keep the feeling</p>
-            <h2>Book Memory Cards</h2>
-          </div>
-        </div>
-        <div id="memoryCards" class="memory-card-grid"></div>
-      </section>
     </section>
 
 
@@ -246,6 +251,23 @@
         </div>
         <select id="statsYear" class="year-select"></select>
       </div>
+
+      <section class="reading-goal-card stats-goal-card">
+        <div class="goal-card-heading">
+          <div>
+            <p class="eyebrow">Reading goal</p>
+            <h2><span id="goalYearLabel"></span> Yearly Goal</h2>
+          </div>
+          <div class="goal-edit">
+            <label for="yearlyGoalInput">Books</label>
+            <input id="yearlyGoalInput" type="number" min="1" max="999" inputmode="numeric" placeholder="e.g. 30" />
+            <button id="saveYearlyGoal" class="primary compact"><svg class="ui-icon" aria-hidden="true"><use href="#i-target"></use></svg> Save Goal</button>
+          </div>
+        </div>
+        <div class="goal-summary"><strong id="statsGoalCount">0 books finished</strong><span id="statsGoalPercent">No goal set</span></div>
+        <div class="goal-track" aria-hidden="true"><span id="statsGoalBar"></span></div>
+        <p id="statsGoalMessage" class="goal-message muted"></p>
+      </section>
 
       <div class="stats-grid">
         <article class="stat-card"><span class="stat-icon"><svg class="ui-icon"><use href="#i-finished"></use></svg></span><strong id="statBooks">0</strong><small>Books finished</small></article>

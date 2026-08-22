@@ -1,5 +1,13 @@
 # My Reading Room — V5
 
+## V6.3.0 — Reading Goals
+
+- Removed the Book Memory Cards section from Finished to keep the mobile experience cleaner and less crowded.
+- Added a yearly Reading Goal with automatic progress based on finished books.
+- Added a compact current-year goal card to Room and editable yearly goals to Stats.
+- Reading goals are included in Supabase sync and local backup/restore.
+
+
 ## V6.2.6 — Leafy Fairy Lights
 
 - Replaced the plain fairy-light wire with a subtle ivy-style leafy vine.

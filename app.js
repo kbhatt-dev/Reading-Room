@@ -1,4 +1,4 @@
-const APP_VERSION="6.2.5";
+const APP_VERSION="6.3.0";
 const icon=n=>`<svg class="ui-icon" aria-hidden="true"><use href="#i-${n}"></use></svg>`;
 const BOOK_KEY="readingRoomBooksV1";
 const GENRE_KEY="readingRoomGenresV1";
@@ -7,6 +7,7 @@ const SESSION_KEY="readingRoomSupabaseSessionV2";
 const CHANGE_KEY="readingRoomLastChangedV2";
 const SYNCED_KEY="readingRoomLastSyncedV2";
 const DECOR_KEY="readingRoomDecorV1";
+const GOAL_KEY="readingRoomGoalsV1";
 
 const DEFAULT_GENRES=["Thriller","Mystery","Horror","Romance","Fantasy","Science Fiction","Contemporary","Historical Fiction","Literary Fiction","Non-Fiction","Biography","Self-Help","Other"];
 
@@ -21,6 +22,8 @@ let justFinishedBookId=null;
 let activeFullBookId=null;
 let sessionsManagerBookId=null;
 let decorSettings=JSON.parse(localStorage.getItem(DECOR_KEY)||"null");
+let goalSettings=JSON.parse(localStorage.getItem(GOAL_KEY)||"null")||{yearly:{}};
+if(!goalSettings.yearly || typeof goalSettings.yearly!=="object")goalSettings.yearly={};
 if(!decorSettings || !decorSettings.themes){
   const oldTheme=decorSettings?.theme||"classic";
   decorSettings={themes:{home:oldTheme,tbr:oldTheme,finished:oldTheme}};
@@ -48,6 +51,19 @@ function stars(r){r=Number(r)||0;if(!r)return"Not rated";return `${"★".repeat(
 function pct(b){if(!b.pages||!b.currentPage)return 0;return Math.min(100,Math.round((Number(b.currentPage)/Number(b.pages))*100));}
 function bookYear(b){const raw=b.dateFinished||b.dateStarted;if(raw){const y=new Date(raw+"T00:00:00").getFullYear();if(!Number.isNaN(y))return y;}return new Date().getFullYear();}
 function dateDiffDays(a,b){if(!a||!b)return null;const d=Math.round((new Date(b+"T00:00:00")-new Date(a+"T00:00:00"))/86400000);return Number.isFinite(d)&&d>=0?d:null;}
+function yearlyGoal(year){return Math.max(0,Number(goalSettings.yearly?.[String(year)])||0);}
+function yearlyFinishedCount(year){return books.filter(b=>b.status==="finished"&&bookYear(b)===Number(year)).length;}
+function goalProgress(year){
+  const target=yearlyGoal(year),finished=yearlyFinishedCount(year);
+  return {target,finished,percent:target?Math.min(100,Math.round(finished/target*100)):0,remaining:target?Math.max(0,target-finished):0};
+}
+function saveYearlyGoal(year,target){
+  const value=Math.max(1,Math.min(999,Math.round(Number(target)||0)));
+  if(!value)return false;
+  goalSettings.yearly[String(year)]=value;
+  localStorage.setItem(GOAL_KEY,JSON.stringify(goalSettings));
+  markChanged();renderAll();cloudSync();return true;
+}
 
 function sessionMinutes(b){return (Array.isArray(b.sessions)?b.sessions:[]).reduce((n,s)=>n+(Number(s.minutes)||0),0);}
 function moodLabel(value=""){
@@ -72,34 +88,6 @@ function detectiveLabel(score){
   if(score>=50)return "Good Hunch";
   if(score>0)return "Close Call";
   return "Plot Twist Won";
-}
-function memoryCardHTML(b){
-  const days=dateDiffDays(b.dateStarted,b.dateFinished);
-  const score=detectiveScoreForBook(b);
-  const quote=b.favoriteQuote?`<div class="memory-card-quote">“${escapeHtml(b.favoriteQuote)}”</div>`:"";
-  return `<article class="book-memory-card">
-    <div class="memory-card-top">
-      ${coverHTML(b)}
-      <div>
-        <p class="eyebrow">Reading memory</p>
-        <h3>${escapeHtml(b.title)}</h3>
-        <div class="memory-card-meta">${escapeHtml(b.author||"Unknown author")} · ${b.dateFinished||"Finished"}</div>
-      </div>
-    </div>
-    <div class="memory-card-body">
-      <div class="pills">
-        <span class="pill">${escapeHtml(b.genre||"No genre")}</span>
-        <span class="pill">${stars(b.rating)}</span>
-        ${days!==null?`<span class="pill">${days} ${days===1?"day":"days"}</span>`:""}
-      </div>
-      ${quote}
-      ${b.favoriteCharacter?`<div class="memory-card-meta"><strong>Favourite character:</strong> ${escapeHtml(b.favoriteCharacter)}</div>`:""}
-    </div>
-    <div class="memory-card-footer">
-      ${score!==null?`<span class="memory-score">${icon("target")} ${score}% · ${detectiveLabel(score)}</span>`:`<span></span>`}
-      <button class="secondary compact memory-card-action" onclick="openFullBook('${b.id}')">${icon("reading")} Open</button>
-    </div>
-  </article>`;
 }
 function progressHTML(b){
   const current=Number(b.currentPage)||0,total=Number(b.pages)||0;
@@ -214,6 +202,13 @@ function renderHome(){
   $("#homeFavoritesSection").classList.toggle("hidden",favs.length===0);
   $("#homeFavorites").innerHTML=favs.map(b=>`<button class="cover-card" onclick="openBook('${b.id}')">${coverHTML(b)}<span>${escapeHtml(b.title)}</span></button>`).join("");
 
+  const goalYear=new Date().getFullYear(),goal=goalProgress(goalYear);
+  $("#homeGoalYear").textContent=goalYear;
+  $("#homeGoalCount").textContent=goal.target?`${goal.finished} of ${goal.target} books`:`${goal.finished} books finished`;
+  $("#homeGoalPercent").textContent=goal.target?`${goal.percent}%`:`No goal set`;
+  $("#homeGoalBar").style.width=`${goal.percent}%`;
+  $("#homeGoalMessage").textContent=goal.target?(goal.remaining?`${goal.remaining} ${goal.remaining===1?"book":"books"} to go.`:`Goal reached — every extra book is a bonus.`):`Set a yearly goal in Stats and your progress will update automatically.`;
+
   applyDecorations();
 }
 function renderTbr(){
@@ -262,9 +257,6 @@ function renderFinished(){
     </div></section>`).join("");
   $("#finishedEmpty").classList.toggle("hidden",list.length>0);
 
-  const memoryBooks=all.filter(b=>b.rating||b.favoriteQuote||b.favoriteCharacter||b.favoriteScene||b.review).slice(0,12);
-  $("#memoryCardsSection").classList.toggle("hidden",memoryBooks.length===0);
-  $("#memoryCards").innerHTML=memoryBooks.map(memoryCardHTML).join("");
   applyDecorations();
 }
 function renderAll(){renderGenreOptions();renderHome();renderTbr();renderReading();renderFinished();if(lastRoute==="stats")renderStats();}
@@ -279,6 +271,13 @@ function renderStats(){
   const years=[...new Set(books.filter(b=>b.status==="finished").map(bookYear))].sort((a,b)=>b-a);const current=new Date().getFullYear();if(!years.includes(current))years.unshift(current);
   const old=Number($("#statsYear").value)||current;$("#statsYear").innerHTML=years.map(y=>`<option value="${y}">${y}</option>`).join("");$("#statsYear").value=years.includes(old)?old:years[0];
   const year=Number($("#statsYear").value),list=books.filter(b=>b.status==="finished"&&bookYear(b)===year),rated=list.filter(b=>Number(b.rating)>0);
+  const goal=goalProgress(year);
+  $("#goalYearLabel").textContent=year;
+  $("#yearlyGoalInput").value=goal.target||"";
+  $("#statsGoalCount").textContent=goal.target?`${goal.finished} of ${goal.target} books`:`${goal.finished} books finished`;
+  $("#statsGoalPercent").textContent=goal.target?`${goal.percent}%`:`No goal set`;
+  $("#statsGoalBar").style.width=`${goal.percent}%`;
+  $("#statsGoalMessage").textContent=goal.target?(goal.remaining?`${goal.remaining} ${goal.remaining===1?"book":"books"} remaining for ${year}.`:`You reached your ${year} reading goal.`):`Choose how many books you want to finish in ${year}.`;
   $("#statBooks").textContent=list.length;$("#statPages").textContent=list.reduce((n,b)=>n+(Number(b.pages)||0),0).toLocaleString();
   $("#statRating").textContent=rated.length?(rated.reduce((n,b)=>n+Number(b.rating),0)/rated.length).toFixed(1):"—";
   $("#statGenre").textContent=topKey(countBy(list,"genre"));$("#statAuthor").textContent=topKey(countBy(list,"author"));
@@ -588,6 +587,7 @@ $("#finishFavoriteBtn").onclick=()=>{
 };
 
 $("#tbrSearch").oninput=renderTbr;$("#tbrGenre").onchange=renderTbr;$("#finishedSearch").oninput=renderFinished;$("#finishedGenre").onchange=renderFinished;$("#finishedYear").onchange=renderFinished;$("#statsYear").onchange=renderStats;
+$("#saveYearlyGoal").onclick=()=>{const year=Number($("#statsYear").value)||new Date().getFullYear();if(!saveYearlyGoal(year,$("#yearlyGoalInput").value))alert("Enter a yearly goal between 1 and 999 books.");};
 
 
 function openDecorDesigner(zone){
@@ -660,12 +660,16 @@ async function cloudSync(force=false){
           decorSettings=rows[0].payload.decorSettings;
           localStorage.setItem(DECOR_KEY,JSON.stringify(decorSettings));
         }
+        if(rows[0].payload.goalSettings?.yearly){
+          goalSettings=rows[0].payload.goalSettings;
+          localStorage.setItem(GOAL_KEY,JSON.stringify(goalSettings));
+        }
         localStorage.setItem(BOOK_KEY,JSON.stringify(books));localStorage.setItem(GENRE_KEY,JSON.stringify(genres));localStorage.setItem(CHANGE_KEY,String(remote));localStorage.setItem(SYNCED_KEY,String(remote));renderAll();applyDecorations();
         $("#lastSyncText")&&($("#lastSyncText").textContent=`Downloaded latest · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);return true;
       }
     }
     if(rows.length&&!force&&local<=last){$("#lastSyncText")&&($("#lastSyncText").textContent=`Up to date · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);return true;}
-    const now=Date.now(),payload={user_id:uid,payload:{books,genres,decorSettings},updated_at_ms:now};
+    const now=Date.now(),payload={user_id:uid,payload:{books,genres,decorSettings,goalSettings},updated_at_ms:now};
     const pr=await fetch(`${base}?on_conflict=user_id`,{method:"POST",headers:{...authHeaders(true),Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(payload)});if(!pr.ok)throw Error("Cloud write failed");
     localStorage.setItem(CHANGE_KEY,String(now));localStorage.setItem(SYNCED_KEY,String(now));$("#lastSyncText")&&($("#lastSyncText").textContent=`Synced automatically · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);return true;
   }catch(e){console.warn("Reading Room sync:",e);$("#lastSyncText")&&($("#lastSyncText").textContent="Sync failed — check connection or policies.");return false;}
@@ -676,9 +680,9 @@ $("#signInBtn").onclick=async()=>{const email=$("#syncEmail").value.trim(),passw
 $("#signOutBtn").onclick=async()=>{if(signedIn()){try{await fetch(`${syncSettings.url.replace(/\/$/,"")}/auth/v1/logout`,{method:"POST",headers:authHeaders(true)});}catch{}}syncSession=null;localStorage.removeItem(SESSION_KEY);renderSyncStatus();};
 $("#syncNowBtn").onclick=()=>cloudSync(true);
 
-$("#exportBackup").onclick=()=>{const blob=new Blob([JSON.stringify({version:6,exportedAt:new Date().toISOString(),books,genres,decorSettings},null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`reading-room-backup-${todayISO()}.json`;a.click();URL.revokeObjectURL(a.href);};
+$("#exportBackup").onclick=()=>{const blob=new Blob([JSON.stringify({version:6.3,exportedAt:new Date().toISOString(),books,genres,decorSettings,goalSettings},null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`reading-room-backup-${todayISO()}.json`;a.click();URL.revokeObjectURL(a.href);};
 $("#importBackupBtn").onclick=()=>$("#importBackupInput").click();
-$("#importBackupInput").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!Array.isArray(d.books))throw Error();if(!confirm(`Restore ${d.books.length} books? This replaces current local data.`))return;books=d.books;if(Array.isArray(d.genres))genres=d.genres;if(d.decorSettings?.themes){decorSettings=d.decorSettings;localStorage.setItem(DECOR_KEY,JSON.stringify(decorSettings));}localStorage.setItem(BOOK_KEY,JSON.stringify(books));localStorage.setItem(GENRE_KEY,JSON.stringify(genres));markChanged();renderAll();applyDecorations();cloudSync();alert("Backup restored.");}catch{alert("Invalid Reading Room backup.");}e.target.value="";};
+$("#importBackupInput").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!Array.isArray(d.books))throw Error();if(!confirm(`Restore ${d.books.length} books? This replaces current local data.`))return;books=d.books;if(Array.isArray(d.genres))genres=d.genres;if(d.decorSettings?.themes){decorSettings=d.decorSettings;localStorage.setItem(DECOR_KEY,JSON.stringify(decorSettings));}if(d.goalSettings?.yearly){goalSettings=d.goalSettings;localStorage.setItem(GOAL_KEY,JSON.stringify(goalSettings));}localStorage.setItem(BOOK_KEY,JSON.stringify(books));localStorage.setItem(GENRE_KEY,JSON.stringify(genres));markChanged();renderAll();applyDecorations();cloudSync();alert("Backup restored.");}catch{alert("Invalid Reading Room backup.");}e.target.value="";};
 
 renderGenreOptions();renderAll();applyDecorations();renderSyncStatus();cloudSync();
 window.addEventListener("focus",()=>{if(signedIn())cloudSync();});
