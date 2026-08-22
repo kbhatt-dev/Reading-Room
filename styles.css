@@ -942,3 +942,21 @@ body.customizing-shelf .year-block .full-bookcase::after{
   #sessionDialog .button-row button{width:100%;min-height:44px}
   .calendar-day-dialog #addCalendarDaySession{width:100%;min-height:46px}
 }
+
+
+/* V7.0.5 — visible lifetime copyright footer */
+.app-copyright{
+  width:100%;
+  padding:20px 18px calc(22px + env(safe-area-inset-bottom));
+  text-align:center;
+  color:var(--muted,#786b61);
+  font-size:.82rem;
+  line-height:1.4;
+}
+.app-copyright p{margin:0}
+@media(max-width:700px){
+  .app-copyright{
+    padding-bottom:calc(92px + env(safe-area-inset-bottom));
+    font-size:.78rem;
+  }
+}

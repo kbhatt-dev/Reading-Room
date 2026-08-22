@@ -42,3 +42,8 @@
 ---
 
 Copyright © 2026 Krishna Bhatt. All rights reserved.
+
+## V7.0.5 — Visible Copyright Footer
+- Added a visible app footer: © 2026 Krishna Bhatt. All rights reserved.
+- Preserved existing source-code and documentation copyright notices.
+- No database, Firebase sync, cover-compression, or feature behavior changed.

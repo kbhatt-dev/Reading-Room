@@ -1,4 +1,4 @@
-# My Reading Room V7.0.4 — Firebase Lifetime Release
+# My Reading Room V7.0.5 — Firebase Lifetime Release
 
 > Copyright © 2026 Krishna Bhatt. All rights reserved.
 
