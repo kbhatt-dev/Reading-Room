@@ -40,7 +40,7 @@ The app uses namespaced browser keys for books, genres, goals, shelf decoration/
 
 ## Cover storage policy
 
-Covers are embedded in book data as tiny optimized images. The lifetime policy targets about **8 KB** and rejects/continues compression until the result is **under 10 KB**. Existing covers already below the limit are not repeatedly degraded.
+Covers are embedded in book data as tiny optimized images. The lifetime policy uses display-oriented resizing and chooses the highest WebP quality that fits **under 10 KB**. Existing covers already below the limit are not repeatedly degraded.
 
 ---
 

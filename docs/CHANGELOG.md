@@ -1,5 +1,12 @@
 # My Reading Room — Changelog
 
+## V7.0.4 — Adaptive Cover Quality
+
+- Replaced aggressive quality-first compression with display-oriented resizing plus highest-quality-under-cap selection.
+- Keeps the strict <10 KB storage limit while preserving text, edges and photographic detail more effectively.
+- Detailed covers reduce dimensions before dropping to destructive WebP quality levels.
+- Existing already-compressed covers are not repeatedly degraded; re-upload the original image to improve an older pixelated cover.
+
 ## V7.0.3 — Documentation & Ownership Package
 
 - Added complete project documentation under `/docs`.

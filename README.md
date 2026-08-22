@@ -1,4 +1,4 @@
-# My Reading Room V7.0.3 — Firebase Lifetime Release
+# My Reading Room V7.0.4 — Firebase Lifetime Release
 
 > Copyright © 2026 Krishna Bhatt. All rights reserved.
 
@@ -11,7 +11,7 @@ My Reading Room is a cozy, local-first personal reading journal and PWA for desk
 - **Local data:** browser localStorage
 - **Cloud:** Firebase Authentication + Cloud Firestore
 - **Cloud model:** per-book documents + shared settings + deletion markers
-- **Cover policy:** ~8 KB target, strict **<10 KB** maximum
+- **Cover policy:** adaptive quality-first WebP, strict **<10 KB** maximum
 
 ## Main features
 

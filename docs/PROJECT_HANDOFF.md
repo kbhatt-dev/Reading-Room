@@ -16,7 +16,7 @@ The complete release ZIP/repository is the source of truth. Future maintenance s
 - Shelf customization, fairy-light/leaf bookshelf design and line-style icons.
 - Firebase Authentication + Firestore sync.
 - Local/offline operation and PWA behavior.
-- Tiny cover policy: target ~8 KB, maximum <10 KB.
+- Tiny cover policy: adaptive quality-first WebP, maximum <10 KB.
 
 ## Change policy
 

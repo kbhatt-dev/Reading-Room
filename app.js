@@ -2,7 +2,7 @@
  * My Reading Room
  * Copyright © 2026 Krishna Bhatt. All rights reserved.
  */
-const APP_VERSION="7.0.3";
+const APP_VERSION="7.0.4";
 const icon=n=>`<svg class="ui-icon" aria-hidden="true"><use href="#i-${n}"></use></svg>`;
 const BOOK_KEY="readingRoomBooksV1";
 const GENRE_KEY="readingRoomGenresV1";
@@ -120,10 +120,11 @@ function progressHTML(b){
 function coverHTML(b,cls="cover"){return b.cover?`<img class="${cls}" src="${b.cover}" alt="${escapeHtml(b.title)} cover">`:`<div class="${cls} placeholder">${escapeHtml(b.title||"Book")}</div>`;}
 
 
-/* V7.0 Lifetime cover policy.
-   Covers remain tiny enough for long-term cloud use without sacrificing shelf readability.
-   New and oversized embedded covers target ~8 KB and must finish below 10 KB. */
-const COVER_MAX_W=260,COVER_MAX_H=390,COVER_QUALITY=.62,COVER_TARGET_BYTES=8*1024,COVER_HARD_MAX_BYTES=10*1024,COVER_HARD_INPUT_BYTES=12*1024*1024;
+/* V7.0.4 Adaptive cover policy.
+   Shelf/detail covers should stay visually clean while remaining tiny for lifetime cloud use.
+   Strategy: resize to display-oriented dimensions first, then choose the HIGHEST WebP quality
+   that fits below the 10 KB hard cap. Dimensions shrink only when useful quality cannot fit. */
+const COVER_MAX_W=220,COVER_MAX_H=330,COVER_START_QUALITY=.82,COVER_MIN_QUALITY=.54,COVER_HARD_MAX_BYTES=10*1024,COVER_HARD_INPUT_BYTES=12*1024*1024;
 function dataUrlBytes(s=""){const i=s.indexOf(",");return i<0?0:Math.ceil((s.length-i-1)*3/4);}
 function readBlobAsDataURL(blob){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(blob);});}
 function loadImage(src){return new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(new Error("This image format could not be processed."));img.src=src;});}
@@ -132,35 +133,55 @@ async function compressCoverSource(src,{force=false}={}){
   const originalBytes=dataUrlBytes(src);
   if(!force&&src.startsWith("data:image/webp")&&originalBytes<COVER_HARD_MAX_BYTES)return src;
 
-  const img=await loadImage(src),ratio=Math.min(1,COVER_MAX_W/img.naturalWidth,COVER_MAX_H/img.naturalHeight);
-  let w=Math.max(1,Math.round(img.naturalWidth*ratio)),h=Math.max(1,Math.round(img.naturalHeight*ratio)),quality=COVER_QUALITY,best=src,bestBytes=originalBytes||Number.MAX_SAFE_INTEGER;
+  const img=await loadImage(src);
   const encode=async(width,height,q)=>{
     const c=document.createElement("canvas");c.width=width;c.height=height;
-    const ctx=c.getContext("2d",{alpha:false});ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality="high";
-    ctx.fillStyle="#f7f0e7";ctx.fillRect(0,0,width,height);ctx.drawImage(img,0,0,width,height);
+    const ctx=c.getContext("2d",{alpha:false});
+    ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality="high";
+    ctx.fillStyle="#f7f0e7";ctx.fillRect(0,0,width,height);
+    ctx.drawImage(img,0,0,width,height);
     return new Promise(resolve=>c.toBlob(resolve,"image/webp",q));
   };
-  const remember=async blob=>{if(!blob)return false;if(blob.size<bestBytes){best=await readBlobAsDataURL(blob);bestBytes=blob.size;}return blob.size<COVER_HARD_MAX_BYTES;};
 
-  /* Preserve useful detail first by stepping WebP quality down gradually. */
-  for(let pass=0;pass<11;pass++){
-    const blob=await encode(w,h,quality);await remember(blob);
-    if(blob&&blob.size<=COVER_TARGET_BYTES)break;
-    quality=Math.max(.16,quality-.045);
+  /* The largest cover shown in the app is about 150 CSS px wide. 220 px gives useful
+     display headroom while avoiding wasteful source pixels that only increase compression artifacts. */
+  const baseRatio=Math.min(1,COVER_MAX_W/img.naturalWidth,COVER_MAX_H/img.naturalHeight);
+  let w=Math.max(1,Math.round(img.naturalWidth*baseRatio));
+  let h=Math.max(1,Math.round(img.naturalHeight*baseRatio));
+
+  /* At each resolution, find the highest quality that is still under 10 KB.
+     This prevents detailed/Pinterest covers from being crushed to very low quality first. */
+  const bestAtSize=async(width,height,minQ=COVER_MIN_QUALITY,maxQ=COVER_START_QUALITY)=>{
+    let low=minQ,high=maxQ,bestBlob=null;
+    const minBlob=await encode(width,height,minQ);
+    if(!minBlob||minBlob.size>=COVER_HARD_MAX_BYTES)return null;
+    bestBlob=minBlob;
+    for(let i=0;i<7;i++){
+      const q=(low+high)/2,blob=await encode(width,height,q);
+      if(blob&&blob.size<COVER_HARD_MAX_BYTES){bestBlob=blob;low=q;}else high=q;
+    }
+    return bestBlob;
+  };
+
+  let chosen=null;
+  while(w>=150&&h>=210){
+    chosen=await bestAtSize(w,h);
+    if(chosen)break;
+    w=Math.max(150,Math.round(w*.90));
+    h=Math.max(210,Math.round(h*.90));
+    if(w===150||h===210){chosen=await bestAtSize(w,h,.50,COVER_START_QUALITY);break;}
   }
 
-  /* Only reduce dimensions when quality alone cannot stay below the 10 KB cap. */
-  while(bestBytes>=COVER_HARD_MAX_BYTES&&(w>72||h>108)){
-    w=Math.max(72,Math.round(w*.88));h=Math.max(108,Math.round(h*.88));
-    const blob=await encode(w,h,.16);if(await remember(blob)&&bestBytes<=COVER_TARGET_BYTES)break;
-  }
-  if(bestBytes>=COVER_HARD_MAX_BYTES){
-    for(const [tw,th,q] of [[68,102,.14],[64,96,.12],[60,90,.10],[56,84,.08]]){
-      const blob=await encode(tw,th,q);await remember(blob);if(bestBytes<COVER_HARD_MAX_BYTES)break;
+  /* Rare photographic covers may still need a small fallback. Keep quality above the old
+     aggressive levels; reduce pixels instead of turning text/edges into blocks. */
+  if(!chosen){
+    for(const [tw,th,minQ] of [[145,218,.50],[140,210,.48],[132,198,.46]]){
+      chosen=await bestAtSize(tw,th,minQ,COVER_START_QUALITY);
+      if(chosen)break;
     }
   }
-  if(bestBytes>=COVER_HARD_MAX_BYTES)throw new Error("This cover could not be reduced below 10 KB. Please choose a different image.");
-  return best;
+  if(!chosen)throw new Error("This cover could not be optimized clearly below 10 KB. Please choose a smaller or cleaner source image.");
+  return readBlobAsDataURL(chosen);
 }
 async function optimizeCoverFile(file){
   if(!file?.type?.startsWith("image/"))throw new Error("Please choose an image file for the cover.");

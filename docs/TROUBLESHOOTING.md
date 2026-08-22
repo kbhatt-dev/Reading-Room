@@ -28,7 +28,7 @@ The accepted lifetime policy is **under 10 KB**. If a source image cannot be red
 
 ## Cover looks poor
 
-The current policy intentionally targets ~8 KB while allowing up to <10 KB. Replace an older over-compressed cover to let the newer policy regenerate it at better quality.
+The current policy resizes first and then selects the highest WebP quality that fits under 10 KB. Replace an older over-compressed cover from the original source to regenerate it with the adaptive quality-first policy.
 
 ## Calendar date looks wrong
 

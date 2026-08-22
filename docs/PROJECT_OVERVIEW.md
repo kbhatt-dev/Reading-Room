@@ -7,12 +7,12 @@
 ## Final release line
 
 - Release family: **V7 — Firebase Lifetime Release**
-- Documentation/ownership package: **V7.0.3**
+- Documentation/ownership package: **V7.0.4**
 - Front end: HTML, CSS, vanilla JavaScript
 - Hosting target: static hosting such as GitHub Pages
 - Cloud backend: Firebase Authentication + Cloud Firestore
 - Offline/local persistence: browser localStorage with PWA support
-- Cover policy: WebP, approximately 8 KB target, **strictly below 10 KB** when accepted
+- Cover policy: adaptive quality-first WebP, **strictly below 10 KB** when accepted
 
 ## Main pages
 
