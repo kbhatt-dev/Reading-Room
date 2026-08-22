@@ -1,4 +1,4 @@
-const APP_VERSION="6.8.5";
+const APP_VERSION="6.8.6";
 const icon=n=>`<svg class="ui-icon" aria-hidden="true"><use href="#i-${n}"></use></svg>`;
 const BOOK_KEY="readingRoomBooksV1";
 const GENRE_KEY="readingRoomGenresV1";
@@ -6,6 +6,7 @@ const SYNC_KEY="readingRoomSyncSettingsV2";
 const SESSION_KEY="readingRoomSupabaseSessionV2";
 const CHANGE_KEY="readingRoomLastChangedV2";
 const SYNCED_KEY="readingRoomLastSyncedV2";
+const SYNC_HASH_KEY="readingRoomLastSyncedPayloadHashV1";
 const DECOR_KEY="readingRoomDecorV1";
 const GOAL_KEY="readingRoomGoalsV1";
 const LAST_BACKUP_KEY="readingRoomLastBackupExportV1";
@@ -1105,10 +1106,11 @@ async function overwriteCloudWithCurrentLibrary(){
   if(!configured()||!signedIn())return false;
   if(!(await refreshSession()))throw Error("Your Supabase session could not be refreshed.");
   const uid=syncSession.user.id,base=`${syncSettings.url.replace(/\/$/,"")}/rest/v1/reading_room_sync`,now=Date.now();
-  const payload={user_id:uid,payload:persistentSyncPayload(),updated_at_ms:now};
+  const snapshot=persistentSyncPayload(),payload={user_id:uid,payload:snapshot,updated_at_ms:now};
   const r=await fetch(`${base}?on_conflict=user_id`,{method:"POST",headers:{...authHeaders(true),Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(payload)});
   if(!r.ok)throw Error("The local reset succeeded, but the empty library could not be written to Supabase.");
   localStorage.setItem(CHANGE_KEY,String(now));localStorage.setItem(SYNCED_KEY,String(now));
+  localStorage.setItem(syncHashStorageKey(uid),syncPayloadHash(snapshot));
   return true;
 }
 async function resetReadingRoomData(){
@@ -1117,56 +1119,99 @@ async function resetReadingRoomData(){
   if(wasSignedIn)await overwriteCloudWithCurrentLibrary();
   return wasSignedIn;
 }
-async function cloudSync(forceUpload=false){
-  if(!configured()||!signedIn())return false;if(!(await refreshSession()))return false;
+let cloudSyncQueue=Promise.resolve();
+function canonicalJSONStringify(value){
+  if(value===null||typeof value!=="object")return JSON.stringify(value);
+  if(Array.isArray(value))return `[${value.map(canonicalJSONStringify).join(",")}]`;
+  return `{${Object.keys(value).sort().map(k=>`${JSON.stringify(k)}:${canonicalJSONStringify(value[k])}`).join(",")}}`;
+}
+function syncHashStorageKey(uid){return `${SYNC_HASH_KEY}:${uid}`;}
+function syncPayloadHash(payload){
+  const text=canonicalJSONStringify(payload);let h=2166136261;
+  for(let i=0;i<text.length;i++){h^=text.charCodeAt(i);h=Math.imul(h,16777619);}
+  return (h>>>0).toString(36);
+}
+function applyCloudPayload(payload,remoteStamp=Date.now()){
+  if(!payload||typeof payload!=="object")return false;
+  books=Array.isArray(payload.books)?unpackBooksFromStorage(payload):books;
+  genres=Array.isArray(payload.genres)?payload.genres:genres;
+  if(payload.decorSettings?.themes)decorSettings=payload.decorSettings;
+  if(payload.goalSettings&&typeof payload.goalSettings==="object"){
+    goalSettings=payload.goalSettings;
+    if(!goalSettings.yearly||typeof goalSettings.yearly!=="object")goalSettings.yearly={};
+    if(!goalSettings.monthly||typeof goalSettings.monthly!=="object")goalSettings.monthly={};
+  }
+  localStorage.setItem(BOOK_KEY,JSON.stringify(books));
+  localStorage.setItem(GENRE_KEY,JSON.stringify(genres));
+  localStorage.setItem(DECOR_KEY,JSON.stringify(decorSettings));
+  localStorage.setItem(GOAL_KEY,JSON.stringify(goalSettings));
+  localStorage.setItem(CHANGE_KEY,String(remoteStamp));
+  localStorage.setItem(SYNCED_KEY,String(remoteStamp));
+  localStorage.setItem(syncHashStorageKey(syncSession.user.id),syncPayloadHash(payload));
+  renderGenreOptions();renderAll();applyDecorations();if(lastRoute==="stats")renderStats();
+  return true;
+}
+async function performCloudSync(forceUpload=false){
+  if(!configured()||!signedIn())return false;
+  if(!(await refreshSession()))return false;
   try{
     const uid=syncSession.user.id,base=`${syncSettings.url.replace(/\/$/,"")}/rest/v1/reading_room_sync`,ep=`${base}?user_id=eq.${encodeURIComponent(uid)}&select=user_id,payload,updated_at_ms`;
     $("#lastSyncText")&&($("#lastSyncText").textContent="Checking cloud…");
-    const gr=await fetch(ep,{headers:authHeaders(true)});if(!gr.ok)throw Error("Cloud read failed");const rows=await gr.json();
-    const local=Number(localStorage.getItem(CHANGE_KEY)||0),last=Number(localStorage.getItem(SYNCED_KEY)||0);
-    const remote=rows.length?Number(rows[0].updated_at_ms||0):0;
-    const localChanged=local>last;
-    const remoteChanged=remote>last;
+    const gr=await fetch(ep,{headers:authHeaders(true)});if(!gr.ok)throw Error("Cloud read failed");
+    const rows=await gr.json(),row=rows[0]||null,remotePayload=row?.payload&&typeof row.payload==="object"?row.payload:null;
+    const localPayload=persistentSyncPayload(),localHash=syncPayloadHash(localPayload),remoteHash=remotePayload?syncPayloadHash(remotePayload):"";
+    const hashKey=syncHashStorageKey(uid),lastHash=localStorage.getItem(hashKey)||"";
+    const localStamp=Number(localStorage.getItem(CHANGE_KEY)||0),lastStamp=Number(localStorage.getItem(SYNCED_KEY)||0),remoteStamp=Number(row?.updated_at_ms||0);
 
-    /* Normal sync is two-way: if this device has not changed since its last
-       successful sync, a newer cloud copy must win. This is what lets edits
-       made on desktop appear on iPhone (and vice versa). */
-    if(!forceUpload&&rows.length&&rows[0].payload&&remoteChanged&&!localChanged){
-      books=Array.isArray(rows[0].payload.books)?unpackBooksFromStorage(rows[0].payload):books;
-      genres=Array.isArray(rows[0].payload.genres)?rows[0].payload.genres:genres;
-      if(rows[0].payload.decorSettings?.themes){
-        decorSettings=rows[0].payload.decorSettings;
-        localStorage.setItem(DECOR_KEY,JSON.stringify(decorSettings));
-      }
-      if(rows[0].payload.goalSettings?.yearly){
-        goalSettings=rows[0].payload.goalSettings;
-        localStorage.setItem(GOAL_KEY,JSON.stringify(goalSettings));
-      }
-      localStorage.setItem(BOOK_KEY,JSON.stringify(books));localStorage.setItem(GENRE_KEY,JSON.stringify(genres));localStorage.setItem(CHANGE_KEY,String(remote));localStorage.setItem(SYNCED_KEY,String(remote));renderGenreOptions();renderAll();applyDecorations();if(lastRoute==="stats")renderStats();
-      $("#lastSyncText")&&($("#lastSyncText").textContent=`Downloaded latest · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);return true;
+    if(remotePayload&&localHash===remoteHash){
+      const stamp=Math.max(remoteStamp,lastStamp,localStamp);
+      localStorage.setItem(hashKey,localHash);localStorage.setItem(SYNCED_KEY,String(stamp));
+      $("#lastSyncText")&&($("#lastSyncText").textContent=`Up to date · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);
+      return true;
     }
 
-    /* Nothing changed on either side. */
-    if(rows.length&&!forceUpload&&!localChanged&&!remoteChanged){$("#lastSyncText")&&($("#lastSyncText").textContent=`Up to date · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);return true;}
-
-    /* If both sides changed since the last common sync, keep the newer copy
-       instead of blindly overwriting the cloud. */
-    if(!forceUpload&&rows.length&&rows[0].payload&&remoteChanged&&localChanged&&remote>local){
-      books=Array.isArray(rows[0].payload.books)?unpackBooksFromStorage(rows[0].payload):books;
-      genres=Array.isArray(rows[0].payload.genres)?rows[0].payload.genres:genres;
-      if(rows[0].payload.decorSettings?.themes){decorSettings=rows[0].payload.decorSettings;localStorage.setItem(DECOR_KEY,JSON.stringify(decorSettings));}
-      if(rows[0].payload.goalSettings?.yearly){goalSettings=rows[0].payload.goalSettings;localStorage.setItem(GOAL_KEY,JSON.stringify(goalSettings));}
-      localStorage.setItem(BOOK_KEY,JSON.stringify(books));localStorage.setItem(GENRE_KEY,JSON.stringify(genres));localStorage.setItem(CHANGE_KEY,String(remote));localStorage.setItem(SYNCED_KEY,String(remote));renderGenreOptions();renderAll();applyDecorations();if(lastRoute==="stats")renderStats();
-      $("#lastSyncText")&&($("#lastSyncText").textContent=`Downloaded newer cloud copy · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);return true;
+    if(!forceUpload&&remotePayload&&lastHash){
+      if(localHash===lastHash&&remoteHash!==lastHash){
+        applyCloudPayload(remotePayload,remoteStamp||Date.now());
+        $("#lastSyncText")&&($("#lastSyncText").textContent=`Downloaded latest · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);
+        return true;
+      }
+      if(remoteHash!==lastHash&&localHash!==lastHash&&remoteStamp>localStamp){
+        applyCloudPayload(remotePayload,remoteStamp||Date.now());
+        $("#lastSyncText")&&($("#lastSyncText").textContent=`Downloaded newer cloud copy · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);
+        return true;
+      }
     }
 
-    const now=Date.now(),payload={user_id:uid,payload:persistentSyncPayload(),updated_at_ms:now};
-    const pr=await fetch(`${base}?on_conflict=user_id`,{method:"POST",headers:{...authHeaders(true),Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(payload)});if(!pr.ok)throw Error("Cloud write failed");
-    /* Do not rewrite CHANGE_KEY here. A local edit can happen while the network
-       request is in flight; preserving its timestamp keeps that edit dirty so
-       the next automatic sync cannot accidentally skip it. */
-    localStorage.setItem(SYNCED_KEY,String(now));$("#lastSyncText")&&($("#lastSyncText").textContent=`Synced automatically · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);return true;
-  }catch(e){console.warn("Reading Room sync:",e);$("#lastSyncText")&&($("#lastSyncText").textContent="Sync failed — check connection or policies.");return false;}
+    /* Migration path for devices upgrading from timestamp-only sync. If this
+       device has no payload fingerprint yet and has no unsynced local edit,
+       trust the existing cloud snapshot instead of pushing a stale shelf. */
+    if(!forceUpload&&remotePayload&&!lastHash){
+      const legacyLocalChanged=localStamp>lastStamp;
+      if(!legacyLocalChanged||remoteStamp>=localStamp){
+        applyCloudPayload(remotePayload,remoteStamp||Date.now());
+        $("#lastSyncText")&&($("#lastSyncText").textContent=`Downloaded cloud library · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);
+        return true;
+      }
+    }
+
+    const now=Date.now(),payload=persistentSyncPayload(),uploadedHash=syncPayloadHash(payload);
+    const pr=await fetch(`${base}?on_conflict=user_id`,{method:"POST",headers:{...authHeaders(true),Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify({user_id:uid,payload,updated_at_ms:now})});
+    if(!pr.ok)throw Error("Cloud write failed");
+    localStorage.setItem(hashKey,uploadedHash);localStorage.setItem(SYNCED_KEY,String(now));
+    $("#lastSyncText")&&($("#lastSyncText").textContent=`Synced automatically · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);
+    return true;
+  }catch(e){
+    console.warn("Reading Room sync:",e);
+    $("#lastSyncText")&&($("#lastSyncText").textContent="Sync failed — check connection or policies.");
+    return false;
+  }
+}
+function cloudSync(forceUpload=false){
+  const run=()=>performCloudSync(forceUpload);
+  const task=cloudSyncQueue.then(run,run);
+  cloudSyncQueue=task.catch(()=>false);
+  return task;
 }
 $("#saveSyncSettings").onclick=()=>{const url=$("#supabaseUrl").value.trim().replace(/\/$/,""),key=$("#supabaseKey").value.trim();if(!url||!key)return alert("Enter Project URL and Publishable key.");syncSettings={url,key};localStorage.setItem(SYNC_KEY,JSON.stringify(syncSettings));renderSyncStatus();alert("Supabase connection saved.");};
 $("#clearSyncSettings").onclick=()=>{if(!confirm("Clear Supabase connection from this device?"))return;syncSettings={url:"",key:""};syncSession=null;localStorage.removeItem(SYNC_KEY);localStorage.removeItem(SESSION_KEY);renderSyncStatus();};
@@ -1243,7 +1288,7 @@ async function initializeReadingRoom(){
 
   const optimized=await optimizeExistingCovers();
   if(optimized.changed){
-    if(configured()&&signedIn())await cloudSync(true);
+    if(configured()&&signedIn())await cloudSync();
     renderAll();
     if(lastRoute==="stats")renderStats();
   }

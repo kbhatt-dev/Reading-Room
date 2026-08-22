@@ -1,3 +1,14 @@
+# Reading Room V6.8.6 — Full Library Sync Hardening
+
+- Audited every persistent Reading Room storage key. Supabase sync now carries all meaningful app data: the complete books array (TBR, Reading, Finished, DNF, journal fields, predictions, Hall of Fame flag, reading sessions, dates/progress and covers), custom genres, shelf themes/customization, yearly goals and monthly challenges.
+- Temporary/device-only state remains local: Supabase credentials/session, backup-health timestamp, route/dialog/search state and other UI-only state.
+- Replaced timestamp-only cross-device change detection with a payload fingerprint baseline, preventing a stale device from treating an older TBR/library snapshot as current just because device clocks or legacy sync timestamps disagree.
+- Added a safe migration path for devices upgrading from older timestamp-only sync. When there is no unsynced local edit, an existing cloud snapshot is downloaded first rather than overwritten by a stale shelf.
+- Serialized overlapping automatic sync requests so save/focus/visibility/online timers cannot race each other.
+- Existing-cover optimization now uses normal two-way reconciliation after compression instead of a forced cloud overwrite.
+- Sync fingerprints are scoped per signed-in Supabase user. Reset Reading Data updates the matching fingerprint after intentionally replacing the cloud snapshot.
+- No Supabase table/schema changes are required.
+
 # Reading Room V6.8.5 — Tiny Cover Hardening
 
 - Strengthened book-cover optimization for high-detail iPhone photos and screenshots that could remain around 40–90 KB after the previous compressor stopped reducing quality/resolution.
