@@ -1,5 +1,13 @@
 # My Reading Room — V5
 
+## V6.2.6 — Leafy Fairy Lights
+
+- Replaced the plain fairy-light wire with a subtle ivy-style leafy vine.
+- Kept warm glowing bulbs and added small natural green leaves along the string.
+- Applied the same leafy light design to standard shelves and generated multi-row shelves.
+- Preserved shelf themes, theme sync, mobile layout, and all existing functionality.
+
+
 ## V6.2.5 — Fairy Wire + Theme Sync
 
 - Refined shelf fairy lights into a thin, gently sagging wire with short bulb drops for a more natural string-light appearance on desktop and iPhone.

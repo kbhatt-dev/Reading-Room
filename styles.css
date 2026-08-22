@@ -583,9 +583,9 @@ body.customizing-shelf .year-block .full-bookcase::after{
   isolation:isolate;
 }
 
-/* V6.2.5 — realistic fairy-light string beneath each shelf.
-   A very thin warm wire gently sags between bulbs; each bulb hangs from
-   a short drop so the decoration reads as a real string of fairy lights. */
+/* V6.2.6 — leafy ivy fairy-light vine beneath each shelf.
+   A slim green vine gently sags between warm bulbs, with small ivy leaves
+   woven along the string so it feels integrated into the cozy shelf. */
 .custom-decor-zone::before,
 .year-block .full-bookcase::before{
   display:none!important;
@@ -602,10 +602,10 @@ body.customizing-shelf .year-block .full-bookcase::after{
   position:absolute;
   left:12px;right:12px;top:15px;height:20px;
   z-index:9;pointer-events:none;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='20' viewBox='0 0 96 20'%3E%3Cpath d='M0 2 C16 2 30 7 48 7 S80 2 96 2' fill='none' stroke='%23745b45' stroke-width='.8' stroke-linecap='round'/%3E%3Cpath d='M24 5.7V10 M72 5.7V10' fill='none' stroke='%23745b45' stroke-width='.75' stroke-linecap='round'/%3E%3Ccircle cx='24' cy='12.5' r='4.2' fill='%23ffd987' fill-opacity='.20'/%3E%3Ccircle cx='72' cy='12.5' r='4.2' fill='%23ffe4a1' fill-opacity='.20'/%3E%3Ccircle cx='24' cy='12.5' r='2.25' fill='%23ffd987'/%3E%3Ccircle cx='72' cy='12.5' r='2.25' fill='%23ffe4a1'/%3E%3C/svg%3E");
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='24' viewBox='0 0 120 24'%3E%3Cpath d='M0 3 C18 2 30 8 48 7 S78 2 96 5 S112 7 120 4' fill='none' stroke='%235b6f46' stroke-width='.9' stroke-linecap='round'/%3E%3Cpath d='M28 5.5V11 M84 4.8V10.5' fill='none' stroke='%235b6f46' stroke-width='.75' stroke-linecap='round'/%3E%3Cellipse cx='13' cy='4.2' rx='3.3' ry='1.8' transform='rotate(-28 13 4.2)' fill='%236f9255'/%3E%3Cellipse cx='21' cy='6.2' rx='3.1' ry='1.7' transform='rotate(34 21 6.2)' fill='%235f844a'/%3E%3Cellipse cx='42' cy='7.1' rx='3.4' ry='1.8' transform='rotate(-20 42 7.1)' fill='%237aa05d'/%3E%3Cellipse cx='57' cy='5.4' rx='3.2' ry='1.7' transform='rotate(26 57 5.4)' fill='%235f844a'/%3E%3Cellipse cx='73' cy='3.5' rx='3.3' ry='1.8' transform='rotate(-32 73 3.5)' fill='%237aa05d'/%3E%3Cellipse cx='99' cy='5.7' rx='3.2' ry='1.7' transform='rotate(25 99 5.7)' fill='%235f844a'/%3E%3Cellipse cx='110' cy='6.3' rx='3.3' ry='1.8' transform='rotate(-22 110 6.3)' fill='%236f9255'/%3E%3Ccircle cx='28' cy='14.2' r='5' fill='%23ffd987' fill-opacity='.18'/%3E%3Ccircle cx='84' cy='13.8' r='5' fill='%23ffe4a1' fill-opacity='.18'/%3E%3Ccircle cx='28' cy='14.2' r='2.35' fill='%23ffd987'/%3E%3Ccircle cx='84' cy='13.8' r='2.35' fill='%23ffe4a1'/%3E%3C/svg%3E");
   background-repeat:repeat-x;
   background-position:left top;
-  background-size:96px 20px;
+  background-size:120px 24px;
 }
 
 /* One natural-looking potted plant, visually part of the shelf */
@@ -705,7 +705,7 @@ body.customizing-shelf .year-block .full-bookcase::after{
       linear-gradient(90deg,var(--local-board,#6f4933),var(--local-dark,#472e22),var(--local-board,#6f4933));
     box-shadow:0 5px 12px rgba(54,33,20,.28);
   }
-  /* Matching realistic fairy-light string for every generated row shelf. */
+  /* Matching leafy ivy fairy-light vine for every generated row shelf. */
   .large-shelf-grid .shelf-card::after{
     content:"";
     position:absolute;
@@ -714,10 +714,10 @@ body.customizing-shelf .year-block .full-bookcase::after{
     bottom:-41px;
     height:20px;
     pointer-events:none;
-    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='20' viewBox='0 0 96 20'%3E%3Cpath d='M0 2 C16 2 30 7 48 7 S80 2 96 2' fill='none' stroke='%23745b45' stroke-width='.8' stroke-linecap='round'/%3E%3Cpath d='M24 5.7V10 M72 5.7V10' fill='none' stroke='%23745b45' stroke-width='.75' stroke-linecap='round'/%3E%3Ccircle cx='24' cy='12.5' r='4.2' fill='%23ffd987' fill-opacity='.20'/%3E%3Ccircle cx='72' cy='12.5' r='4.2' fill='%23ffe4a1' fill-opacity='.20'/%3E%3Ccircle cx='24' cy='12.5' r='2.25' fill='%23ffd987'/%3E%3Ccircle cx='72' cy='12.5' r='2.25' fill='%23ffe4a1'/%3E%3C/svg%3E");
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='24' viewBox='0 0 120 24'%3E%3Cpath d='M0 3 C18 2 30 8 48 7 S78 2 96 5 S112 7 120 4' fill='none' stroke='%235b6f46' stroke-width='.9' stroke-linecap='round'/%3E%3Cpath d='M28 5.5V11 M84 4.8V10.5' fill='none' stroke='%235b6f46' stroke-width='.75' stroke-linecap='round'/%3E%3Cellipse cx='13' cy='4.2' rx='3.3' ry='1.8' transform='rotate(-28 13 4.2)' fill='%236f9255'/%3E%3Cellipse cx='21' cy='6.2' rx='3.1' ry='1.7' transform='rotate(34 21 6.2)' fill='%235f844a'/%3E%3Cellipse cx='42' cy='7.1' rx='3.4' ry='1.8' transform='rotate(-20 42 7.1)' fill='%237aa05d'/%3E%3Cellipse cx='57' cy='5.4' rx='3.2' ry='1.7' transform='rotate(26 57 5.4)' fill='%235f844a'/%3E%3Cellipse cx='73' cy='3.5' rx='3.3' ry='1.8' transform='rotate(-32 73 3.5)' fill='%237aa05d'/%3E%3Cellipse cx='99' cy='5.7' rx='3.2' ry='1.7' transform='rotate(25 99 5.7)' fill='%235f844a'/%3E%3Cellipse cx='110' cy='6.3' rx='3.3' ry='1.8' transform='rotate(-22 110 6.3)' fill='%236f9255'/%3E%3Ccircle cx='28' cy='14.2' r='5' fill='%23ffd987' fill-opacity='.18'/%3E%3Ccircle cx='84' cy='13.8' r='5' fill='%23ffe4a1' fill-opacity='.18'/%3E%3Ccircle cx='28' cy='14.2' r='2.35' fill='%23ffd987'/%3E%3Ccircle cx='84' cy='13.8' r='2.35' fill='%23ffe4a1'/%3E%3C/svg%3E");
     background-repeat:repeat-x;
     background-position:left top;
-    background-size:96px 20px;
+    background-size:120px 24px;
   }
   /* The generated row board replaces the old single bottom board when
      books are present. Empty shelves still retain the original board. */
