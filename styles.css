@@ -266,3 +266,65 @@ button .ui-icon{margin-right:5px}
   .session-manager-item{grid-template-columns:1fr}
   .session-manager-actions{justify-content:flex-end}
 }
+
+
+/* V5.3.1 mobile Sync + iPhone date alignment */
+@media(max-width:700px){
+  .mobile-nav{
+    grid-template-columns:repeat(6,1fr)!important;
+    padding-left:2px!important;
+    padding-right:2px!important;
+  }
+  .mobile-nav button{
+    min-width:0!important;
+    padding:4px 1px!important;
+  }
+  .mobile-nav button small{
+    font-size:.54rem!important;
+    white-space:nowrap!important;
+  }
+  .mobile-icon{
+    width:18px!important;
+    height:18px!important;
+  }
+
+  /* Keep floating Add Book above the slightly denser 6-item nav */
+  .floating-add{
+    bottom:calc(78px + env(safe-area-inset-bottom))!important;
+  }
+
+  /* iPhone/Safari native date inputs can render wider than their container */
+  input[type="date"]{
+    display:block!important;
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+    box-sizing:border-box!important;
+    -webkit-appearance:none;
+    appearance:none;
+    text-align:left!important;
+    padding:11px 12px!important;
+    border-radius:12px!important;
+  }
+
+  input[type="date"]::-webkit-date-and-time-value{
+    text-align:left!important;
+    min-height:1.25em;
+  }
+
+  input[type="date"]::-webkit-calendar-picker-indicator{
+    margin-left:auto;
+  }
+
+  #readingFields label,
+  #finishedFields label{
+    min-width:0!important;
+    width:100%!important;
+  }
+
+  #readingFields .form-grid,
+  #finishedFields .form-grid{
+    width:100%!important;
+    min-width:0!important;
+  }
+}

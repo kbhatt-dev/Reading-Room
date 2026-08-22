@@ -142,3 +142,12 @@ Fixed the five reported issues:
    - editing/deleting a session automatically refreshes the book progress
 
 Existing book data, Supabase schema, automatic sync, and PWA behavior remain compatible.
+
+
+## V5.3.1 — Mobile navigation + date alignment hotfix
+- Restored Sync to the iPhone bottom navigation.
+- Changed mobile bottom nav to a compact 6-item layout.
+- Kept Add Book floating above the navigation.
+- Fixed iPhone/Safari date input width and alignment.
+- Forced date fields to stay inside their form card.
+- Preserved all V5.3 features and data compatibility.

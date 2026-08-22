@@ -1,4 +1,4 @@
-const APP_VERSION="5.3";
+const APP_VERSION="5.3.1";
 const icon=n=>`<svg class="ui-icon" aria-hidden="true"><use href="#i-${n}"></use></svg>`;
 const BOOK_KEY="readingRoomBooksV1";
 const GENRE_KEY="readingRoomGenresV1";
