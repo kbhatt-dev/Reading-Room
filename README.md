@@ -1,5 +1,15 @@
 # My Reading Room — V5
 
+## V6.3.1 — Storage Optimization
+
+- Automatically resizes uploaded book covers to a maximum of 480 × 720 pixels and compresses them to WebP before saving/syncing.
+- Targets roughly 180 KB per uploaded cover while preserving book-cover display quality.
+- Performs a safe one-time-style optimization pass on existing oversized embedded covers; already-optimized covers are skipped on later loads.
+- Deduplicates identical embedded cover images in cloud payloads and backup files through cover references.
+- Sync payload contains only persistent reading data: books/journal fields, reading sessions, genres, shelf themes, and reading goals. Temporary UI/session state is not included.
+- Keeps backward compatibility with older cloud payloads and backup files.
+
+
 ## V6.3.0 — Reading Goals
 
 - Removed the Book Memory Cards section from Finished to keep the mobile experience cleaner and less crowded.
