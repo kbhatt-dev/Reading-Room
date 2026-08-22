@@ -424,3 +424,41 @@ body:has(dialog[open]) .floating-add{display:none!important}
   .hall-book{flex-basis:92px}
   .finish-card{padding:22px 16px}
 }
+
+
+/* V4 — status-driven mobile workflow */
+.compact-form-section{margin-top:10px}
+.status-fields{animation:fadeIn .18s ease}
+.compact-controls{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important}
+.status-shelf{
+  display:flex;gap:12px;overflow-x:auto;padding:10px 2px 18px;
+  scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch
+}
+.status-book{flex:0 0 118px;scroll-snap-align:start;border:0;background:transparent;padding:0;text-align:left}
+.status-book .cover{width:100%;aspect-ratio:2/3;border-radius:12px}
+.status-book-title{display:block;font-size:.8rem;font-weight:850;margin-top:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.status-book-author{display:block;font-size:.69rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.status-chip{display:inline-block;margin-top:5px;font-size:.65rem;padding:4px 7px;border-radius:999px;background:#eee5dc;color:var(--ink)}
+.reading-status-shelf .status-book{flex-basis:145px}
+.finished-status-shelf .status-book{flex-basis:128px}
+.book-summary{padding:22px;max-width:620px}
+.book-summary-top{display:grid;grid-template-columns:110px minmax(0,1fr);gap:18px;align-items:start}
+.book-summary-top .cover{width:110px}
+.book-summary h2{font-family:Georgia,serif;font-size:1.8rem;margin:0 0 5px}
+.summary-meta{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0}
+.reading-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:18px}
+.reading-time-card{background:#f5eee6;border:1px solid var(--line);border-radius:15px;padding:12px;margin-top:14px}
+.session-mini-list{display:grid;gap:7px;margin-top:12px}
+.session-mini{background:#fffaf5;border:1px solid var(--line);border-radius:11px;padding:9px;font-size:.8rem}
+@media(max-width:650px){
+  .compact-controls{grid-template-columns:1fr!important}
+  .status-shelf{margin-right:-14px;padding-right:14px}
+  .status-book{flex-basis:96px}
+  .reading-status-shelf .status-book{flex-basis:126px}
+  .finished-status-shelf .status-book{flex-basis:108px}
+  .book-summary{padding:18px 14px}
+  .book-summary-top{grid-template-columns:88px minmax(0,1fr);gap:13px}
+  .book-summary-top .cover{width:88px}
+  .book-summary h2{font-size:1.55rem}
+  .reading-actions{grid-template-columns:1fr}
+}

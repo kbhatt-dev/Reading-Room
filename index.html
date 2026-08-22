@@ -41,50 +41,42 @@
       </div>
     </section>
 
-    <section>
+    <section id="readingShelfSection">
       <div class="section-heading">
         <div>
-          <p class="eyebrow">Now reading</p>
+          <p class="eyebrow">In progress</p>
           <h2>Currently Reading</h2>
         </div>
       </div>
-      <div id="currentlyReading" class="current-grid"></div>
-      <div id="currentlyEmpty" class="empty-state">No current book yet. Add one and choose <strong>Reading</strong>.</div>
+      <div id="readingShelf" class="status-shelf reading-status-shelf"></div>
+      <div id="readingEmpty" class="empty-state">Nothing in progress yet.</div>
     </section>
 
 
-    <section id="hallOfFameSection" class="hall-section hidden">
-      <div class="section-heading">
-        <div>
-          <p class="eyebrow">Your forever favourites</p>
-          <h2>Hall of Fame ❤️</h2>
-        </div>
-      </div>
-      <div id="hallOfFame" class="hall-shelf"></div>
-    </section>
-    <section>
+    <section id="tbrShelfSection">
       <div class="section-heading library-heading">
         <div>
-          <p class="eyebrow">Your collection</p>
-          <h2>My Library</h2>
+          <p class="eyebrow">Next reads</p>
+          <h2>TBR Shelf</h2>
         </div>
-        <div class="controls">
-          <input id="searchInput" type="search" placeholder="Search title or author…" />
-          <select id="filterStatus">
-            <option value="all">All books</option>
-            <option value="reading">Reading</option>
-            <option value="finished">Finished</option>
-            <option value="want">Want to Read</option>
-            <option value="dnf">DNF</option>
-          </select>
-          <select id="filterGenre">
-            <option value="all">All genres</option>
-          </select>
+        <div class="controls compact-controls">
+          <input id="searchInput" type="search" placeholder="Search your books…" />
+          <select id="filterGenre"><option value="all">All genres</option></select>
         </div>
       </div>
+      <div id="tbrShelf" class="status-shelf tbr-status-shelf"></div>
+      <div id="tbrEmpty" class="empty-state">Your TBR shelf is waiting.</div>
+    </section>
 
-      <div id="yearShelves" class="year-shelves"></div>
-      <div id="libraryEmpty" class="empty-state">Your shelf is waiting for its first book.</div>
+    <section id="finishedShelfSection">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Completed stories</p>
+          <h2>Finished Shelf</h2>
+        </div>
+      </div>
+      <div id="finishedShelf" class="status-shelf finished-status-shelf"></div>
+      <div id="finishedEmpty" class="empty-state">Finished books will appear here.</div>
     </section>
 
     </div>
@@ -220,35 +212,35 @@
 
       <input type="hidden" id="bookId" />
 
-      <section class="form-section">
-        <div class="form-section-title"><span>📖</span><div><strong>Book Details</strong><small>The basics</small></div></div>
-      <div class="form-grid two">
+      <section class="form-section compact-form-section">
+        <div class="form-section-title"><span>📖</span><div><strong>Book Details</strong><small>Only what you need right now</small></div></div>
+
         <label>Book title
           <input id="title" required maxlength="120" />
         </label>
+
         <label>Author
           <input id="author" maxlength="120" />
         </label>
-      </div>
 
-      <div class="form-grid two">
-        <label>📌 Status
-          <select id="status">
-            <option value="want">💭 Want to Read</option>
-            <option value="reading">📖 Reading</option>
-            <option value="finished">✅ Finished</option>
-            <option value="dnf">🌙 DNF</option>
-          </select>
-        </label>
-        <label>🏷️ Genre
-          <div class="genre-control">
-            <select id="genre"></select>
-            <button type="button" class="secondary small manage-genre-btn" id="manageGenresBtn">⚙️ Manage</button>
-          </div>
-        </label>
-      </div>
+        <div class="form-grid two">
+          <label>📌 Status
+            <select id="status">
+              <option value="want">📚 TBR</option>
+              <option value="reading">📖 Reading</option>
+              <option value="finished">✅ Finished</option>
+              <option value="dnf">🌙 DNF</option>
+            </select>
+          </label>
 
-      <div class="form-grid three">
+          <label>🏷️ Genre
+            <div class="genre-control">
+              <select id="genre"></select>
+              <button type="button" class="secondary small manage-genre-btn" id="manageGenresBtn">⚙️ Manage</button>
+            </div>
+          </label>
+        </div>
+
         <label>📚 Format
           <select id="format">
             <option value="Paperback">📖 Paperback</option>
@@ -258,80 +250,59 @@
             <option value="Other">✨ Other</option>
           </select>
         </label>
-        <label>📄 Pages
-          <input id="pages" type="number" min="0" />
-        </label>
-        <label>🔖 Current page
-          <input id="currentPage" type="number" min="0" />
-        </label>
-      </div>
 
-      <div class="form-grid two">
+        <label>🖼️ Book cover
+          <div class="cover-upload">
+            <input id="coverInput" class="visually-hidden-file" type="file" accept="image/*" />
+            <button type="button" class="secondary cover-upload-btn" id="chooseCoverBtn">📷 Choose Cover</button>
+            <span id="coverFileName" class="cover-file-name">No file selected</span>
+          </div>
+        </label>
+        <div id="coverPreviewWrap" class="cover-preview-wrap hidden">
+          <img id="coverPreview" class="cover-preview" alt="Book cover preview" />
+          <button type="button" class="secondary small" id="removeCover">Remove cover</button>
+        </div>
+      </section>
+
+      <section id="readingFields" class="form-section status-fields hidden">
+        <div class="form-section-title"><span>📖</span><div><strong>Reading Details</strong><small>Shown only while you are reading</small></div></div>
+        <div class="form-grid two">
+          <label>📄 Pages
+            <input id="pages" type="number" min="0" />
+          </label>
+          <label>🔖 Current page
+            <input id="currentPage" type="number" min="0" />
+          </label>
+        </div>
         <label>🗓️ Date started
           <input id="dateStarted" type="date" />
         </label>
-        <label>✅ Date finished
-          <input id="dateFinished" type="date" />
-        </label>
-      </div>
-
-      </section>
-
-      <section class="form-section">
-        <div class="form-section-title"><span>🖼️</span><div><strong>Book Cover</strong><small>Add the cover you love seeing on your shelf</small></div></div>
-      <label>Book cover
-        <div class="cover-upload">
-          <input id="coverInput" class="visually-hidden-file" type="file" accept="image/*" />
-          <button type="button" class="secondary cover-upload-btn" id="chooseCoverBtn">📷 Choose Cover</button>
-          <span id="coverFileName" class="cover-file-name">No file selected</span>
-        </div>
-      </label>
-      <div id="coverPreviewWrap" class="cover-preview-wrap hidden">
-        <img id="coverPreview" alt="Book cover preview" />
-        <button type="button" class="secondary small" id="removeCover">Remove cover</button>
-      </div>
-
-      </section>
-
-      <section class="form-section">
-        <div class="form-section-title"><span>⭐</span><div><strong>Rating & Journal</strong><small>Your personal reading memory</small></div></div>
-      <fieldset class="rating-fieldset">
-        <legend>Overall rating</legend>
-        <div id="ratingPicker" class="rating-picker" aria-label="Rating"></div>
-        <input type="hidden" id="rating" value="0" />
-      </fieldset>
-
-      <label>💭 My thoughts
-        <textarea id="review" rows="4" placeholder="What did you think about this book?"></textarea>
-      </label>
-
-      <label>🔒 Story memory / spoiler notes
-        <textarea id="spoilers" rows="5" placeholder="Write the full story summary or details you want to remember later…"></textarea>
-      </label>
-
-      <label class="favorite-toggle">
-        <input id="favoriteBook" type="checkbox">
-        <span>❤️ Add this book to Hall of Fame</span>
-      </label>
-
-      <div class="form-grid two">
-        <label>❤️ Favourite character
-          <input id="favoriteCharacter" maxlength="120" />
-        </label>
-        <label>🎬 Favourite scene
-          <input id="favoriteScene" maxlength="160" />
-        </label>
-      </div>
-
-      <label>💬 Favourite quote
-        <textarea id="favoriteQuote" rows="2"></textarea>
-      </label>
-
-      <div class="form-grid two">
         <label>🔎 My prediction / theory
-          <textarea id="prediction" rows="2"></textarea>
+          <textarea id="prediction" rows="3" placeholder="What do you think will happen?"></textarea>
         </label>
-        <label>🎯 Was I right?
+      </section>
+
+      <section id="finishedFields" class="form-section status-fields hidden">
+        <div class="form-section-title"><span>✅</span><div><strong>Finish the Journal</strong><small>Only shown for completed books</small></div></div>
+        <div class="form-grid two">
+          <label>🗓️ Date started
+            <input id="finishDateStarted" type="date" />
+          </label>
+          <label>✅ Date finished
+            <input id="dateFinished" type="date" />
+          </label>
+        </div>
+        <label>⭐ Overall rating
+          <div id="ratingPicker" class="rating-picker" aria-label="Rating"></div>
+          <input type="hidden" id="rating" value="0" />
+        </label>
+        <label>💭 My thoughts
+          <textarea id="review" rows="4" placeholder="What did you think about this book?"></textarea>
+        </label>
+        <label>🔒 Story memory / spoiler notes
+          <textarea id="spoilers" rows="4" placeholder="What do you want to remember later?"></textarea>
+        </label>
+        <label>🎯 Was my prediction right?
           <select id="predictionResult">
             <option value="">Not set</option>
             <option value="yes">Yes 🎯</option>
@@ -339,37 +310,23 @@
             <option value="partial">Partly</option>
           </select>
         </label>
+        <label class="favorite-toggle">
+          <input id="favoriteBook" type="checkbox">
+          <span>❤️ Add this book to Hall of Fame</span>
+        </label>
+      </section>
+
+      <div class="hidden">
+        <input id="favoriteCharacter" />
+        <input id="favoriteScene" />
+        <textarea id="favoriteQuote"></textarea>
+        <input id="sessionStartPage" type="number" />
+        <input id="sessionEndPage" type="number" />
+        <input id="sessionMinutes" type="number" />
+        <select id="sessionMood"><option value=""></option></select>
+        <div id="sessionList"></div>
+        <button type="button" id="addSessionBtn"></button>
       </div>
-
-      </section>
-
-      <section class="form-section">
-        <div class="form-section-title"><span>⏱️</span><div><strong>Reading Sessions</strong><small>Track pages, time, and mood</small></div></div>
-        <div class="session-entry-grid">
-          <label>Start page
-            <input id="sessionStartPage" type="number" min="0">
-          </label>
-          <label>End page
-            <input id="sessionEndPage" type="number" min="0">
-          </label>
-          <label>Minutes
-            <input id="sessionMinutes" type="number" min="0">
-          </label>
-          <label>Mood
-            <select id="sessionMood">
-              <option value="">Choose mood…</option>
-              <option value="😍">😍 Loved it</option>
-              <option value="😱">😱 Intense</option>
-              <option value="🤯">🤯 Mind blown</option>
-              <option value="😭">😭 Emotional</option>
-              <option value="😌">😌 Cozy</option>
-              <option value="😐">😐 Neutral</option>
-            </select>
-          </label>
-        </div>
-        <button type="button" class="secondary small" id="addSessionBtn">+ Add Reading Session</button>
-        <div id="sessionList" class="session-list"></div>
-      </section>
 
       <div class="dialog-actions sticky-save-bar">
         <button type="button" id="deleteBookBtn" class="danger hidden">Delete</button>
@@ -401,6 +358,48 @@
     </section>
   </dialog>
 
+
+  <dialog id="sessionDialog" class="small-dialog">
+    <form id="sessionForm" class="genre-manager">
+      <div class="dialog-head">
+        <div>
+          <p class="eyebrow">Reading progress</p>
+          <h2>Add Reading Session</h2>
+        </div>
+        <button type="button" class="icon-btn" id="closeSessionDialog">✕</button>
+      </div>
+      <input type="hidden" id="sessionBookId">
+      <div class="form-grid two">
+        <label>Start page
+          <input id="sessionModalStart" type="number" min="0">
+        </label>
+        <label>End page
+          <input id="sessionModalEnd" type="number" min="0">
+        </label>
+      </div>
+      <div class="form-grid two">
+        <label>Minutes
+          <input id="sessionModalMinutes" type="number" min="0">
+        </label>
+        <label>Mood
+          <select id="sessionModalMood">
+            <option value="">Choose mood…</option>
+            <option value="😍">😍 Loved it</option>
+            <option value="😱">😱 Intense</option>
+            <option value="🤯">🤯 Mind blown</option>
+            <option value="😭">😭 Emotional</option>
+            <option value="😌">😌 Cozy</option>
+            <option value="😐">😐 Neutral</option>
+          </select>
+        </label>
+      </div>
+      <div class="dialog-actions">
+        <span class="spacer"></span>
+        <button type="button" class="secondary" id="cancelSessionBtn">Cancel</button>
+        <button type="submit" class="primary">Save Session</button>
+      </div>
+    </form>
+  </dialog>
 
   <dialog id="finishDialog" class="finish-dialog">
     <section class="finish-card">

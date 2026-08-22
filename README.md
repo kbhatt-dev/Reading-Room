@@ -224,3 +224,31 @@ After V2.3 is installed, future releases use the new automatic update behavior.
   - longest book
   - existing books/pages/rating/genre/month/format stats preserved
 - Existing V2.5 book data remains compatible.
+
+
+# V4 — Status-driven Reading Workflow
+
+V4 redesigns the book flow around TBR → Reading → Finished.
+
+## TBR
+Add Book only asks for title, author, status, genre, format, and cover.
+TBR books live on their own shelf.
+
+## Reading
+Changing a TBR book to Reading:
+- auto-fills the start date with today
+- reveals pages, current page, and prediction/theory
+- moves the book to Currently Reading
+- tapping the book shows Edit Book and Add Reading Session
+
+Reading Sessions are added in a separate compact modal.
+
+## Finished
+Changing a book to Finished:
+- auto-fills the finish date
+- reveals rating and final journal fields
+- moves the book to Finished Shelf
+- finished detail shows status, title, author, genre, format, rating, pages,
+  start/end dates, calendar days, and logged reading minutes.
+
+Existing cloud sync and older book data remain compatible.

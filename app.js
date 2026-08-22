@@ -1,4 +1,4 @@
-const READING_ROOM_VERSION = "3.0";
+const READING_ROOM_VERSION = "4.0";
 
 const KEY = "readingRoomBooksV1";
 const GENRE_KEY = "readingRoomGenresV1";
@@ -426,34 +426,74 @@ function coverHTML(b, cls="cover"){
   if(b.cover) return `<img class="${cls}" src="${b.cover}" alt="${escapeHtml(b.title)} cover">`;
   return `<div class="${cls} placeholder">${escapeHtml(b.title || "Book")}</div>`;
 }
+
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+
+function readingDuration(book){
+  const days=dateDiffDays(book.dateStarted,book.dateFinished);
+  const minutes=(Array.isArray(book.sessions)?book.sessions:[]).reduce((n,s)=>n+(Number(s.minutes)||0),0);
+  return {days,minutes};
+}
+
+function statusBookCard(b, extra=""){
+  return `<button class="status-book" onclick="openStatusBook('${b.id}')">
+    ${coverHTML(b)}
+    <span class="status-book-title">${escapeHtml(b.title)}</span>
+    <span class="status-book-author">${escapeHtml(b.author||"Unknown author")}</span>
+    ${extra}
+  </button>`;
+}
+
+function renderStatusShelves(){
+  const q=$("#searchInput")?.value.trim().toLowerCase()||"";
+  const genre=$("#filterGenre")?.value||"all";
+  const visible=books.filter(b=>{
+    const matchQ=!q || `${b.title} ${b.author} ${b.genre}`.toLowerCase().includes(q);
+    const matchG=genre==="all" || b.genre===genre;
+    return matchQ && matchG;
+  });
+
+  const tbr=visible.filter(b=>b.status==="want");
+  const reading=visible.filter(b=>b.status==="reading");
+  const finished=visible.filter(b=>b.status==="finished");
+
+  $("#tbrShelf").innerHTML=tbr.map(b=>statusBookCard(b,`<span class="status-chip">${genreEmoji(b.genre)} ${escapeHtml(b.genre||"TBR")}</span>`)).join("");
+  $("#readingShelf").innerHTML=reading.map(b=>statusBookCard(b,`<span class="status-chip">📖 ${pct(b)}%</span>`)).join("");
+  $("#finishedShelf").innerHTML=finished.map(b=>statusBookCard(b,`<span class="status-chip">${stars(Number(b.rating||0))}</span>`)).join("");
+
+  $("#tbrEmpty").classList.toggle("hidden",tbr.length>0);
+  $("#readingEmpty").classList.toggle("hidden",reading.length>0);
+  $("#finishedEmpty").classList.toggle("hidden",finished.length>0);
+}
+
+function updateStatusFields({autoDate=true}={}){
+  const status=$("#status").value;
+  const reading=status==="reading";
+  const finished=status==="finished";
+  $("#readingFields").classList.toggle("hidden",!reading);
+  $("#finishedFields").classList.toggle("hidden",!finished);
+
+  if(reading && autoDate && !$("#dateStarted").value){
+    $("#dateStarted").value=todayISO();
+  }
+  if(finished){
+    if(!$("#finishDateStarted").value){
+      $("#finishDateStarted").value=$("#dateStarted").value || todayISO();
+    }
+    if(autoDate && !$("#dateFinished").value){
+      $("#dateFinished").value=todayISO();
+    }
+  }
+}
+
 function render(){
-  const visible = filteredBooks();
-
-  const current = books.filter(b => b.status === "reading");
-  els.current.innerHTML = current.map(b => `
-    <article class="current-card">
-      ${coverHTML(b)}
-      <div>
-        <h3>${escapeHtml(b.title)}</h3>
-        <div class="meta">${escapeHtml(b.author || "Unknown author")}</div>
-        <div class="progress"><span style="width:${pct(b)}%"></span></div>
-        <div class="meta">${b.currentPage || 0}${b.pages ? ` / ${b.pages} pages` : " pages"} · ${pct(b)}%</div>
-        <button class="secondary small" onclick="openDetail('${b.id}')">Open Journal</button>
-      </div>
-    </article>`).join("");
-  els.currentEmpty.classList.toggle("hidden", current.length > 0);
-
-  renderYearShelves(visible);
-  renderHallOfFame();
-  els.libraryEmpty.classList.toggle("hidden", visible.length > 0);
-
-  const finished = books.filter(b => b.status === "finished");
-  $("#completedCount").textContent = finished.length;
-  $("#yearSummary").textContent = finished.length
+  const finished=books.filter(b=>b.status==="finished");
+  $("#completedCount").textContent=finished.length;
+  $("#yearSummary").textContent=finished.length
     ? `You have finished ${finished.length} ${finished.length===1?"book":"books"} in your library.`
     : "Start adding books to build your shelf.";
-
   renderGenreFilter();
+  renderStatusShelves();
 }
 
 function buildRatingPicker(){
@@ -499,6 +539,8 @@ function resetForm(){
   [...$("#ratingPicker").children].forEach(x=>x.classList.remove("active"));
   els.deleteBtn.classList.add("hidden");
   $("#dialogTitle").textContent="Add a Book";
+  $("#status").value="want";
+  updateStatusFields({autoDate:false});
 }
 function openAdd(){
   resetForm();
@@ -516,6 +558,8 @@ function fillForm(b){
   const fields = ["title","author","status","format","pages","currentPage","dateStarted","dateFinished","review","spoilers","favoriteCharacter","favoriteScene","favoriteQuote","prediction","predictionResult"];
   fields.forEach(k => { const e=$("#"+k); if(e) e.value=b[k] ?? ""; });
   $("#bookId").value=b.id; selectedRating=Number(b.rating||0); $("#rating").value=selectedRating;
+  $("#finishDateStarted").value=b.dateStarted||"";
+  updateStatusFields({autoDate:false});
   [...$("#ratingPicker").children].forEach(x=>x.classList.toggle("active", Number(x.textContent)===selectedRating));
   workingCover=b.cover||"";
   workingSessions=Array.isArray(b.sessions)?JSON.parse(JSON.stringify(b.sessions)):[];
@@ -525,6 +569,20 @@ function fillForm(b){
   els.dialog.showModal();
 }
 window.editBook = id => { const b=books.find(x=>x.id===id); if(b){ els.detailDialog.close(); fillForm(b); } };
+
+$("#status").addEventListener("change",()=>{
+  const id=$("#bookId").value;
+  const old=id ? books.find(b=>b.id===id) : null;
+  const newStatus=$("#status").value;
+  if(newStatus==="reading" && old?.status==="want" && !$("#dateStarted").value){
+    $("#dateStarted").value=todayISO();
+  }
+  if(newStatus==="finished"){
+    if(!$("#finishDateStarted").value) $("#finishDateStarted").value=$("#dateStarted").value||todayISO();
+    if(!$("#dateFinished").value) $("#dateFinished").value=todayISO();
+  }
+  updateStatusFields();
+});
 
 $("#chooseCoverBtn").addEventListener("click",()=>$("#coverInput").click());
 $("#coverInput").addEventListener("change", e => {
@@ -546,7 +604,7 @@ els.form.addEventListener("submit", e => {
     id, title:$("#title").value.trim(), author:$("#author").value.trim(),
     status:$("#status").value, genre:$("#genre").value.trim(), format:$("#format").value,
     pages:Number($("#pages").value)||0, currentPage:Number($("#currentPage").value)||0,
-    dateStarted:$("#dateStarted").value, dateFinished:$("#dateFinished").value,
+    dateStarted:($("#status").value==="finished" ? $("#finishDateStarted").value : $("#dateStarted").value), dateFinished:$("#dateFinished").value,
     rating:selectedRating, cover:workingCover, favoriteBook:$("#favoriteBook").checked,
     sessions:workingSessions, review:$("#review").value.trim(),
     spoilers:$("#spoilers").value.trim(), favoriteCharacter:$("#favoriteCharacter").value.trim(),
@@ -561,7 +619,7 @@ els.form.addEventListener("submit", e => {
   if(becameFinished) setTimeout(()=>showFinishCelebration(b),120);
 });
 
-$("#addSessionBtn").addEventListener("click",()=>{
+$("#addSessionBtn")?.addEventListener("click",()=>{
   const startPage=Number($("#sessionStartPage").value)||0;
   const endPage=Number($("#sessionEndPage").value)||0;
   const minutes=Number($("#sessionMinutes").value)||0;
@@ -585,8 +643,39 @@ $("#finishFavoriteBtn").addEventListener("click",()=>{
   if(!b) return;
   b.favoriteBook=true;
   save();
-  renderHallOfFame();
   $("#finishFavoriteBtn").textContent="❤️ In Hall of Fame";
+});
+
+
+window.openSessionDialog = id => {
+  const b=books.find(x=>x.id===id); if(!b) return;
+  $("#sessionBookId").value=id;
+  $("#sessionModalStart").value=b.currentPage||0;
+  $("#sessionModalEnd").value="";
+  $("#sessionModalMinutes").value="";
+  $("#sessionModalMood").value="";
+  els.detailDialog.close();
+  $("#sessionDialog").showModal();
+  updateFabVisibility();
+};
+$("#closeSessionDialog").addEventListener("click",()=>$("#sessionDialog").close());
+$("#cancelSessionBtn").addEventListener("click",()=>$("#sessionDialog").close());
+$("#sessionForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  const id=$("#sessionBookId").value;
+  const b=books.find(x=>x.id===id); if(!b) return;
+  const startPage=Number($("#sessionModalStart").value)||0;
+  const endPage=Number($("#sessionModalEnd").value)||0;
+  const minutes=Number($("#sessionModalMinutes").value)||0;
+  const mood=$("#sessionModalMood").value;
+  if(endPage<startPage){ alert("End page should be greater than or equal to start page."); return; }
+  if(!endPage && !minutes){ alert("Add an end page or reading minutes."); return; }
+  b.sessions=Array.isArray(b.sessions)?b.sessions:[];
+  b.sessions.push({startPage,endPage,minutes,mood,date:todayISO()});
+  if(endPage) b.currentPage=endPage;
+  save();
+  $("#sessionDialog").close();
+  setTimeout(()=>openStatusBook(id),80);
 });
 
 els.deleteBtn.addEventListener("click", ()=>{
@@ -594,37 +683,65 @@ els.deleteBtn.addEventListener("click", ()=>{
   if(id && confirm("Delete this book from your journal?")){ books=books.filter(b=>b.id!==id); save(); els.dialog.close(); }
 });
 
-window.openDetail = id => {
+window.openStatusBook = id => {
   const b=books.find(x=>x.id===id); if(!b) return;
-  const prediction = b.prediction ? `<div class="detail-section"><h3>🔎 My Prediction</h3><p>${escapeHtml(b.prediction)}</p>${b.predictionResult ? `<span class="pill">Result: ${b.predictionResult==="yes"?"Correct 🎯":b.predictionResult==="no"?"Wrong 😭":"Partly right"}</span>`:""}</div>` : "";
-  const spoilerId = `spoiler-${b.id.replace(/[^a-z0-9]/gi,"")}`;
-  els.detail.innerHTML = `
-    <div class="detail-top">
+  const dur=readingDuration(b);
+  const sessions=Array.isArray(b.sessions)?b.sessions:[];
+  const sessionMinutes=sessions.reduce((n,s)=>n+(Number(s.minutes)||0),0);
+
+  let actions="";
+  let extra="";
+
+  if(b.status==="reading"){
+    actions=`<div class="reading-actions">
+      <button class="secondary" onclick="editBook('${b.id}')">✏️ Edit Book</button>
+      <button class="primary" onclick="openSessionDialog('${b.id}')">⏱️ Add Reading Session</button>
+    </div>`;
+    extra=`<div class="reading-time-card">
+      <strong>Reading progress</strong>
+      <p class="meta">${b.currentPage||0}${b.pages?` / ${b.pages} pages`:" pages"} · ${pct(b)}%</p>
+      <p class="meta">Started ${b.dateStarted||"not set"} · ${sessionMinutes} min logged</p>
+    </div>
+    ${b.prediction?`<div class="detail-section"><h3>🔎 My Prediction</h3><p>${escapeHtml(b.prediction)}</p></div>`:""}
+    ${sessions.length?`<div class="detail-section"><h3>Reading Sessions</h3><div class="session-mini-list">${sessions.map(s=>`<div class="session-mini">${s.mood||"📖"} ${s.startPage||0} → ${s.endPage||0} · ${s.minutes||0} min · ${s.date||""}</div>`).join("")}</div></div>`:""}`;
+  } else if(b.status==="finished"){
+    const dayText=dur.days===null?"—":`${dur.days} ${dur.days===1?"day":"days"}`;
+    actions=`<div class="reading-actions"><button class="secondary" onclick="editBook('${b.id}')">✏️ Edit Journal</button></div>`;
+    extra=`<div class="reading-time-card">
+      <strong>Reading time</strong>
+      <p class="meta">${dayText} · ${sessionMinutes} min logged</p>
+      <p class="meta">${b.dateStarted||"—"} → ${b.dateFinished||"—"}</p>
+    </div>
+    ${b.review?`<div class="detail-section"><h3>My Thoughts</h3><p>${escapeHtml(b.review).replace(/\n/g,"<br>")}</p></div>`:""}
+    ${b.spoilers?`<div class="detail-section"><h3>Story Memory</h3><button class="secondary small" onclick="this.nextElementSibling.classList.toggle('hidden')">🔒 Reveal / Hide Spoilers</button><p class="hidden">${escapeHtml(b.spoilers).replace(/\n/g,"<br>")}</p></div>`:""}`;
+  } else {
+    actions=`<div class="reading-actions"><button class="primary" onclick="editBook('${b.id}')">✏️ Edit / Start Reading</button></div>`;
+    extra=`<div class="reading-time-card"><strong>TBR</strong><p class="meta">Move this book to Reading when you start it.</p></div>`;
+  }
+
+  els.detail.innerHTML=`<article class="book-summary">
+    <div class="book-summary-top">
       ${coverHTML(b)}
       <div>
         <p class="eyebrow">${statusLabel(b.status)}</p>
         <h2>${escapeHtml(b.title)}</h2>
-        <p class="muted">${escapeHtml(b.author || "Unknown author")}</p>
-        <span class="pill">${genreEmoji(b.genre)} ${escapeHtml(b.genre || "No genre")}</span>
-        <span class="pill">${b.format==="Kindle"?"📱 ":b.format==="Audiobook"?"🎧 ":b.format==="Hardcover"?"📕 ":b.format==="Paperback"?"📖 ":"✨ "}${escapeHtml(b.format || "Format not set")}</span>
-        <span class="pill">${stars(Number(b.rating||0))}</span>
-        ${b.pages ? `<p class="meta">${b.pages} pages${b.currentPage?` · currently page ${b.currentPage}`:""}</p>`:""}
+        <p class="muted">${escapeHtml(b.author||"Unknown author")}</p>
+        <div class="summary-meta">
+          <span class="pill">${genreEmoji(b.genre)} ${escapeHtml(b.genre||"No genre")}</span>
+          <span class="pill">${b.format==="Kindle"?"📱":b.format==="Audiobook"?"🎧":b.format==="Hardcover"?"📕":b.format==="Paperback"?"📖":"✨"} ${escapeHtml(b.format||"Format not set")}</span>
+          ${b.status==="finished"?`<span class="pill">${stars(Number(b.rating||0))}</span>`:""}
+        </div>
+        ${b.status==="finished"&&b.pages?`<p class="meta">${b.pages} pages</p>`:""}
       </div>
     </div>
-    ${b.review ? `<div class="detail-section"><h3>My Thoughts</h3><p>${escapeHtml(b.review).replace(/\n/g,"<br>")}</p></div>`:""}
-    ${b.spoilers ? `<div class="detail-section"><h3>Story Memory</h3><button class="secondary small" onclick="document.getElementById('${spoilerId}').classList.toggle('hidden')">🔒 Reveal / Hide Spoilers</button><p id="${spoilerId}" class="hidden">${escapeHtml(b.spoilers).replace(/\n/g,"<br>")}</p></div>`:""}
-    ${b.favoriteCharacter ? `<div class="detail-section"><h3>Favourite Character</h3><p>${escapeHtml(b.favoriteCharacter)}</p></div>`:""}
-    ${b.favoriteScene ? `<div class="detail-section"><h3>Favourite Scene</h3><p>${escapeHtml(b.favoriteScene)}</p></div>`:""}
-    ${b.favoriteQuote ? `<div class="detail-section"><h3>Favourite Quote</h3><div class="quote">“${escapeHtml(b.favoriteQuote)}”</div></div>`:""}
-    ${Array.isArray(b.sessions) && b.sessions.length ? `<div class="detail-section"><h3>Reading Sessions</h3>${b.sessions.map(s=>`<p>${s.mood||"📖"} ${s.startPage||0} → ${s.endPage||0} · ${s.minutes||0} min</p>`).join("")}</div>`:""}
-    ${b.favoriteBook ? `<div class="detail-section"><span class="pill">❤️ Hall of Fame</span></div>`:""}
-    ${prediction}
-    <div class="detail-actions">
-      <button class="secondary" onclick="document.getElementById('detailDialog').close()">Close</button>
-      <button class="primary" onclick="editBook('${b.id}')">Edit Book</button>
-    </div>`;
+    ${extra}
+    ${actions}
+    <div class="detail-actions"><button class="secondary" onclick="document.getElementById('detailDialog').close()">Close</button></div>
+  </article>`;
   els.detailDialog.showModal(); updateFabVisibility();
 };
+
+window.openDetail = window.openStatusBook;
 
 
 function normalizeGenreName(value){ return value.trim().replace(/\s+/g," "); }
@@ -678,9 +795,9 @@ function updateFabVisibility(){
 document.querySelectorAll("dialog").forEach(d=>d.addEventListener("close",updateFabVisibility));
 els.close.addEventListener("click",()=>els.dialog.close());
 els.cancel.addEventListener("click",()=>els.dialog.close());
-els.search.addEventListener("input",render);
-els.filter.addEventListener("change",render);
-els.filterGenre.addEventListener("change",render);
+els.search.addEventListener("input",renderStatusShelves);
+if(els.filter) els.filter.addEventListener("change",renderStatusShelves);
+els.filterGenre.addEventListener("change",renderStatusShelves);
 $("#statsYear").addEventListener("change",renderStats);
 document.querySelectorAll(".tab-btn").forEach(btn=>btn.addEventListener("click",()=>setView(btn.dataset.view)));
 
