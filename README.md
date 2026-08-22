@@ -1,4 +1,4 @@
-# My Reading Room V7.0.5 — Firebase Lifetime Release
+# My Reading Room V7.0.9 — Firebase Lifetime Release
 
 > Copyright © 2026 Krishna Bhatt. All rights reserved.
 
@@ -84,3 +84,10 @@ Improves large phone/Pinterest cover imports by preserving aspect ratio, resizin
 
 - Restores the missing `dataUrlBytes()` helper used by cover optimization and storage reporting.
 - Preserves the V7.0.7 phone cover optimizer, Firebase/Firestore sync, PWA behavior, visible copyright footer, and all existing reading features.
+
+
+## V7.0.9 — Reliable Cover + Storage Stabilization
+- Normal browser-decodable JPG/PNG/WebP covers are resized first, encoded as WebP, and progressively reduced until safely below the strict 10 KB binary cover cap.
+- Uses a 9.5 KB working target for safety headroom and preserves aspect ratio.
+- Existing Firebase/Firestore per-book sync architecture is unchanged: one book document per book, so covers are not duplicated into a whole-library snapshot.
+- Storage usage reporting remains available in Sync/Data Management.

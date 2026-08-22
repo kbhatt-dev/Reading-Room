@@ -2,7 +2,7 @@
  * My Reading Room
  * Copyright © 2026 Krishna Bhatt. All rights reserved.
  */
-const APP_VERSION="7.0.8";
+const APP_VERSION="7.0.9";
 const icon=n=>`<svg class="ui-icon" aria-hidden="true"><use href="#i-${n}"></use></svg>`;
 const BOOK_KEY="readingRoomBooksV1";
 const GENRE_KEY="readingRoomGenresV1";
@@ -120,13 +120,13 @@ function progressHTML(b){
 function coverHTML(b,cls="cover"){return b.cover?`<img class="${cls}" src="${b.cover}" alt="${escapeHtml(b.title)} cover">`:`<div class="${cls} placeholder">${escapeHtml(b.title||"Book")}</div>`;}
 
 
-/* V7.0.4 Adaptive cover policy.
-   Shelf/detail covers should stay visually clean while remaining tiny for lifetime cloud use.
-   Strategy: resize to display-oriented dimensions first, then choose the HIGHEST WebP quality
-   that fits below the 10 KB hard cap. Dimensions shrink only when useful quality cannot fit. */
-const COVER_MAX_W=220,COVER_MAX_H=330,COVER_START_QUALITY=.84,COVER_MIN_QUALITY=.52,COVER_HARD_MAX_BYTES=10*1024,COVER_HARD_INPUT_BYTES=20*1024*1024;
+/* V7.0.9 Reliable lifetime cover policy.
+   Accept normal browser-decodable JPG/PNG/WebP, resize first, encode to WebP, then
+   progressively reduce dimensions/quality until the stored binary is safely below 10 KB.
+   A 9.5 KB working target leaves headroom while preserving the strict 10 KB hard cap. */
+const COVER_MAX_W=220,COVER_MAX_H=330,COVER_START_QUALITY=.86,COVER_MIN_QUALITY=.38,COVER_TARGET_BYTES=9500,COVER_HARD_MAX_BYTES=10*1024,COVER_HARD_INPUT_BYTES=20*1024*1024;
 function dataUrlBytes(s=""){const i=String(s).indexOf(",");return i<0?0:Math.ceil((String(s).length-i-1)*3/4);}
-function loadImage(src){return new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(new Error("This phone image format could not be read. If it is HEIC/HEIF, save or share it as JPG first and try again."));img.src=src;});}
+function loadImage(src){return new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(new Error("This image format cannot be decoded by this browser. Please choose a JPG, PNG, or WebP cover."));img.src=src;});}
 function readBlobAsDataURL(blob){return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result||""));reader.onerror=()=>reject(reader.error||new Error("This cover image could not be read."));reader.readAsDataURL(blob);});}
 async function compressCoverSource(src,{force=false}={}){
   if(!src||!String(src).startsWith("data:image/"))return src;
@@ -141,54 +141,55 @@ async function compressCoverSource(src,{force=false}={}){
     const ctx=c.getContext("2d",{alpha:false});
     if(!ctx)throw new Error("Your browser could not prepare this cover image.");
     ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality="high";
-    ctx.fillStyle="#f7f0e7";ctx.fillRect(0,0,width,height);
-    ctx.drawImage(img,0,0,width,height);
-    return new Promise(resolve=>c.toBlob(resolve,"image/webp",q));
+    ctx.fillStyle="#f7f0e7";ctx.fillRect(0,0,width,height);ctx.drawImage(img,0,0,width,height);
+    const blob=await new Promise(resolve=>c.toBlob(resolve,"image/webp",q));
+    if(!blob||blob.type!=="image/webp")throw new Error("This browser could not create an optimized WebP cover.");
+    return blob;
   };
 
-  /* Resize first, then preserve as much WebP quality as the 10 KB budget allows.
-     This is much kinder to detailed phone/Pinterest covers than repeatedly crushing quality. */
   const baseRatio=Math.min(1,COVER_MAX_W/naturalW,COVER_MAX_H/naturalH);
-  let w=Math.max(1,Math.round(naturalW*baseRatio));
-  let h=Math.max(1,Math.round(naturalH*baseRatio));
+  let w=Math.max(1,Math.round(naturalW*baseRatio)),h=Math.max(1,Math.round(naturalH*baseRatio));
 
-  const bestAtSize=async(width,height,minQ=COVER_MIN_QUALITY,maxQ=COVER_START_QUALITY)=>{
-    const floorBlob=await encode(width,height,minQ);
-    if(!floorBlob||floorBlob.size>=COVER_HARD_MAX_BYTES)return null;
-    let low=minQ,high=maxQ,bestBlob=floorBlob;
-    for(let i=0;i<8;i++){
+  /* At each resolution, binary-search for the highest useful quality under target size. */
+  const bestAtSize=async(width,height,minQ,maxQ)=>{
+    const floor=await encode(width,height,minQ);
+    if(floor.size>COVER_TARGET_BYTES)return null;
+    let best=floor,low=minQ,high=maxQ;
+    for(let i=0;i<9;i++){
       const q=(low+high)/2,blob=await encode(width,height,q);
-      if(blob&&blob.size<COVER_HARD_MAX_BYTES){bestBlob=blob;low=q;}else high=q;
+      if(blob.size<=COVER_TARGET_BYTES){best=blob;low=q;}else high=q;
     }
-    return bestBlob;
+    return best;
   };
 
   let chosen=null;
-  /* Keep the original aspect ratio. Shrink resolution gradually instead of distorting the cover. */
-  while(w>=108&&h>=Math.max(150,Math.round(108*aspect))){
-    chosen=await bestAtSize(w,h);
+  /* Resolution is reduced before quality is crushed. The lower bound is deliberately small:
+     shelf covers are tiny, and this makes ordinary JPG/PNG/WebP uploads deterministic under 10 KB. */
+  while(w>=56&&h>=56){
+    chosen=await bestAtSize(w,h,COVER_MIN_QUALITY,COVER_START_QUALITY);
     if(chosen)break;
-    const nextW=Math.max(108,Math.round(w*.90));
+    const scale=.86,nextW=Math.max(56,Math.floor(w*scale));
     if(nextW===w)break;
-    w=nextW;h=Math.max(1,Math.round(w*aspect));
+    w=nextW;h=Math.max(56,Math.round(w*aspect));
   }
 
-  /* Last-resort phone fallback: still preserve aspect ratio, but permit a slightly lower
-     quality floor before giving up. This prevents large downloaded phone covers from being rejected. */
+  /* Emergency final pass for unusually noisy/photo-heavy art. Still WebP and aspect-preserving. */
   if(!chosen){
-    for(const tw of [104,100,96,92,88]){
-      const th=Math.max(1,Math.round(tw*aspect));
-      chosen=await bestAtSize(tw,th,.42,.72);
-      if(chosen)break;
+    for(const tw of [52,48,44,40]){
+      const th=Math.max(40,Math.round(tw*aspect));
+      const blob=await encode(tw,th,.28);
+      if(blob.size<=COVER_TARGET_BYTES){chosen=blob;break;}
     }
   }
 
-  if(!chosen)throw new Error("This cover could not be reduced below 10 KB on this device. Please save/share the image as JPG and select that copy.");
-  return readBlobAsDataURL(chosen);
+  if(!chosen||chosen.size>=COVER_HARD_MAX_BYTES)throw new Error("This JPG/PNG/WebP cover could not be optimized safely under 10 KB on this device.");
+  const result=await readBlobAsDataURL(chosen);
+  if(dataUrlBytes(result)>=COVER_HARD_MAX_BYTES)throw new Error("The optimized cover exceeded the 10 KB safety limit.");
+  return result;
 }
 async function optimizeCoverFile(file){
-  if(!file?.type?.startsWith("image/"))throw new Error("Please choose an image file for the cover.");
-  if(file.size>COVER_HARD_INPUT_BYTES)throw new Error("That cover is over 20 MB. Please choose a smaller image.");
+  if(!file?.type?.startsWith("image/"))throw new Error("Please choose a JPG, PNG, or WebP image for the cover.");
+  if(file.size>COVER_HARD_INPUT_BYTES)throw new Error("That cover is over 20 MB. Please choose a smaller source image.");
   return compressCoverSource(await readBlobAsDataURL(file),{force:true});
 }
 async function optimizeExistingCovers(){
