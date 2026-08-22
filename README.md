@@ -1,5 +1,14 @@
 # My Reading Room — V5
 
+## V6.7.0 — Cozy Milestones
+
+- Added optional Reading Achievements calculated from existing books, pages, reading sessions, and logged minutes. Achievement progress is derived on demand; badges are not stored separately.
+- Added an optional Monthly Reading Challenge inside the collapsed Reading Extras area on Room. Only the tiny monthly target value is saved with existing goal settings.
+- Added Pick My Next Book on TBR. It randomly selects from current TBR books and stores no random-pick history.
+- Reading Extras stays collapsed by default to keep the Room page clean on iPhone.
+- No new Supabase tables, image data, achievement records, or random-picker records were introduced.
+
+
 ## V6.6.0 — Lifetime Library Tools
 
 - Added a human-readable Reading Journal export as a standalone HTML file, separate from the restorable JSON backup.

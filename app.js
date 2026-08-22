@@ -1,4 +1,4 @@
-const APP_VERSION="6.6.0";
+const APP_VERSION="6.7.0";
 const icon=n=>`<svg class="ui-icon" aria-hidden="true"><use href="#i-${n}"></use></svg>`;
 const BOOK_KEY="readingRoomBooksV1";
 const GENRE_KEY="readingRoomGenresV1";
@@ -25,6 +25,7 @@ let sessionsManagerBookId=null;
 let decorSettings=JSON.parse(localStorage.getItem(DECOR_KEY)||"null");
 let goalSettings=JSON.parse(localStorage.getItem(GOAL_KEY)||"null")||{yearly:{}};
 if(!goalSettings.yearly || typeof goalSettings.yearly!=="object")goalSettings.yearly={};
+if(!goalSettings.monthly || typeof goalSettings.monthly!=="object")goalSettings.monthly={};
 if(!decorSettings || !decorSettings.themes){
   const oldTheme=decorSettings?.theme||"classic";
   decorSettings={themes:{home:oldTheme,tbr:oldTheme,finished:oldTheme}};
@@ -278,6 +279,43 @@ function renderAdvancedSearch(){
   const empty=$("#advancedSearchEmpty");empty.classList.toggle("hidden",results.length>0);
   empty.textContent=hasFilter?"No books matched those search filters.":"Start typing or use filters to search your library.";
 }
+
+function currentMonthKey(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;}
+function finishedInMonth(key){return books.filter(b=>b.status==="finished"&&String(b.dateFinished||"").slice(0,7)===key).length;}
+function achievementStats(){
+  const finished=books.filter(b=>b.status==="finished"),pages=finished.reduce((n,b)=>n+(Number(b.pages)||0),0),minutes=books.reduce((n,b)=>n+sessionMinutes(b),0),sessions=books.reduce((n,b)=>n+(Array.isArray(b.sessions)?b.sessions.length:0),0);
+  return {finished,pages,minutes,sessions};
+}
+function achievementDefinitions(){
+  const s=achievementStats();
+  return [
+    {name:"First Chapter",note:"Finish your first book",value:s.finished.length,target:1},
+    {name:"Shelf Starter",note:"Finish 10 books",value:s.finished.length,target:10},
+    {name:"Book Lover",note:"Finish 25 books",value:s.finished.length,target:25},
+    {name:"Library Builder",note:"Finish 50 books",value:s.finished.length,target:50},
+    {name:"1,000 Pages",note:"Read 1,000 finished-book pages",value:s.pages,target:1000},
+    {name:"5,000 Pages",note:"Read 5,000 finished-book pages",value:s.pages,target:5000},
+    {name:"Reading Ritual",note:"Log 10 reading sessions",value:s.sessions,target:10},
+    {name:"Time Well Spent",note:"Log 1,000 reading minutes",value:s.minutes,target:1000}
+  ];
+}
+function renderReadingExtras(){
+  if(!$("#readingFunDetails")?.open)return;
+  const defs=achievementDefinitions(),unlocked=defs.filter(a=>a.value>=a.target).length;
+  $("#achievementCount").textContent=`${unlocked} of ${defs.length} unlocked`;
+  $("#achievementGrid").innerHTML=defs.map(a=>{const done=a.value>=a.target,p=Math.min(100,Math.round(a.value/a.target*100));return `<article class="achievement-badge ${done?"unlocked":"locked"}"><span class="achievement-mark">${done?icon("trophy"):icon("lock")}</span><strong>${escapeHtml(a.name)}</strong><small>${escapeHtml(a.note)}</small><div class="mini-progress"><span style="width:${p}%"></span></div><em>${done?"Unlocked":`${Math.min(a.value,a.target).toLocaleString()} / ${a.target.toLocaleString()}`}</em></article>`;}).join("");
+  const key=currentMonthKey(),target=Math.max(0,Number(goalSettings.monthly[key])||0),finished=finishedInMonth(key),percent=target?Math.min(100,Math.round(finished/target*100)):0,remaining=Math.max(0,target-finished);
+  $("#monthlyChallengeCount").textContent=target?`${finished} of ${target} books`:`${finished} finished this month`;
+  $("#monthlyChallengePercent").textContent=target?`${percent}%`:"No challenge set";
+  $("#monthlyChallengeBar").style.width=`${percent}%`;
+  $("#monthlyChallengeMessage").textContent=target?(remaining?`${remaining} ${remaining===1?"book":"books"} to complete this month's challenge.`:"Challenge complete — nicely done."):"Set an optional target if you want a little extra motivation.";
+}
+let randomPickedBookId=null;
+function chooseRandomTbr(){
+  const list=books.filter(b=>b.status==="want");if(!list.length){alert("Your TBR shelf is empty.");return;}
+  const b=list[Math.floor(Math.random()*list.length)];randomPickedBookId=b.id;
+  $("#randomPickResult").innerHTML=`<div class="random-pick-book">${coverHTML(b,"random-pick-cover")}<div><span class="count-pill">Random pick</span><h3>${escapeHtml(b.title)}</h3><p class="muted">${escapeHtml(b.author||"Unknown author")}${b.genre?` · ${escapeHtml(b.genre)}`:""}</p><p>This one gets the spotlight from your TBR.</p></div></div>`;
+}
 function renderHome(){
   const finished=books.filter(b=>b.status==="finished");
   const reading=books.filter(b=>b.status==="reading");
@@ -303,6 +341,7 @@ function renderHome(){
   $("#homeGoalBar").style.width=`${goal.percent}%`;
   $("#homeGoalMessage").textContent=goal.target?(goal.remaining?`${goal.remaining} ${goal.remaining===1?"book":"books"} to go.`:`Goal reached — every extra book is a bonus.`):`Set a yearly goal in Stats and your progress will update automatically.`;
 
+  renderReadingExtras();
   applyDecorations();
 }
 function renderTbr(){
@@ -921,6 +960,15 @@ $("#exportJournal").onclick=()=>downloadTextFile(createReadingJournalHTML(),`rea
 $("#importBackupBtn").onclick=()=>$("#importBackupInput").click();
 $("#importBackupInput").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!Array.isArray(d.books))throw Error();if(!confirm(`Restore ${d.books.length} books? This replaces current local data.`))return;books=unpackBooksFromStorage(d);if(Array.isArray(d.genres))genres=d.genres;if(d.decorSettings?.themes){decorSettings=d.decorSettings;localStorage.setItem(DECOR_KEY,JSON.stringify(decorSettings));}if(d.goalSettings?.yearly){goalSettings=d.goalSettings;localStorage.setItem(GOAL_KEY,JSON.stringify(goalSettings));}localStorage.setItem(BOOK_KEY,JSON.stringify(books));localStorage.setItem(GENRE_KEY,JSON.stringify(genres));markChanged();renderAll();applyDecorations();cloudSync();alert("Backup restored.");}catch{alert("Invalid Reading Room backup.");}e.target.value="";};
 
+$("#readingFunDetails")?.addEventListener("toggle",e=>{const hint=e.currentTarget.querySelector(".reading-fun-hint");if(hint)hint.textContent=e.currentTarget.open?"Close":"Open";if(e.currentTarget.open)renderReadingExtras();});
+$("#editMonthlyChallenge").onclick=()=>{const key=currentMonthKey(),d=new Date();$("#monthlyChallengeLabel").textContent=d.toLocaleDateString([],{month:"long",year:"numeric"});$("#monthlyChallengeTarget").value=goalSettings.monthly[key]||"";$("#monthlyChallengeDialog").showModal();setDialogOpen(true);};
+$("#closeMonthlyChallenge").onclick=()=>$("#monthlyChallengeDialog").close();
+$("#monthlyChallengeForm").addEventListener("submit",e=>{e.preventDefault();const value=Math.max(1,Math.min(99,Math.round(Number($("#monthlyChallengeTarget").value)||0)));if(!value)return;goalSettings.monthly[currentMonthKey()]=value;localStorage.setItem(GOAL_KEY,JSON.stringify(goalSettings));markChanged();$("#monthlyChallengeDialog").close();renderReadingExtras();cloudSync();});
+$("#removeMonthlyChallenge").onclick=()=>{delete goalSettings.monthly[currentMonthKey()];localStorage.setItem(GOAL_KEY,JSON.stringify(goalSettings));markChanged();$("#monthlyChallengeDialog").close();renderReadingExtras();cloudSync();};
+$("#pickNextBook").onclick=()=>{chooseRandomTbr();if(randomPickedBookId){$("#randomPickDialog").showModal();setDialogOpen(true);}};
+$("#pickAgain").onclick=chooseRandomTbr;
+$("#closeRandomPick").onclick=()=>$("#randomPickDialog").close();
+$("#openRandomPickBook").onclick=()=>{if(!randomPickedBookId)return;$("#randomPickDialog").close();openBook(randomPickedBookId);};
 $("#storageUsageDetails")?.addEventListener("toggle",e=>{if(e.currentTarget.open)renderStorageUsage();});
 $("#refreshStorageUsage")?.addEventListener("click",renderStorageUsage);
 $("#openAdvancedSearch").onclick=()=>{populateAdvancedSearchFilters();renderAdvancedSearch();$("#advancedSearchDialog").showModal();setDialogOpen(true);setTimeout(()=>$("#advancedSearchQuery").focus(),50);};

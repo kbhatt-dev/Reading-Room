@@ -102,6 +102,25 @@
         </div>
       </section>
 
+      <details id="readingFunDetails" class="reading-fun-details home-section">
+        <summary>
+          <span><strong><svg class="ui-icon" aria-hidden="true"><use href="#i-trophy"></use></svg> Reading Extras</strong><small>Achievements & monthly challenge</small></span>
+          <span class="reading-fun-hint">Open</span>
+        </summary>
+        <div class="reading-fun-content">
+          <section>
+            <div class="fun-heading"><div><p class="eyebrow">Little milestones</p><h2>Reading Achievements</h2></div><span id="achievementCount" class="count-pill">0 unlocked</span></div>
+            <div id="achievementGrid" class="achievement-grid"></div>
+          </section>
+          <section class="monthly-challenge-card">
+            <div class="fun-heading"><div><p class="eyebrow">This month</p><h2>Monthly Reading Challenge</h2></div><button id="editMonthlyChallenge" class="secondary compact"><svg class="ui-icon" aria-hidden="true"><use href="#i-target"></use></svg> Set Challenge</button></div>
+            <div class="challenge-summary"><strong id="monthlyChallengeCount">0 of 0 books</strong><span id="monthlyChallengePercent">No challenge set</span></div>
+            <div class="goal-track"><span id="monthlyChallengeBar"></span></div>
+            <p id="monthlyChallengeMessage" class="muted"></p>
+          </section>
+        </div>
+      </details>
+
       <section class="home-section">
         <div class="section-head">
           <div>
@@ -164,6 +183,7 @@
         </div>
         <div class="page-title-actions">
           <span id="tbrCount" class="count-pill">0 books</span>
+          <button id="pickNextBook" class="secondary compact"><svg class="ui-icon" aria-hidden="true"><use href="#i-sparkle"></use></svg> Pick My Next Book</button>
           <button class="secondary compact customize-shelf-btn" data-customize-zone="tbr">
             <svg class="ui-icon" aria-hidden="true"><use href="#i-palette"></use></svg> Customize Shelf
           </button>
@@ -466,6 +486,25 @@
   </nav>
 
   <button id="floatingAddBook" class="floating-add"><svg class="fab-icon" aria-hidden="true"><use href="#i-plus"></use></svg> Add Book</button>
+
+  <!-- MONTHLY CHALLENGE -->
+  <dialog id="monthlyChallengeDialog" class="small-dialog">
+    <form method="dialog" id="monthlyChallengeForm" class="small-dialog-card">
+      <div class="dialog-header"><div><p class="eyebrow">A gentle monthly target</p><h2>Monthly Challenge</h2></div><button type="button" id="closeMonthlyChallenge" class="round-btn">✕</button></div>
+      <p id="monthlyChallengeLabel" class="muted"></p>
+      <label>Books to finish this month<input id="monthlyChallengeTarget" type="number" min="1" max="99" inputmode="numeric" required></label>
+      <div class="button-row end"><button type="button" id="removeMonthlyChallenge" class="secondary">Remove</button><button class="primary" value="save">Save Challenge</button></div>
+    </form>
+  </dialog>
+
+  <!-- RANDOM TBR PICK -->
+  <dialog id="randomPickDialog" class="small-dialog">
+    <section class="small-dialog-card random-pick-card">
+      <div class="dialog-header"><div><p class="eyebrow">From your TBR</p><h2>Your Next Read</h2></div><button type="button" id="closeRandomPick" class="round-btn">✕</button></div>
+      <div id="randomPickResult"></div>
+      <div class="button-row end"><button type="button" id="pickAgain" class="secondary"><svg class="ui-icon" aria-hidden="true"><use href="#i-sync"></use></svg> Pick Again</button><button type="button" id="openRandomPickBook" class="primary">Open Book</button></div>
+    </section>
+  </dialog>
 
   <!-- ADVANCED LIBRARY SEARCH -->
   <dialog id="advancedSearchDialog" class="advanced-search-dialog">
