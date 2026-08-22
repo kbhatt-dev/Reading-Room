@@ -1,4 +1,4 @@
-const SW_VERSION = "reading-room-v2.5-cover-reset";
+const SW_VERSION = "reading-room-v3";
 
 self.addEventListener("install", event => {
   self.skipWaiting();

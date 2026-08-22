@@ -206,3 +206,21 @@ After V2.3 is installed, future releases use the new automatic update behavior.
 - Fixed previous book cover appearing when opening Add Book again.
 - New Add Book sessions now clear the file input, preview image, filename, and in-memory cover state.
 - Edit Book still loads the saved cover normally.
+
+
+# V3
+
+## New in V3
+- Hall of Fame favourite shelf.
+- Mark any book as a favourite.
+- Finish Book celebration when a book moves to Finished.
+- Quick “Add to Hall of Fame” action from the finish celebration.
+- Reading Sessions with start page, end page, minutes, mood, and date.
+- Session history inside each book.
+- Enhanced statistics:
+  - top author
+  - total reading minutes
+  - fastest finished book
+  - longest book
+  - existing books/pages/rating/genre/month/format stats preserved
+- Existing V2.5 book data remains compatible.

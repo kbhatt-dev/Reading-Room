@@ -1,4 +1,4 @@
-const READING_ROOM_VERSION = "2.5";
+const READING_ROOM_VERSION = "3.0";
 
 const KEY = "readingRoomBooksV1";
 const GENRE_KEY = "readingRoomGenresV1";
@@ -15,6 +15,8 @@ let syncSettings = JSON.parse(localStorage.getItem(SYNC_KEY) || "null") || {url:
 let syncSession = JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
 let selectedRating = 0;
 let workingCover = "";
+let workingSessions = [];
+let justFinishedBookId = null;
 
 const $ = s => document.querySelector(s);
 const els = {
@@ -151,6 +153,16 @@ function renderStats(){
   $("#statPages").textContent = pages.toLocaleString();
   $("#statRating").textContent = avg;
   $("#statGenre").textContent = top(countBy("genre"));
+  $("#statAuthor").textContent = top(countBy("author"));
+  const allSessions = finished.flatMap(b=>Array.isArray(b.sessions)?b.sessions:[]);
+  $("#statMinutes").textContent = allSessions.reduce((n,s)=>n+(Number(s.minutes)||0),0).toLocaleString();
+
+  const withDays = finished.map(b=>({b,days:dateDiffDays(b.dateStarted,b.dateFinished)})).filter(x=>x.days!==null);
+  const fastest = withDays.sort((a,b)=>a.days-b.days)[0];
+  $("#statFastest").textContent = fastest ? `${fastest.days}d` : "—";
+
+  const longest = [...finished].sort((a,b)=>(Number(b.pages)||0)-(Number(a.pages)||0))[0];
+  $("#statLongest").textContent = longest && longest.pages ? `${longest.pages}p` : "—";
 
   const monthCounts = Array(12).fill(0);
   finished.forEach(b=>{
@@ -354,6 +366,50 @@ async function cloudSync(force=false){
   }
 }
 
+
+function renderHallOfFame(){
+  const section=$("#hallOfFameSection");
+  const wrap=$("#hallOfFame");
+  if(!section || !wrap) return;
+  const favs=books.filter(b=>b.favoriteBook);
+  section.classList.toggle("hidden",favs.length===0);
+  wrap.innerHTML=favs.map(b=>`
+    <button class="hall-book" onclick="openDetail('${b.id}')">
+      ${coverHTML(b)}
+      <span>${escapeHtml(b.title)}</span>
+    </button>`).join("");
+}
+function renderSessionList(){
+  const wrap=$("#sessionList");
+  if(!wrap) return;
+  wrap.innerHTML=workingSessions.length ? workingSessions.map((s,i)=>`
+    <div class="session-row">
+      <div>
+        <strong>${s.startPage||0} → ${s.endPage||0} pages ${s.mood||""}</strong>
+        <small>${Math.max(0,(s.endPage||0)-(s.startPage||0))} pages · ${s.minutes||0} min · ${s.date||""}</small>
+      </div>
+      <button type="button" class="session-delete" onclick="removeSession(${i})">✕</button>
+    </div>`).join("") : `<p class="muted">No reading sessions yet.</p>`;
+}
+window.removeSession=index=>{
+  workingSessions.splice(index,1);
+  renderSessionList();
+};
+function dateDiffDays(start,end){
+  if(!start || !end) return null;
+  const a=new Date(start+"T00:00:00"), b=new Date(end+"T00:00:00");
+  const d=Math.round((b-a)/86400000);
+  return Number.isFinite(d) && d>=0 ? d : null;
+}
+function showFinishCelebration(book){
+  justFinishedBookId=book.id;
+  $("#finishTitle").textContent=`You finished ${book.title}!`;
+  $("#finishSubtitle").textContent=book.rating ? `${stars(Number(book.rating))} · Welcome to the finished shelf.` : "Another story has joined your library.";
+  $("#finishCoverWrap").innerHTML=coverHTML(book);
+  $("#finishFavoriteBtn").textContent=book.favoriteBook ? "❤️ In Hall of Fame" : "❤️ Add to Hall of Fame";
+  $("#finishDialog").showModal();
+}
+
 function escapeHtml(v=""){
   return v.replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));
 }
@@ -388,6 +444,7 @@ function render(){
   els.currentEmpty.classList.toggle("hidden", current.length > 0);
 
   renderYearShelves(visible);
+  renderHallOfFame();
   els.libraryEmpty.classList.toggle("hidden", visible.length > 0);
 
   const finished = books.filter(b => b.status === "finished");
@@ -420,6 +477,9 @@ function resetForm(){
   $("#bookId").value="";
   selectedRating=0;
   workingCover="";
+  workingSessions=[];
+  $("#favoriteBook").checked=false;
+  renderSessionList();
   renderGenreOptions("");
 
   const coverInput=$("#coverInput");
@@ -458,6 +518,9 @@ function fillForm(b){
   $("#bookId").value=b.id; selectedRating=Number(b.rating||0); $("#rating").value=selectedRating;
   [...$("#ratingPicker").children].forEach(x=>x.classList.toggle("active", Number(x.textContent)===selectedRating));
   workingCover=b.cover||"";
+  workingSessions=Array.isArray(b.sessions)?JSON.parse(JSON.stringify(b.sessions)):[];
+  $("#favoriteBook").checked=!!b.favoriteBook;
+  renderSessionList();
   if(workingCover){ $("#coverPreview").src=workingCover; $("#coverPreviewWrap").classList.remove("hidden"); }
   els.dialog.showModal();
 }
@@ -484,13 +547,46 @@ els.form.addEventListener("submit", e => {
     status:$("#status").value, genre:$("#genre").value.trim(), format:$("#format").value,
     pages:Number($("#pages").value)||0, currentPage:Number($("#currentPage").value)||0,
     dateStarted:$("#dateStarted").value, dateFinished:$("#dateFinished").value,
-    rating:selectedRating, cover:workingCover, review:$("#review").value.trim(),
+    rating:selectedRating, cover:workingCover, favoriteBook:$("#favoriteBook").checked,
+    sessions:workingSessions, review:$("#review").value.trim(),
     spoilers:$("#spoilers").value.trim(), favoriteCharacter:$("#favoriteCharacter").value.trim(),
     favoriteScene:$("#favoriteScene").value.trim(), favoriteQuote:$("#favoriteQuote").value.trim(),
     prediction:$("#prediction").value.trim(), predictionResult:$("#predictionResult").value
   };
-  const i=books.findIndex(x=>x.id===id); if(i>=0) books[i]=b; else books.unshift(b);
+  const i=books.findIndex(x=>x.id===id);
+  const previous = i>=0 ? books[i] : null;
+  const becameFinished = b.status==="finished" && (!previous || previous.status!=="finished");
+  if(i>=0) books[i]=b; else books.unshift(b);
   save(); els.dialog.close();
+  if(becameFinished) setTimeout(()=>showFinishCelebration(b),120);
+});
+
+$("#addSessionBtn").addEventListener("click",()=>{
+  const startPage=Number($("#sessionStartPage").value)||0;
+  const endPage=Number($("#sessionEndPage").value)||0;
+  const minutes=Number($("#sessionMinutes").value)||0;
+  const mood=$("#sessionMood").value;
+  if(endPage < startPage){ alert("End page should be greater than or equal to start page."); return; }
+  if(!endPage && !minutes){ alert("Add an end page or reading minutes."); return; }
+  workingSessions.push({
+    startPage,endPage,minutes,mood,
+    date:new Date().toISOString().slice(0,10)
+  });
+  $("#sessionStartPage").value="";
+  $("#sessionEndPage").value="";
+  $("#sessionMinutes").value="";
+  $("#sessionMood").value="";
+  renderSessionList();
+});
+
+$("#finishCloseBtn").addEventListener("click",()=>$("#finishDialog").close());
+$("#finishFavoriteBtn").addEventListener("click",()=>{
+  const b=books.find(x=>x.id===justFinishedBookId);
+  if(!b) return;
+  b.favoriteBook=true;
+  save();
+  renderHallOfFame();
+  $("#finishFavoriteBtn").textContent="❤️ In Hall of Fame";
 });
 
 els.deleteBtn.addEventListener("click", ()=>{
@@ -520,6 +616,8 @@ window.openDetail = id => {
     ${b.favoriteCharacter ? `<div class="detail-section"><h3>Favourite Character</h3><p>${escapeHtml(b.favoriteCharacter)}</p></div>`:""}
     ${b.favoriteScene ? `<div class="detail-section"><h3>Favourite Scene</h3><p>${escapeHtml(b.favoriteScene)}</p></div>`:""}
     ${b.favoriteQuote ? `<div class="detail-section"><h3>Favourite Quote</h3><div class="quote">“${escapeHtml(b.favoriteQuote)}”</div></div>`:""}
+    ${Array.isArray(b.sessions) && b.sessions.length ? `<div class="detail-section"><h3>Reading Sessions</h3>${b.sessions.map(s=>`<p>${s.mood||"📖"} ${s.startPage||0} → ${s.endPage||0} · ${s.minutes||0} min</p>`).join("")}</div>`:""}
+    ${b.favoriteBook ? `<div class="detail-section"><span class="pill">❤️ Hall of Fame</span></div>`:""}
     ${prediction}
     <div class="detail-actions">
       <button class="secondary" onclick="document.getElementById('detailDialog').close()">Close</button>

@@ -52,6 +52,16 @@
       <div id="currentlyEmpty" class="empty-state">No current book yet. Add one and choose <strong>Reading</strong>.</div>
     </section>
 
+
+    <section id="hallOfFameSection" class="hall-section hidden">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Your forever favourites</p>
+          <h2>Hall of Fame ❤️</h2>
+        </div>
+      </div>
+      <div id="hallOfFame" class="hall-shelf"></div>
+    </section>
     <section>
       <div class="section-heading library-heading">
         <div>
@@ -88,11 +98,15 @@
         <select id="statsYear"></select>
       </div>
 
-      <div class="stats-grid">
+      <div class="stats-grid stats-grid-v3">
         <article class="stat-card"><span>📚</span><strong id="statBooks">0</strong><small>Books finished</small></article>
         <article class="stat-card"><span>📄</span><strong id="statPages">0</strong><small>Pages read</small></article>
         <article class="stat-card"><span>⭐</span><strong id="statRating">0</strong><small>Average rating</small></article>
         <article class="stat-card"><span>🏷️</span><strong id="statGenre">—</strong><small>Top genre</small></article>
+        <article class="stat-card"><span>✍️</span><strong id="statAuthor">—</strong><small>Top author</small></article>
+        <article class="stat-card"><span>⏱️</span><strong id="statMinutes">0</strong><small>Reading minutes</small></article>
+        <article class="stat-card"><span>⚡</span><strong id="statFastest">—</strong><small>Fastest finish</small></article>
+        <article class="stat-card"><span>📘</span><strong id="statLongest">—</strong><small>Longest book</small></article>
       </div>
 
       <div class="insight-grid">
@@ -295,6 +309,11 @@
         <textarea id="spoilers" rows="5" placeholder="Write the full story summary or details you want to remember later…"></textarea>
       </label>
 
+      <label class="favorite-toggle">
+        <input id="favoriteBook" type="checkbox">
+        <span>❤️ Add this book to Hall of Fame</span>
+      </label>
+
       <div class="form-grid two">
         <label>❤️ Favourite character
           <input id="favoriteCharacter" maxlength="120" />
@@ -324,6 +343,34 @@
 
       </section>
 
+      <section class="form-section">
+        <div class="form-section-title"><span>⏱️</span><div><strong>Reading Sessions</strong><small>Track pages, time, and mood</small></div></div>
+        <div class="session-entry-grid">
+          <label>Start page
+            <input id="sessionStartPage" type="number" min="0">
+          </label>
+          <label>End page
+            <input id="sessionEndPage" type="number" min="0">
+          </label>
+          <label>Minutes
+            <input id="sessionMinutes" type="number" min="0">
+          </label>
+          <label>Mood
+            <select id="sessionMood">
+              <option value="">Choose mood…</option>
+              <option value="😍">😍 Loved it</option>
+              <option value="😱">😱 Intense</option>
+              <option value="🤯">🤯 Mind blown</option>
+              <option value="😭">😭 Emotional</option>
+              <option value="😌">😌 Cozy</option>
+              <option value="😐">😐 Neutral</option>
+            </select>
+          </label>
+        </div>
+        <button type="button" class="secondary small" id="addSessionBtn">+ Add Reading Session</button>
+        <div id="sessionList" class="session-list"></div>
+      </section>
+
       <div class="dialog-actions sticky-save-bar">
         <button type="button" id="deleteBookBtn" class="danger hidden">Delete</button>
         <span class="spacer"></span>
@@ -351,6 +398,21 @@
 
       <div id="genreList" class="genre-list"></div>
       <p class="genre-note">Renaming a genre updates books already using it. Deleting a genre only removes it from future choices.</p>
+    </section>
+  </dialog>
+
+
+  <dialog id="finishDialog" class="finish-dialog">
+    <section class="finish-card">
+      <div class="confetti">✨ 📚 ✨</div>
+      <p class="eyebrow">Book completed</p>
+      <h2 id="finishTitle">You finished a book!</h2>
+      <p id="finishSubtitle" class="muted">Another story has joined your library.</p>
+      <div id="finishCoverWrap" class="finish-cover-wrap"></div>
+      <div class="finish-actions">
+        <button class="secondary" id="finishCloseBtn">Close</button>
+        <button class="primary" id="finishFavoriteBtn">❤️ Add to Hall of Fame</button>
+      </div>
     </section>
   </dialog>
 
