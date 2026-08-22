@@ -215,3 +215,21 @@ All V5.3.1 features, Supabase sync, Reading Sessions, PWA updates, and existing 
 - Shelf layouts persist across reloads.
 - Older V6 decoration preferences are automatically migrated.
 - Book data and Supabase schema are unchanged.
+
+
+## V6.2 — Cozy Shelf Refinement
+- Removed free drag-and-drop decoration placement.
+- Removed floating decoration icons completely.
+- Added six shelf finishes:
+  - Classic Walnut
+  - Light Oak
+  - Dark Espresso
+  - Honey Maple
+  - Warm Mahogany
+  - Sage Oak
+- Added built-in fairy lights attached across every shelf.
+- Added one natural potted plant fixed into the shelf design.
+- Removed Plant / Candle / Coffee / Sparkle icons from shelf corners.
+- Kept independent shelf colors for Room, TBR, and Finished pages.
+- Preserved Book Memory Cards on Finished.
+- Preserved all existing V6 functionality, books, sync, sessions, and journal data.

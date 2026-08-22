@@ -507,14 +507,14 @@
   </dialog>
 
 
-  <!-- INTERACTIVE SHELF DESIGNER -->
+  <!-- COZY SHELF CUSTOMIZER -->
   <dialog id="decorDialog" class="decor-designer">
     <section class="decor-designer-inner">
       <header class="decor-designer-head">
         <div>
-          <p class="eyebrow">Shelf designer</p>
-          <h2 id="decorDesignerTitle">Customize Room</h2>
-          <p class="muted designer-help" id="decorDesignerHelp">Drag an item onto the shelf, or tap an item then tap where you want it.</p>
+          <p class="eyebrow">Cozy shelf style</p>
+          <h2 id="decorDesignerTitle">Customize My Library</h2>
+          <p class="muted designer-help">Choose a shelf finish. Every page keeps its own style automatically.</p>
         </div>
         <button type="button" id="closeDecorDialog" class="round-btn">✕</button>
       </header>
@@ -522,36 +522,27 @@
       <div class="decor-designer-controls">
         <label>Shelf finish
           <select id="decorTheme">
-            <option value="classic">Classic Wood</option>
+            <option value="classic">Classic Walnut</option>
             <option value="light">Light Oak</option>
-            <option value="dark">Dark Walnut</option>
+            <option value="dark">Dark Espresso</option>
+            <option value="honey">Honey Maple</option>
+            <option value="mahogany">Warm Mahogany</option>
+            <option value="sage">Sage Oak</option>
           </select>
         </label>
-
-        <div>
-          <span class="decor-control-label">Decoration tray</span>
-          <div class="decor-tray" id="decorTray">
-            <button type="button" class="decor-tray-item" draggable="true" data-decor-type="plant">
-              <svg class="ui-icon"><use href="#i-plant"></use></svg><small>Plant</small>
-            </button>
-            <button type="button" class="decor-tray-item" draggable="true" data-decor-type="candle">
-              <svg class="ui-icon"><use href="#i-candle"></use></svg><small>Candle</small>
-            </button>
-            <button type="button" class="decor-tray-item" draggable="true" data-decor-type="coffee">
-              <svg class="ui-icon"><use href="#i-coffee"></use></svg><small>Coffee</small>
-            </button>
-            <button type="button" class="decor-tray-item" draggable="true" data-decor-type="sparkle">
-              <svg class="ui-icon"><use href="#i-sparkle"></use></svg><small>Sparkle</small>
-            </button>
-          </div>
-        </div>
       </div>
 
-      <div class="designer-status" id="designerStatus">Choose a decoration to begin.</div>
+      <div class="cozy-preview-card">
+        <div class="mini-fairy"></div>
+        <div class="mini-plant">
+          <span></span><span></span><span></span><span></span><span></span>
+        </div>
+        <div class="mini-board"></div>
+        <p>Built-in fairy lights and a single cozy plant stay naturally attached to the shelf.</p>
+      </div>
 
       <div class="button-row">
-        <button type="button" id="clearDecorBtn" class="secondary">Clear Shelf</button>
-        <button type="button" id="resetDecorBtn" class="secondary">Reset This Shelf</button>
+        <button type="button" id="resetDecorBtn" class="secondary">Reset Style</button>
         <span class="spacer"></span>
         <button type="button" id="doneDecorBtn" class="primary">Done</button>
       </div>
