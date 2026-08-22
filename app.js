@@ -1,4 +1,4 @@
-const APP_VERSION="6.5.0";
+const APP_VERSION="6.5.1";
 const icon=n=>`<svg class="ui-icon" aria-hidden="true"><use href="#i-${n}"></use></svg>`;
 const BOOK_KEY="readingRoomBooksV1";
 const GENRE_KEY="readingRoomGenresV1";
@@ -719,7 +719,43 @@ $("#resetDecorBtn").onclick=()=>{
 function configured(){return !!(syncSettings.url&&syncSettings.key);}
 function signedIn(){return !!(syncSession?.access_token&&syncSession?.user?.id);}
 function authHeaders(access=false){const h={apikey:syncSettings.key,"Content-Type":"application/json"};if(access&&signedIn())h.Authorization=`Bearer ${syncSession.access_token}`;return h;}
+
+function byteSize(value){return new TextEncoder().encode(typeof value==="string"?value:JSON.stringify(value)).length;}
+function storageUsageSnapshot(){
+  const coverBytes=books.reduce((n,b)=>n+(b.cover&&String(b.cover).startsWith("data:image/")?dataUrlBytes(b.cover):0),0);
+  const coverCount=books.filter(b=>b.cover&&String(b.cover).startsWith("data:image/")).length;
+  const persistentLocal={books,genres,decorSettings,goalSettings};
+  const localBytes=byteSize(persistentLocal);
+  const textBytes=Math.max(0,localBytes-coverBytes);
+  const cloudBytes=byteSize(persistentSyncPayload());
+  return {coverBytes,coverCount,localBytes,textBytes,cloudBytes,avgCover:coverCount?Math.round(coverBytes/coverCount):0};
+}
+async function renderStorageUsage(){
+  const details=$("#storageUsageDetails");if(!details)return;
+  const s=storageUsageSnapshot();
+  $("#localPersistentSize").textContent=formatBytes(s.localBytes)||"0 B";
+  $("#localCoverSize").textContent=formatBytes(s.coverBytes)||"0 B";
+  $("#localCoverCount").textContent=`${s.coverCount} ${s.coverCount===1?"optimized cover":"optimized covers"}`;
+  $("#localTextSize").textContent=formatBytes(s.textBytes)||"0 B";
+  $("#averageCoverSize").textContent=s.coverCount?(formatBytes(s.avgCover)||"0 B"):"—";
+  $("#cloudPayloadSize").textContent=formatBytes(s.cloudBytes)||"0 B";
+  $("#storageSummarySize").textContent=formatBytes(s.cloudBytes)||"0 B";
+  try{
+    if(navigator.storage?.estimate){
+      const est=await navigator.storage.estimate(),usage=Number(est.usage)||0,quota=Number(est.quota)||0,remaining=Math.max(0,quota-usage);
+      $("#browserStorageRemaining").textContent=quota?(formatBytes(remaining)||"0 B"):"Unavailable";
+      $("#browserStorageDetail").textContent=quota?`${formatBytes(usage)} used of ${formatBytes(quota)} browser storage on this device`:"Your browser did not report a quota.";
+    }else{
+      $("#browserStorageRemaining").textContent="Unavailable";
+      $("#browserStorageDetail").textContent="This browser does not expose a storage estimate.";
+    }
+  }catch{
+    $("#browserStorageRemaining").textContent="Unavailable";
+    $("#browserStorageDetail").textContent="This browser did not provide a storage estimate.";
+  }
+}
 function renderSyncStatus(){
+  if($("#storageUsageDetails")?.open)renderStorageUsage();
   $("#supabaseUrl").value=syncSettings.url||"";$("#supabaseKey").value=syncSettings.key||"";
   if(signedIn())$("#syncStatus").innerHTML=`<span class="status-dot good"></span><div><strong>Cloud sync active</strong><p class="meta">Signed in securely with Supabase Authentication.</p></div>`;
   else if(configured())$("#syncStatus").innerHTML=`<span class="status-dot"></span><div><strong>Connection saved</strong><p class="meta">Sign in below to start syncing.</p></div>`;
@@ -775,6 +811,8 @@ $("#exportBackup").onclick=()=>{const packed=packBooksForStorage(books),blob=new
 $("#importBackupBtn").onclick=()=>$("#importBackupInput").click();
 $("#importBackupInput").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!Array.isArray(d.books))throw Error();if(!confirm(`Restore ${d.books.length} books? This replaces current local data.`))return;books=unpackBooksFromStorage(d);if(Array.isArray(d.genres))genres=d.genres;if(d.decorSettings?.themes){decorSettings=d.decorSettings;localStorage.setItem(DECOR_KEY,JSON.stringify(decorSettings));}if(d.goalSettings?.yearly){goalSettings=d.goalSettings;localStorage.setItem(GOAL_KEY,JSON.stringify(goalSettings));}localStorage.setItem(BOOK_KEY,JSON.stringify(books));localStorage.setItem(GENRE_KEY,JSON.stringify(genres));markChanged();renderAll();applyDecorations();cloudSync();alert("Backup restored.");}catch{alert("Invalid Reading Room backup.");}e.target.value="";};
 
+$("#storageUsageDetails")?.addEventListener("toggle",e=>{if(e.currentTarget.open)renderStorageUsage();});
+$("#refreshStorageUsage")?.addEventListener("click",renderStorageUsage);
 renderGenreOptions();renderAll();applyDecorations();renderSyncStatus();cloudSync().then(()=>setTimeout(async()=>{const r=await optimizeExistingCovers();if(r.changed)cloudSync(true);},250));
 window.addEventListener("focus",()=>{if(signedIn())cloudSync();});
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&signedIn())cloudSync();});

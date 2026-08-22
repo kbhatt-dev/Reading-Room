@@ -364,6 +364,59 @@
           </div>
         </section>
 
+        <section class="sync-block storage-monitor-block">
+          <details id="storageUsageDetails" class="storage-usage-details">
+            <summary>
+              <span>
+                <strong><svg class="ui-icon" aria-hidden="true"><use href="#i-stats"></use></svg> Storage Usage</strong>
+                <small>Local + Reading Room cloud payload</small>
+              </span>
+              <span id="storageSummarySize" class="storage-summary-size">Calculate</span>
+            </summary>
+
+            <div class="storage-monitor-content">
+              <p class="muted storage-note">These figures are estimates for My Reading Room. The cloud figure is the payload this app syncs to Supabase, not your entire Supabase project.</p>
+
+              <div class="storage-grid">
+                <article class="storage-card">
+                  <span class="storage-label">Reading Room on this device</span>
+                  <strong id="localPersistentSize">—</strong>
+                  <small id="localBreakdown">Books, covers, genres, goals and shelf themes</small>
+                </article>
+                <article class="storage-card">
+                  <span class="storage-label">Optimized covers</span>
+                  <strong id="localCoverSize">—</strong>
+                  <small id="localCoverCount">0 covers</small>
+                </article>
+                <article class="storage-card">
+                  <span class="storage-label">Cloud sync payload</span>
+                  <strong id="cloudPayloadSize">—</strong>
+                  <small>Estimated size of the persistent JSON sent by this app</small>
+                </article>
+                <article class="storage-card">
+                  <span class="storage-label">Browser storage available</span>
+                  <strong id="browserStorageRemaining">—</strong>
+                  <small id="browserStorageDetail">Depends on browser/device support</small>
+                </article>
+              </div>
+
+              <div class="storage-detail-row">
+                <div><span>Journal & settings</span><strong id="localTextSize">—</strong></div>
+                <div><span>Average optimized cover</span><strong id="averageCoverSize">—</strong></div>
+              </div>
+
+              <div class="storage-supabase-note">
+                <strong>Supabase project quota</strong>
+                <p>This app does not use an admin key, so it cannot securely read your full Supabase project quota or remaining allowance. Use the Supabase Dashboard → Organization → Usage → Database Size for the real project figure.</p>
+              </div>
+
+              <button type="button" id="refreshStorageUsage" class="secondary compact">
+                <svg class="ui-icon" aria-hidden="true"><use href="#i-sync"></use></svg> Refresh Usage
+              </button>
+            </div>
+          </details>
+        </section>
+
         <section class="sync-block">
           <h3>Backup</h3>
           <p class="muted">Export your journal as JSON or restore it later.</p>

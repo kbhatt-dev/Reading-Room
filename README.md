@@ -1,5 +1,14 @@
 # My Reading Room — V5
 
+## V6.5.1 — Storage Monitor
+
+- Added a collapsed Storage Usage panel only on the Sync page.
+- Shows estimated persistent Reading Room data on the device, optimized cover total/count, journal/settings size, average cover size, and the estimated Supabase sync payload size.
+- Uses `navigator.storage.estimate()` when supported to show approximate browser storage used/quota/remaining on the current device.
+- Does not sync or persist any usage metrics; all measurements are calculated on demand.
+- Does not expose or require a Supabase service-role/admin key. Full Supabase project quota remains available only in the Supabase Dashboard.
+
+
 ## V6.5.0 — Journal Collections & Cover Tools
 
 - Added Quotes Collection, derived from existing favourite-quote fields; no duplicate quote records are stored or synced.
