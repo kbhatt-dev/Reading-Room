@@ -2,7 +2,7 @@
  * My Reading Room
  * Copyright © 2026 Krishna Bhatt. All rights reserved.
  */
-const APP_VERSION="7.0.10";
+const APP_VERSION="7.0.11";
 const icon=n=>`<svg class="ui-icon" aria-hidden="true"><use href="#i-${n}"></use></svg>`;
 const BOOK_KEY="readingRoomBooksV1";
 const GENRE_KEY="readingRoomGenresV1";
@@ -107,7 +107,31 @@ function detectiveLabel(score){
   if(score>0)return "Close Call";
   return "Plot Twist Won";
 }
+function formatAudioTime(totalSeconds){
+  const total=Math.max(0,Math.floor(Number(totalSeconds)||0)),h=Math.floor(total/3600),m=Math.floor((total%3600)/60),sec=total%60;
+  return `${h}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
+}
+function audioFieldsToSeconds(prefix){
+  const h=Number($("#"+prefix+"Hours")?.value)||0,m=Number($("#"+prefix+"Minutes")?.value)||0,sec=Number($("#"+prefix+"Seconds")?.value)||0;
+  return Math.max(0,h*3600+m*60+sec);
+}
+function setAudioFields(prefix,totalSeconds){
+  const total=Math.max(0,Math.floor(Number(totalSeconds)||0));
+  $("#"+prefix+"Hours").value=String(Math.floor(total/3600));
+  $("#"+prefix+"Minutes").value=String(Math.floor((total%3600)/60));
+  $("#"+prefix+"Seconds").value=String(total%60);
+}
 function progressHTML(b){
+  if(b.format==="Audiobook"){
+    const current=Number(b.audioCurrentSeconds)||0,total=Number(b.audioTotalSeconds)||0;
+    if(total>0){
+      const safeCurrent=Math.min(current,total),percent=Math.min(100,Math.max(0,Math.round(safeCurrent/total*100)));
+      return `<div class="progress-wrap"><div class="progress"><span style="width:${percent}%"></span></div><span class="progress-percent">${percent}%</span></div>
+        <div class="progress-copy"><span class="progress-primary">${formatAudioTime(safeCurrent)} of ${formatAudioTime(total)}</span><span class="progress-secondary">${formatAudioTime(Math.max(0,total-safeCurrent))} remaining</span></div>`;
+    }
+    return `<div class="progress-wrap"><div class="progress no-total"><span></span></div><span class="progress-percent">${formatAudioTime(current)}</span></div>
+      <div class="progress-copy"><span class="progress-primary">Current time: ${formatAudioTime(current)}</span><span class="progress-secondary">Set total time to calculate %</span></div>`;
+  }
   const current=Number(b.currentPage)||0,total=Number(b.pages)||0;
   if(total>0){
     const percent=Math.min(100,Math.max(0,Math.round(current/total*100)));
@@ -266,6 +290,10 @@ function routeTo(route,{replace=false}={}){
   window.scrollTo({top:0,behavior:"instant"});
   if(route==="stats")renderStats();
   if(route==="sync")renderSyncStatus();
+  /* V7.0.11 hotfix — shelf rows can be rendered while their page is hidden.
+     Re-measure after the destination page becomes active so row-wide boards and
+     fairy lights have the correct width on the very first TBR/Finished visit. */
+  if(route==="tbr"||route==="finished")queueShelfRowLayout();
 }
 window.addEventListener("popstate",()=>routeTo(location.hash.slice(1)||"home",{replace:true}));
 $$("[data-route]").forEach(btn=>btn.addEventListener("click",()=>routeTo(btn.dataset.route)));
@@ -304,6 +332,40 @@ window.deleteGenre=i=>{const name=genres[i];if(!confirm(`Remove "${name}" from f
 function woodBook(b){return `<button class="wood-book" onclick="openBook('${b.id}')">${coverHTML(b)}<span>${escapeHtml(b.title)}</span></button>`;}
 function shelfCard(b){return `<button class="shelf-card" onclick="openBook('${b.id}')">${coverHTML(b)}<strong>${escapeHtml(b.title)}</strong><small>${escapeHtml(b.author||"Unknown")}</small></button>`;}
 
+
+
+
+/* V7.0.11 — mark the first book in each wrapped desktop shelf row.
+   Only that card draws the row-wide wooden board and fairy-light vine, preventing
+   overlapping light strings from becoming denser as more books are added. */
+function layoutDesktopShelfRows(root){
+  if(!root)return;
+  const cards=[...root.querySelectorAll('.shelf-card')];
+  cards.forEach(card=>{
+    card.classList.remove('shelf-row-start');
+    card.style.removeProperty('--row-shelf-left');
+    card.style.removeProperty('--row-shelf-width');
+  });
+  if(window.matchMedia('(max-width:700px)').matches||!cards.length)return;
+  const rootRect=root.getBoundingClientRect();
+  let lastTop=null;
+  cards.forEach(card=>{
+    const rect=card.getBoundingClientRect();
+    const top=Math.round(rect.top);
+    if(lastTop===null||Math.abs(top-lastTop)>4){
+      card.classList.add('shelf-row-start');
+      card.style.setProperty('--row-shelf-left',`${Math.round(rootRect.left-rect.left)}px`);
+      card.style.setProperty('--row-shelf-width',`${Math.round(rootRect.width)}px`);
+      lastTop=top;
+    }
+  });
+}
+function layoutAllDesktopShelfRows(){
+  $$('.large-shelf-grid').forEach(layoutDesktopShelfRows);
+}
+function queueShelfRowLayout(){
+  requestAnimationFrame(()=>requestAnimationFrame(layoutAllDesktopShelfRows));
+}
 
 function decorThemeFor(zone){
   if(zone?.startsWith("finished-")) return decorSettings.themes?.[zone]||decorSettings.themes?.finished||"classic";
@@ -448,6 +510,7 @@ function renderTbr(){
   const dnf=books.filter(b=>b.status==="dnf").filter(b=>(!q||`${b.title} ${b.author}`.toLowerCase().includes(q))&&(g==="all"||b.genre===g));
   $("#dnfArchiveSection").classList.toggle("hidden",dnf.length===0);
   $("#dnfCount").textContent=`${dnf.length} ${dnf.length===1?"book":"books"}`;
+  queueShelfRowLayout();
   $("#dnfShelf").innerHTML=dnf.map(b=>`<button class="dnf-card" onclick="openBook('${b.id}')">${coverHTML(b)}<strong>${escapeHtml(b.title)}</strong><small>${escapeHtml(b.author||"Unknown author")}</small></button>`).join("");
 }
 function readingCard(b){const sessions=Array.isArray(b.sessions)?b.sessions:[];return `<article class="reading-card">
@@ -498,8 +561,9 @@ function renderFinished(){
   $("#finishedEmpty").classList.toggle("hidden",list.length>0);
 
   applyDecorations();
+  queueShelfRowLayout();
 }
-function renderAll(){renderGenreOptions();renderHome();renderTbr();renderReading();renderFinished();populateAdvancedSearchFilters();if(lastRoute==="stats")renderStats();}
+function renderAll(){renderGenreOptions();renderHome();renderTbr();renderReading();renderFinished();populateAdvancedSearchFilters();if(lastRoute==="stats")renderStats();queueShelfRowLayout();}
 
 function countBy(list,key){return list.reduce((a,b)=>{const v=b[key]||"Unknown";a[v]=(a[v]||0)+1;return a;},{});}
 function topKey(o){return Object.entries(o).sort((a,b)=>b[1]-a[1])[0]?.[0]||"—";}
@@ -641,6 +705,55 @@ function buildRatingPicker(){
   for(let r=.5;r<=5;r+=.5){const b=document.createElement("button");b.type="button";b.className="rating-chip";b.textContent=r;b.onclick=()=>{selectedRating=r;$("#rating").value=r;$$(".rating-chip").forEach(x=>x.classList.toggle("active",Number(x.textContent)===r));};p.appendChild(b);}
 }
 buildRatingPicker();
+function setupAudioTimeSelects(){
+  const fill=(id,max)=>{const el=$("#"+id);if(!el)return;el.innerHTML="";for(let i=0;i<=max;i++){const o=document.createElement("option");o.value=String(i);o.textContent=String(i).padStart(2,"0");el.appendChild(o);}};
+  ["audioTotalHours","audioCurrentHours","sessionStartHours","sessionEndHours"].forEach(id=>fill(id,99));
+  ["audioTotalMinutes","audioTotalSeconds","audioCurrentMinutes","audioCurrentSeconds","sessionStartMinutes","sessionStartSeconds","sessionEndMinutes","sessionEndSeconds"].forEach(id=>fill(id,59));
+}
+setupAudioTimeSelects();
+
+const themedDateIds=["dateStarted","finishDateStarted","dateFinished","sessionDate"];
+function parseISODate(value){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(value||""))return null;
+  const [y,m,d]=value.split("-").map(Number);return new Date(y,m-1,d);
+}
+function toISODate(date){return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`;}
+function prettyDate(value){const d=parseISODate(value);return d?d.toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric",year:"numeric"}):"Select date";}
+function syncDateTrigger(id){
+  const input=$("#"+id),btn=document.querySelector(`[data-date-target="${id}"]`);if(!input||!btn)return;
+  const text=btn.querySelector(".themed-date-text");if(text)text.textContent=prettyDate(input.value);btn.classList.toggle("empty",!input.value);
+}
+function syncAllDateTriggers(){themedDateIds.forEach(syncDateTrigger);}
+
+let activeDateTarget=null,datePickerView=new Date(),datePickerSelection="";
+const dateDialog=$("#datePickerDialog");
+function renderDatePicker(){
+  const y=datePickerView.getFullYear(),m=datePickerView.getMonth();
+  $("#datePickerMonthBtn").textContent=new Date(y,m,1).toLocaleDateString(undefined,{month:"long",year:"numeric"});
+  const selected=parseISODate(datePickerSelection),today=new Date();
+  $("#datePickerTitle").textContent=selected?selected.toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"}):"Choose a date";
+  const grid=$("#datePickerGrid");grid.innerHTML="";
+  const firstDay=new Date(y,m,1).getDay(),days=new Date(y,m+1,0).getDate();
+  for(let i=0;i<firstDay;i++){const blank=document.createElement("span");blank.className="date-picker-day other-month";grid.appendChild(blank);}
+  for(let day=1;day<=days;day++){
+    const d=new Date(y,m,day),iso=toISODate(d),b=document.createElement("button");b.type="button";b.className="date-picker-day";b.textContent=day;
+    if(today.getFullYear()===y&&today.getMonth()===m&&today.getDate()===day)b.classList.add("today");
+    if(iso===datePickerSelection)b.classList.add("selected");
+    b.onclick=()=>{datePickerSelection=iso;renderDatePicker();};grid.appendChild(b);
+  }
+}
+function openDatePicker(id){
+  const input=$("#"+id);if(!input)return;activeDateTarget=id;datePickerSelection=input.value||"";datePickerView=parseISODate(input.value)||new Date();datePickerView=new Date(datePickerView.getFullYear(),datePickerView.getMonth(),1);renderDatePicker();dateDialog.showModal();setDialogOpen(true);
+}
+document.querySelectorAll(".themed-date-trigger").forEach(btn=>btn.addEventListener("click",()=>openDatePicker(btn.dataset.dateTarget)));
+$("#datePickerPrev").onclick=()=>{datePickerView=new Date(datePickerView.getFullYear(),datePickerView.getMonth()-1,1);renderDatePicker();};
+$("#datePickerNext").onclick=()=>{datePickerView=new Date(datePickerView.getFullYear(),datePickerView.getMonth()+1,1);renderDatePicker();};
+$("#datePickerMonthBtn").onclick=()=>{datePickerView=new Date();renderDatePicker();};
+$("#datePickerCancel").onclick=()=>dateDialog.close();
+$("#datePickerClear").onclick=()=>{datePickerSelection="";renderDatePicker();};
+$("#datePickerOk").onclick=()=>{if(activeDateTarget){$("#"+activeDateTarget).value=datePickerSelection;syncDateTrigger(activeDateTarget);$("#"+activeDateTarget).dispatchEvent(new Event("change",{bubbles:true}));}dateDialog.close();};
+syncAllDateTriggers();
+
 
 function formatBytes(n){if(!n)return "";return n<1024?`${n} B`:n<1024*1024?`${Math.round(n/1024)} KB`:`${(n/1024/1024).toFixed(1)} MB`;}
 function updateCoverStorageInfo(){const el=$("#coverStorageInfo");if(el)el.textContent=workingCover?`Tiny cover · ${formatBytes(dataUrlBytes(workingCover))}`:"";}
@@ -649,15 +762,22 @@ function clearCover(){
 }
 function resetBookForm(){
   $("#bookForm").reset();$("#bookId").value="";selectedRating=0;clearCover();$("#deleteBookBtn").classList.add("hidden");$("#dialogTitle").textContent="Add a Book";$("#status").value="want";
-  $$(".rating-chip").forEach(x=>x.classList.remove("active"));renderGenreOptions("");updateStatusFields({auto:false});
+  $$(".rating-chip").forEach(x=>x.classList.remove("active"));renderGenreOptions("");updateStatusFields({auto:false});syncAllDateTriggers();
+}
+function updateReadingFormatFields(){
+  const audiobook=$("#format").value==="Audiobook";
+  $("#pageProgressFields")?.classList.toggle("hidden",audiobook);
+  $("#audioProgressFields")?.classList.toggle("hidden",!audiobook);
 }
 function updateStatusFields({auto=true}={}){
   const s=$("#status").value;$("#readingFields").classList.toggle("hidden",s!=="reading");$("#finishedFields").classList.toggle("hidden",s!=="finished");
+  updateReadingFormatFields();
   if(s==="reading"&&auto&&!$("#dateStarted").value)$("#dateStarted").value=todayISO();
   if(s==="finished"){
     if(!$("#finishDateStarted").value)$("#finishDateStarted").value=$("#dateStarted").value||todayISO();
     if(auto&&!$("#dateFinished").value)$("#dateFinished").value=todayISO();
   }
+  syncAllDateTriggers();
 }
 function openAdd(){
   resetBookForm();$("#bookDialog").showModal();setDialogOpen(true);
@@ -665,6 +785,7 @@ function openAdd(){
 $("#headerAddBook").onclick=openAdd;$("#floatingAddBook").onclick=openAdd;
 $("#closeBookDialog").onclick=()=>$("#bookDialog").close();$("#cancelBookBtn").onclick=()=>$("#bookDialog").close();
 
+$("#format").addEventListener("change",updateReadingFormatFields);
 $("#status").addEventListener("change",()=>{
   const id=$("#bookId").value,old=id?books.find(b=>b.id===id):null,s=$("#status").value;
   if(s==="reading"&&old?.status==="want"&&!$("#dateStarted").value)$("#dateStarted").value=todayISO();
@@ -679,10 +800,11 @@ window.editBook=id=>{
   const b=books.find(x=>x.id===id);if(!b)return;
   resetBookForm();$("#dialogTitle").textContent="Edit Book";$("#deleteBookBtn").classList.remove("hidden");$("#bookId").value=b.id;
   ["title","author","status","format","pages","currentPage","dateStarted","dateFinished","prediction","review","spoilers","favoriteCharacter","favoriteScene","favoriteQuote","predictionResult"].forEach(k=>{const el=$("#"+k);if(el)el.value=b[k]??"";});
+  setAudioFields("audioTotal",b.audioTotalSeconds);setAudioFields("audioCurrent",b.audioCurrentSeconds);
   $("#finishDateStarted").value=b.dateStarted||"";renderGenreOptions(b.genre||"");selectedRating=Number(b.rating)||0;$("#rating").value=selectedRating;
   $$(".rating-chip").forEach(x=>x.classList.toggle("active",Number(x.textContent)===selectedRating));$("#favoriteBook").checked=!!b.favoriteBook;
   workingCover=b.cover||"";if(workingCover){$("#coverPreview").src=workingCover;$("#coverPreviewWrap").classList.remove("hidden");$("#coverFileName").textContent="Saved cover";updateCoverStorageInfo();}
-  updateStatusFields({auto:false});$("#detailDialog").close();$("#bookDialog").showModal();setDialogOpen(true);
+  updateStatusFields({auto:false});syncAllDateTriggers();$("#detailDialog").close();$("#bookDialog").showModal();setDialogOpen(true);
 };
 
 $("#bookForm").addEventListener("submit",e=>{
@@ -692,6 +814,8 @@ $("#bookForm").addEventListener("submit",e=>{
   const b={
     ...(prev||{}),id,title:$("#title").value.trim(),author:$("#author").value.trim(),status,genre:$("#genre").value,format:$("#format").value,cover:workingCover,
     pages:Number($("#pages").value)||Number(prev?.pages)||0,currentPage:Number($("#currentPage").value)||0,
+    audioTotalSeconds:$("#format").value==="Audiobook"?audioFieldsToSeconds("audioTotal"):(Number(prev?.audioTotalSeconds)||0),
+    audioCurrentSeconds:$("#format").value==="Audiobook"?audioFieldsToSeconds("audioCurrent"):(Number(prev?.audioCurrentSeconds)||0),
     dateStarted:status==="finished"?$("#finishDateStarted").value:$("#dateStarted").value,dateFinished:$("#dateFinished").value,
     prediction:$("#prediction").value.trim(),rating:selectedRating,review:$("#review").value.trim(),spoilers:$("#spoilers").value.trim(),
     favoriteCharacter:$("#favoriteCharacter").value.trim(),favoriteScene:$("#favoriteScene").value.trim(),favoriteQuote:$("#favoriteQuote").value.trim(),
@@ -735,7 +859,7 @@ window.openBook=id=>{
   $("#detailContent").innerHTML=`<div class="${detailClass}">
     <div class="detail-top">${coverHTML(b)}<div><p class="eyebrow">${statusLabel(b.status)}</p><h2>${escapeHtml(b.title)}</h2><p class="muted">${escapeHtml(b.author||"Unknown author")}</p>
       <div class="pills"><span class="pill">${icon(genreIcon(b.genre))} ${escapeHtml(b.genre||"No genre")}</span><span class="pill">${icon(formatIcon())} ${escapeHtml(b.format||"No format")}</span>${b.status==="finished"?`<span class="pill">${stars(b.rating)}</span>`:""}</div>
-      ${b.status==="finished"&&b.pages?`<p class="meta">${b.pages} pages</p>`:""}
+      ${b.status==="finished"?(b.format==="Audiobook"&&b.audioTotalSeconds?`<p class="meta">${formatAudioTime(b.audioTotalSeconds)} audiobook</p>`:b.pages?`<p class="meta">${b.pages} pages</p>`:""):""}
     </div></div>
     ${extra}
     <div class="detail-actions">${actions}<button class="secondary" onclick="document.getElementById('detailDialog').close()">Close</button></div>
@@ -784,7 +908,7 @@ function renderFullBookDetail(b){
 
     ${b.spoilers?`<div class="detail-section"><h3>Story Memory</h3><button class="secondary compact" onclick="this.nextElementSibling.classList.toggle('hidden')">Reveal / Hide</button><p class="hidden">${escapeHtml(b.spoilers).replace(/\n/g,"<br>")}</p></div>`:""}
 
-    ${sessions.length?`<div class="detail-section"><h3>Reading Sessions</h3><div class="session-list">${sessions.map((s,i)=>`<div class="session-item">${escapeHtml(moodLabel(s.mood))} · Page ${s.startPage||0} → ${s.endPage||s.startPage||0} · ${s.minutes||0} min · ${s.date||""}</div>`).join("")}</div></div>`:""}
+    ${sessions.length?`<div class="detail-section"><h3>Reading Sessions</h3><div class="session-list">${sessions.map((s,i)=>`<div class="session-item">${escapeHtml(moodLabel(s.mood))} · ${b.format==="Audiobook"?`Time ${formatAudioTime(s.startTimeSeconds||0)} → ${formatAudioTime(s.endTimeSeconds||s.startTimeSeconds||0)}`:`Page ${s.startPage||0} → ${s.endPage||s.startPage||0}`} · ${s.minutes||0} min · ${s.date||""}</div>`).join("")}</div></div>`:""}
 
     ${b.favoriteBook?`<div class="detail-section"><span class="pill">${icon("heart")} Hall of Fame</span></div>`:""}
 
@@ -804,6 +928,15 @@ function renderFullBookDetail(b){
 
 $("#bookDetailBack").onclick=()=>routeTo("finished");
 
+function isAudiobookBook(b){return b?.format==="Audiobook";}
+function updateSessionFormatFields(b){
+  const audio=isAudiobookBook(b);
+  $("#sessionPageFields")?.classList.toggle("hidden",audio);
+  $("#sessionAudioFields")?.classList.toggle("hidden",!audio);
+}
+function sessionTimeFieldsToSeconds(prefix){return audioFieldsToSeconds(prefix);}
+function setSessionTimeFields(prefix,totalSeconds){setAudioFields(prefix,totalSeconds||0);}
+
 window.openSession=(id,index=-1,preferredDate="")=>{
   const b=books.find(x=>x.id===id);if(!b)return;
   const sessions=Array.isArray(b.sessions)?b.sessions:[];
@@ -815,9 +948,13 @@ window.openSession=(id,index=-1,preferredDate="")=>{
   $("#sessionBookId").value=id;
   $("#sessionIndex").value=String(index);
   $("#sessionDialogTitle").textContent=index>=0?"Edit Reading Session":"Add Reading Session";
-  $("#sessionDate").value=sessionDateValue(existing)||preferredDate||todayISO();
+  $("#sessionDate").value=sessionDateValue(existing)||preferredDate||todayISO();syncDateTrigger("sessionDate");
+  const audio=isAudiobookBook(b);
   $("#sessionStart").value=existing?.startPage ?? (fromCalendar?"":(b.currentPage ?? 0));
   $("#sessionEnd").value=existing?.endPage ?? "";
+  setSessionTimeFields("sessionStart",existing?.startTimeSeconds ?? (audio&&!fromCalendar?(b.audioCurrentSeconds||0):0));
+  setSessionTimeFields("sessionEnd",existing?.endTimeSeconds ?? 0);
+  updateSessionFormatFields(b);
   $("#sessionMinutes").value=existing?.minutes ?? "";
   $("#sessionMood").value=normalizeMoodValue(existing?.mood||"");
 
@@ -859,12 +996,12 @@ window.openSessionsManager=id=>{
 function renderSessionsManager(b){
   const sessions=Array.isArray(b.sessions)?b.sessions:[];
   $("#sessionsTitle").textContent=`Reading Sessions — ${b.title}`;
-  $("#sessionsSummary").innerHTML=`<strong>${sessions.length} ${sessions.length===1?"session":"sessions"}</strong><p class="meta">${sessionMinutes(b)} total minutes logged · Current page ${b.currentPage||0}</p>`;
+  $("#sessionsSummary").innerHTML=`<strong>${sessions.length} ${sessions.length===1?"session":"sessions"}</strong><p class="meta">${sessionMinutes(b)} total minutes logged · ${b.format==="Audiobook"?`Current time ${formatAudioTime(b.audioCurrentSeconds||0)}`:`Current page ${b.currentPage||0}`}</p>`;
   $("#sessionsManagerList").innerHTML=sessions.length?sessions.map((s,i)=>`
     <article class="session-manager-item">
       <div>
         <strong>Session ${i+1} · ${escapeHtml(moodLabel(s.mood))}</strong>
-        <div class="session-manager-meta">Page ${s.startPage||0} → ${s.endPage||s.startPage||0} · ${s.minutes||0} min · ${s.date||"No date"}</div>
+        <div class="session-manager-meta">${b.format==="Audiobook"?`Time ${formatAudioTime(s.startTimeSeconds||0)} → ${formatAudioTime(s.endTimeSeconds||s.startTimeSeconds||0)}`:`Page ${s.startPage||0} → ${s.endPage||s.startPage||0}`} · ${s.minutes||0} min · ${s.date||"No date"}</div>
       </div>
       <div class="session-manager-actions">
         <button type="button" class="secondary compact" onclick="editReadingSession('${b.id}',${i})">${icon("edit")} Edit</button>
@@ -879,9 +1016,13 @@ window.deleteReadingSession=(id,index)=>{
   const b=books.find(x=>x.id===id);if(!b||!Array.isArray(b.sessions)||!b.sessions[index])return;
   if(!confirm("Delete this reading session?"))return;
   b.sessions.splice(index,1);
-  // Recalculate current page from the most recent session with an end/start page.
-  const positions=b.sessions.map(s=>Number(s.endPage)||Number(s.startPage)||0).filter(Boolean);
-  if(positions.length)b.currentPage=positions[positions.length-1];
+  if(b.format==="Audiobook"){
+    const positions=b.sessions.map(s=>Number(s.endTimeSeconds)||Number(s.startTimeSeconds)||0).filter(Boolean);
+    if(positions.length)b.audioCurrentSeconds=positions[positions.length-1];
+  }else{
+    const positions=b.sessions.map(s=>Number(s.endPage)||Number(s.startPage)||0).filter(Boolean);
+    if(positions.length)b.currentPage=positions[positions.length-1];
+  }
   saveBooks();
   renderSessionsManager(b);
 };
@@ -904,31 +1045,44 @@ $("#calendarSessionBook").addEventListener("change",e=>{
   $("#sessionBookId").value=b.id;
   $("#sessionStart").value="";
   $("#sessionEnd").value="";
+  setSessionTimeFields("sessionStart",0);
+  setSessionTimeFields("sessionEnd",0);
+  updateSessionFormatFields(b);
 });
 
 $("#sessionForm").addEventListener("submit",e=>{
   e.preventDefault();
   const id=$("#sessionBookId").value,b=books.find(x=>x.id===id);if(!b)return;
   const index=Number($("#sessionIndex").value);
-  const startPage=Number($("#sessionStart").value)||0;
-  const endPage=Number($("#sessionEnd").value)||0;
+  const audio=isAudiobookBook(b);
+  const startPage=audio?0:(Number($("#sessionStart").value)||0);
+  const endPage=audio?0:(Number($("#sessionEnd").value)||0);
+  const startTimeSeconds=audio?sessionTimeFieldsToSeconds("sessionStart"):0;
+  const endTimeSeconds=audio?sessionTimeFieldsToSeconds("sessionEnd"):0;
   const minutes=Number($("#sessionMinutes").value)||0;
   const mood=$("#sessionMood").value;
   const date=$("#sessionDate").value||todayISO();
 
-  if(endPage && endPage<startPage)return alert("End page should be greater than or equal to start page.");
-  if(!startPage&&!endPage&&!minutes)return alert("Add a page or reading minutes.");
+  if(!audio&&endPage && endPage<startPage)return alert("End page should be greater than or equal to start page.");
+  if(audio&&endTimeSeconds && endTimeSeconds<startTimeSeconds)return alert("End time should be greater than or equal to start time.");
+  if(audio&&!startTimeSeconds&&!endTimeSeconds&&!minutes)return alert("Add a listening time or session minutes.");
+  if(!audio&&!startPage&&!endPage&&!minutes)return alert("Add a page or reading minutes.");
 
   b.sessions=Array.isArray(b.sessions)?b.sessions:[];
   const previous=index>=0&&b.sessions[index]?b.sessions[index]:{};
-  const session={...previous,startPage,endPage,minutes,mood,date};
+  const session={...previous,startPage,endPage,startTimeSeconds,endTimeSeconds,minutes,mood,date};
 
   if(index>=0 && b.sessions[index]) b.sessions[index]=session;
   else b.sessions.push(session);
 
   // If only a start page is entered, treat it as the current known position.
-  const position=endPage||startPage;
-  if(position)b.currentPage=position;
+  if(audio){
+    const position=endTimeSeconds||startTimeSeconds;
+    if(position)b.audioCurrentSeconds=position;
+  }else{
+    const position=endPage||startPage;
+    if(position)b.currentPage=position;
+  }
 
   const returnToCalendar=sessionOpenedFromCalendar;
   const selected=date||sessionReturnCalendarDate||calendarSelectedDate;
@@ -1382,6 +1536,8 @@ initializeReadingRoom().catch(e=>{
   renderGenreOptions();renderAll();applyDecorations();renderSyncStatus();
   routeTo(initialRoute,{replace:true});
 });
+let shelfResizeTimer=null;
+window.addEventListener("resize",()=>{clearTimeout(shelfResizeTimer);shelfResizeTimer=setTimeout(queueShelfRowLayout,90);});
 window.addEventListener("focus",()=>{if(signedIn())cloudSync();});
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&signedIn())cloudSync();});
 window.addEventListener("online",()=>{if(signedIn())cloudSync();});

@@ -623,19 +623,37 @@
 
       <section id="readingFields" class="form-card hidden">
         <h3>Reading Details</h3>
-        <div class="form-grid two">
+        <div id="pageProgressFields" class="form-grid two">
           <label>Pages<input id="pages" type="number" min="0"></label>
           <label>Current page<input id="currentPage" type="number" min="0"></label>
         </div>
-        <label>Date started<input id="dateStarted" type="date"></label>
+        <div id="audioProgressFields" class="audio-progress-fields hidden">
+          <div class="audio-time-block">
+            <span class="audio-time-label">Total time</span>
+            <div class="audio-time-grid">
+              <label>Hr<select id="audioTotalHours" class="time-select" aria-label="Total time hours"></select></label>
+              <label>Min<select id="audioTotalMinutes" class="time-select" aria-label="Total time minutes"></select></label>
+              <label>Sec<select id="audioTotalSeconds" class="time-select" aria-label="Total time seconds"></select></label>
+            </div>
+          </div>
+          <div class="audio-time-block">
+            <span class="audio-time-label">Current time</span>
+            <div class="audio-time-grid">
+              <label>Hr<select id="audioCurrentHours" class="time-select" aria-label="Current time hours"></select></label>
+              <label>Min<select id="audioCurrentMinutes" class="time-select" aria-label="Current time minutes"></select></label>
+              <label>Sec<select id="audioCurrentSeconds" class="time-select" aria-label="Current time seconds"></select></label>
+            </div>
+          </div>
+        </div>
+        <label>Date started<input id="dateStarted" class="themed-date-value" type="hidden"><button type="button" class="themed-date-trigger" data-date-target="dateStarted" aria-label="Choose date started"><span class="themed-date-text">Select date</span><span class="themed-date-icon" aria-hidden="true">▾</span></button></label>
         <label><svg class="ui-icon" aria-hidden="true"><use href="#i-note"></use></svg> My prediction / theory<textarea id="prediction" rows="3" placeholder="What do you think will happen?"></textarea></label>
       </section>
 
       <section id="finishedFields" class="form-card hidden">
         <h3><svg class="ui-icon" aria-hidden="true"><use href="#i-finished"></use></svg> Finish the Journal</h3>
         <div class="form-grid two">
-          <label>Date started<input id="finishDateStarted" type="date"></label>
-          <label>Date finished<input id="dateFinished" type="date"></label>
+          <label>Date started<input id="finishDateStarted" class="themed-date-value" type="hidden"><button type="button" class="themed-date-trigger" data-date-target="finishDateStarted" aria-label="Choose date started"><span class="themed-date-text">Select date</span><span class="themed-date-icon" aria-hidden="true">▾</span></button></label>
+          <label>Date finished<input id="dateFinished" class="themed-date-value" type="hidden"><button type="button" class="themed-date-trigger" data-date-target="dateFinished" aria-label="Choose date finished"><span class="themed-date-text">Select date</span><span class="themed-date-icon" aria-hidden="true">▾</span></button></label>
         </div>
         <label>Overall rating
           <div id="ratingPicker" class="rating-picker"></div>
@@ -704,12 +722,30 @@
         </label>
       </div>
       <div class="form-grid two">
-        <label>Session date<input id="sessionDate" type="date"></label>
+        <label>Session date<input id="sessionDate" class="themed-date-value" type="hidden"><button type="button" class="themed-date-trigger" data-date-target="sessionDate" aria-label="Choose session date"><span class="themed-date-text">Select date</span><span class="themed-date-icon" aria-hidden="true">▾</span></button></label>
         <label>Minutes<input id="sessionMinutes" type="number" min="0"></label>
       </div>
-      <div class="form-grid two">
+      <div id="sessionPageFields" class="form-grid two">
         <label>Start page<input id="sessionStart" type="number" min="0"></label>
         <label>End page<input id="sessionEnd" type="number" min="0"></label>
+      </div>
+      <div id="sessionAudioFields" class="session-audio-fields hidden">
+        <div class="audio-time-block">
+          <span class="audio-time-label">Start time</span>
+          <div class="audio-time-grid compact-time-grid">
+            <label>Hr<select id="sessionStartHours" class="time-select" aria-label="Session start hours"></select></label>
+            <label>Min<select id="sessionStartMinutes" class="time-select" aria-label="Session start minutes"></select></label>
+            <label>Sec<select id="sessionStartSeconds" class="time-select" aria-label="Session start seconds"></select></label>
+          </div>
+        </div>
+        <div class="audio-time-block">
+          <span class="audio-time-label">End time</span>
+          <div class="audio-time-grid compact-time-grid">
+            <label>Hr<select id="sessionEndHours" class="time-select" aria-label="Session end hours"></select></label>
+            <label>Min<select id="sessionEndMinutes" class="time-select" aria-label="Session end minutes"></select></label>
+            <label>Sec<select id="sessionEndSeconds" class="time-select" aria-label="Session end seconds"></select></label>
+          </div>
+        </div>
       </div>
       <div class="form-grid one">
         <label>Mood
@@ -791,6 +827,32 @@
         <button type="button" id="resetDecorBtn" class="secondary">Reset Style</button>
         <span class="spacer"></span>
         <button type="button" id="doneDecorBtn" class="primary">Done</button>
+      </div>
+    </section>
+  </dialog>
+
+  <!-- THEMED DATE PICKER -->
+  <dialog id="datePickerDialog" class="date-picker-dialog" aria-labelledby="datePickerTitle">
+    <section class="date-picker-card">
+      <div class="date-picker-hero">
+        <p class="eyebrow">Select date</p>
+        <div class="date-picker-selected-row"><strong id="datePickerTitle">Choose a date</strong><span aria-hidden="true">✎</span></div>
+      </div>
+      <div class="date-picker-body">
+        <div class="date-picker-nav">
+          <button type="button" id="datePickerMonthBtn" class="date-picker-month"></button>
+          <span class="spacer"></span>
+          <button type="button" id="datePickerPrev" class="date-picker-arrow" aria-label="Previous month">‹</button>
+          <button type="button" id="datePickerNext" class="date-picker-arrow" aria-label="Next month">›</button>
+        </div>
+        <div class="date-picker-weekdays" aria-hidden="true"><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div>
+        <div id="datePickerGrid" class="date-picker-grid"></div>
+        <div class="date-picker-actions">
+          <button type="button" id="datePickerClear" class="text-btn">Clear</button>
+          <span class="spacer"></span>
+          <button type="button" id="datePickerCancel" class="text-btn">Cancel</button>
+          <button type="button" id="datePickerOk" class="text-btn">OK</button>
+        </div>
       </div>
     </section>
   </dialog>

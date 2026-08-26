@@ -7,7 +7,8 @@
 ## Final release line
 
 - Release family: **V7 — Firebase Lifetime Release**
-- Documentation/ownership package: **V7.0.4**
+- Current release: **V7.0.11 — Final UI & Audiobook Polish**
+- Documentation/ownership package: **V7.0.11**
 - Front end: HTML, CSS, vanilla JavaScript
 - Hosting target: static hosting such as GitHub Pages
 - Cloud backend: Firebase Authentication + Cloud Firestore
@@ -25,7 +26,7 @@
 
 ## Important features
 
-Books can store status, author, genre, format, cover, dates, progress, sessions, predictions, journal thoughts, rating, favourite character/scene/quote, story memories and Hall of Fame/favourite-book data. The app also includes custom genres, shelf themes, yearly reading goals, monthly challenges, achievements, random TBR selection, advanced search, JSON backup/import and a human-readable Reading Journal export.
+Books can store status, author, genre, format, cover, dates, format-aware progress (pages for standard books, HH:MM:SS time for audiobooks), sessions, predictions, journal thoughts, rating, favourite character/scene/quote, story memories and Hall of Fame/favourite-book data. The app also includes custom genres, shelf themes, yearly reading goals, monthly challenges, achievements, random TBR selection, advanced search, JSON backup/import and a human-readable Reading Journal export.
 
 ## Product principles
 

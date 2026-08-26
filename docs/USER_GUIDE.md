@@ -14,11 +14,13 @@ Use TBR for books you plan to read. Search and genre filtering operate on the sa
 
 ## Currently Reading
 
-A Reading book can track current page/total pages and Reading Sessions. A session stores its date, minutes, start page, end page and mood. Sessions can be added, edited or deleted from the book and from the monthly Reading Calendar.
+A Reading book tracks progress according to its format. Standard books use **current page / total pages**. Audiobooks use **current time / total time** in hours, minutes and seconds.
+
+Reading Sessions follow the same rule: standard books store **start page / end page**, while audiobooks use **start time / end time**. Sessions also store date, minutes and mood, and can be added, edited or deleted from the book and from the monthly Reading Calendar.
 
 ## Finished books and journal
 
-Finished books support rating, finished date, thoughts, favourite character, favourite scene, favourite quote, prediction result, story memory and Hall of Fame/favourite-book status. The Finished page keeps concise shelf cards while the full journal remains available through the detailed view.
+Finished books support rating, finished date, thoughts, favourite character, favourite scene, favourite quote, prediction result, story memory and Hall of Fame/favourite-book status. The Finished page keeps concise shelf cards while the full journal remains available through the detailed view. On phone-sized screens, Finished shelf rows scroll horizontally so all books remain reachable.
 
 ## Stats and calendar
 

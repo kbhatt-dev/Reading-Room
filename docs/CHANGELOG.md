@@ -1,5 +1,17 @@
 # My Reading Room — Changelog
 
+## V7.0.11 — Final UI & Audiobook Polish (2026-08-26)
+
+- Audiobook Reading Details now tracks total/current **time (HH:MM:SS)** instead of pages.
+- Audiobook Reading Sessions use **Start time / End time** and session history shows time ranges; standard books continue to use pages.
+- Added compact hour/minute/second selectors sized for the existing Reading Room forms.
+- Added a themed calendar/date picker using the existing cream/brown Reading Room palette.
+- Fixed mobile Finished-page shelf rows so book listings scroll horizontally instead of being clipped.
+- Fixed desktop wrapped shelves so each physical row renders one wooden shelf and one continuous leafy fairy-light string only.
+- Fixed first-open TBR/Finished shelf rendering: row measurements now run after the page becomes visible, so shelves and fairy lights no longer require a refresh to appear.
+- Preserved all existing Firebase, offline, backup, PWA, cover, journal, stats and UI behavior.
+
+
 ## V7.0.4 — Adaptive Cover Quality
 
 - Replaced aggressive quality-first compression with display-oriented resizing plus highest-quality-under-cap selection.

@@ -1,8 +1,10 @@
-# My Reading Room V7.0.10 — Firebase Lifetime Release
+# My Reading Room V7.0.11 — Final Reading Room Release
 
 > Copyright © 2026 Krishna Bhatt. All rights reserved.
 
 My Reading Room is a cozy, local-first personal reading journal and PWA for desktop and iPhone. V7 uses Firebase Authentication + Cloud Firestore for cross-device sync while preserving local/offline operation, JSON backup/import, Reading Journal export and the existing Reading Room UI.
+
+**Current release: V7.0.11** — consolidates the final August 26, 2026 audiobook, date/time control, mobile shelf scrolling, and fairy-light shelf fixes without changing the established Reading Room design.
 
 ## Final architecture
 
@@ -38,6 +40,7 @@ Copy only the Firebase **Web App** configuration into `firebase-config.js`. Neve
 | [`docs/MAINTENANCE_LIFETIME.md`](docs/MAINTENANCE_LIFETIME.md) | Long-term maintenance/archive plan |
 | [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) | Common problems and recovery |
 | [`docs/CHANGELOG.md`](docs/CHANGELOG.md) | Release history |
+| [`docs/V7.0.11_RELEASE_NOTES.md`](docs/V7.0.11_RELEASE_NOTES.md) | Final V7.0.11 update summary |
 | [`docs/PROJECT_HANDOFF.md`](docs/PROJECT_HANDOFF.md) | Rules for future maintenance |
 | [`docs/COPYRIGHT.md`](docs/COPYRIGHT.md) | Ownership notice |
 
@@ -59,6 +62,18 @@ Then open `http://localhost:8000`.
 ## Release rule
 
 Future changes should be incremental. Preserve working features, meaningful reading data, Firebase/local behavior, PWA support and mobile usability. Export a JSON backup before destructive data-model/backend changes.
+
+## V7.0.11 — Final UI & Audiobook Polish
+
+- **Audiobook progress:** Reading Details uses **Total time / Current time** instead of page counts when a book format is Audiobook. Time is stored/displayed as **hours, minutes and seconds**.
+- **Audiobook sessions:** Add/Edit Reading Session automatically uses **Start time / End time** for audiobooks while non-audiobooks keep **Start page / End page**. Session history also displays audiobook time ranges rather than page ranges.
+- **Compact time controls:** Hour/minute/second selectors were resized to fit the existing modal layout and Reading Room visual scale.
+- **Themed date picker:** Reading-related dates use a custom calendar UI styled with the app's existing cream/brown palette instead of a mismatched browser/system picker.
+- **Finished mobile shelves:** Finished-page shelf rows horizontally scroll on phone like the other mobile shelves, preventing book cards from being cut off.
+- **Desktop shelf lights:** Each physical shelf row now renders exactly **one continuous leafy fairy-light thread** and one wooden board, preventing repeated/stacked vines behind books.
+- **Shelf continuity:** Fairy lights remain continuous across a physical shelf row rather than being broken into per-book segments.
+- **First-open TBR shelf fix:** Shelf boards and fairy lights are re-measured after the TBR/Finished page becomes visible, so they appear correctly on the first visit without requiring a browser refresh.
+- Existing Firebase sync, local/offline storage, cover compression, PWA behavior, stats, journal data, backup/import, and established UI remain unchanged.
 
 ## Historical notes
 
@@ -100,3 +115,4 @@ Improves large phone/Pinterest cover imports by preserving aspect ratio, resizin
 - Uses a 9.5 KB working target for safety headroom and preserves aspect ratio.
 - Existing Firebase/Firestore per-book sync architecture is unchanged: one book document per book, so covers are not duplicated into a whole-library snapshot.
 - Storage usage reporting remains available in Sync/Data Management.
+

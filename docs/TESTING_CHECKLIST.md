@@ -30,7 +30,12 @@
 - [ ] Add Reading Session with a backdated date.
 - [ ] Edit date/minutes/pages/mood.
 - [ ] Delete session.
-- [ ] Reading progress updates correctly.
+- [ ] Standard-book page progress updates correctly.
+- [ ] Audiobook Reading Details switches to Total time / Current time (Hr/Min/Sec).
+- [ ] Audiobook session form switches Start page / End page to Start time / End time.
+- [ ] Audiobook session history displays time ranges rather than page ranges.
+- [ ] Time selectors remain compact and usable on desktop and phone.
+- [ ] The themed date picker opens, selects a date, and matches the current UI palette.
 - [ ] Predictions/theories persist.
 
 ## Calendar and Stats
@@ -79,7 +84,16 @@
 - [ ] Buttons/touch targets are comfortably tappable.
 - [ ] Focus states are visible with keyboard navigation.
 - [ ] Text wraps without horizontal overflow.
+- [ ] Finished-page book shelves scroll horizontally on phone and no cards are clipped.
+- [ ] Each desktop physical shelf row shows one continuous fairy-light thread only (no stacked/duplicate vines).
 
 ---
 
 Copyright © 2026 Krishna Bhatt. All rights reserved.
+
+## V7.0.11 first-open shelf regression
+
+- [ ] Start on Room (or another route), then open TBR for the first time without refreshing; every populated physical row shows its wooden board and exactly one fairy-light thread.
+- [ ] Open Finished for the first time without refreshing; shelf decorations render immediately.
+- [ ] Resize the desktop window and confirm wrapped shelf rows re-measure correctly.
+- [ ] Confirm phone horizontal shelf scrolling is unchanged.
