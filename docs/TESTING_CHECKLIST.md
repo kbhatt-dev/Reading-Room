@@ -97,3 +97,9 @@ Copyright © 2026 Krishna Bhatt. All rights reserved.
 - [ ] Open Finished for the first time without refreshing; shelf decorations render immediately.
 - [ ] Resize the desktop window and confirm wrapped shelf rows re-measure correctly.
 - [ ] Confirm phone horizontal shelf scrolling is unchanged.
+
+### Mobile Finished shelf containment
+- [ ] On iPhone-width screens, open Finished with more books than fit in one row.
+- [ ] Swipe left/right directly on the year shelf and confirm only the books/shelf content moves.
+- [ ] Confirm the page header, filters, Add Book button, and bottom navigation do not move sideways.
+- [ ] Confirm no visible horizontal scrollbar appears under the Finished shelf.

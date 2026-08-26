@@ -59,3 +59,8 @@ Copyright © 2026 Krishna Bhatt. All rights reserved.
 - Added a visible app footer: © 2026 Krishna Bhatt. All rights reserved.
 - Preserved existing source-code and documentation copyright notices.
 - No database, Firebase sync, cover-compression, or feature behavior changed.
+
+### V7.0.11 mobile Finished shelf containment hotfix
+- Fixed iPhone/iOS Safari behavior where a Finished year shelf could widen the whole page and make the entire screen scroll horizontally.
+- Horizontal swiping is now contained inside each Finished shelf row, matching the Room/TBR shelf behavior.
+- Native shelf scrollbars remain hidden while touch scrolling stays enabled.

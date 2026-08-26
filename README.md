@@ -116,3 +116,6 @@ Improves large phone/Pinterest cover imports by preserving aspect ratio, resizin
 - Existing Firebase/Firestore per-book sync architecture is unchanged: one book document per book, so covers are not duplicated into a whole-library snapshot.
 - Storage usage reporting remains available in Sync/Data Management.
 
+
+### V7.0.11 mobile shelf hotfix
+Finished year shelves on iPhone/iOS Safari are constrained to the viewport so horizontal swiping stays inside the bookshelf instead of moving the entire page. Shelf scrollbars are hidden to preserve the clean Reading Room UI.

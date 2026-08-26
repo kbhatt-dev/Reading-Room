@@ -1053,3 +1053,52 @@ body.customizing-shelf .year-block .full-bookcase::after{
   .large-shelf-grid .shelf-card:not(.shelf-row-start)::before,
   .large-shelf-grid .shelf-card:not(.shelf-row-start)::after{content:none!important}
 }
+
+/* V7.0.11 mobile hotfix — keep Finished shelf scrolling inside the shelf.
+   Prevent a wide year shelf from expanding the page/viewport on iOS Safari. */
+@media(max-width:700px){
+  #page-finished,
+  #finishedYearShelves,
+  .year-shelves,
+  .year-block,
+  .year-block .full-bookcase{
+    width:100%;
+    max-width:100%;
+    min-width:0;
+    box-sizing:border-box;
+  }
+  #page-finished,
+  #finishedYearShelves,
+  .year-shelves,
+  .year-block,
+  .year-block .full-bookcase{
+    overflow-x:hidden;
+  }
+  .year-block .full-bookcase{
+    contain:inline-size;
+  }
+  .year-block .large-shelf-grid{
+    display:flex;
+    flex-wrap:nowrap;
+    width:100%;
+    max-width:100%;
+    min-width:0;
+    box-sizing:border-box;
+    overflow-x:auto;
+    overflow-y:hidden;
+    -webkit-overflow-scrolling:touch;
+    touch-action:pan-x;
+    overscroll-behavior-x:contain;
+    scrollbar-width:none;
+  }
+  .year-block .large-shelf-grid::-webkit-scrollbar{
+    width:0;
+    height:0;
+    display:none;
+  }
+  .year-block .large-shelf-grid > .shelf-card{
+    flex:0 0 82px;
+    width:82px;
+    min-width:82px;
+  }
+}
