@@ -1,10 +1,10 @@
-# My Reading Room V7.0.11 — Final Reading Room Release
+# My Reading Room V7.0.12 — Hybrid Sync Reliability Release
 
 > Copyright © 2026 Krishna Bhatt. All rights reserved.
 
-My Reading Room is a cozy, local-first personal reading journal and PWA for desktop and iPhone. V7 uses Firebase Authentication + Cloud Firestore for cross-device sync while preserving local/offline operation, JSON backup/import, Reading Journal export and the existing Reading Room UI.
+My Reading Room is a cozy, local-first personal reading journal and PWA for desktop and iPhone. V7 uses Firebase Authentication + Cloud Firestore hybrid cross-device sync while preserving local/offline operation, JSON backup/import, Reading Journal export and the existing Reading Room UI.
 
-**Current release: V7.0.11** — consolidates the final August 26, 2026 audiobook, date/time control, mobile shelf scrolling, and fairy-light shelf fixes without changing the established Reading Room design.
+**Current release: V7.0.12** — replaces the one-minute full-library polling loop with low-read hybrid synchronization without changing the established Reading Room design or reading features.
 
 ## Final architecture
 
@@ -40,7 +40,8 @@ Copy only the Firebase **Web App** configuration into `firebase-config.js`. Neve
 | [`docs/MAINTENANCE_LIFETIME.md`](docs/MAINTENANCE_LIFETIME.md) | Long-term maintenance/archive plan |
 | [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) | Common problems and recovery |
 | [`docs/CHANGELOG.md`](docs/CHANGELOG.md) | Release history |
-| [`docs/V7.0.11_RELEASE_NOTES.md`](docs/V7.0.11_RELEASE_NOTES.md) | Final V7.0.11 update summary |
+| [`docs/V7.0.12_RELEASE_NOTES.md`](docs/V7.0.12_RELEASE_NOTES.md) | V7.0.12 hybrid sync reliability summary |
+| [`docs/V7.0.11_RELEASE_NOTES.md`](docs/V7.0.11_RELEASE_NOTES.md) | V7.0.11 UI and audiobook summary |
 | [`docs/PROJECT_HANDOFF.md`](docs/PROJECT_HANDOFF.md) | Rules for future maintenance |
 | [`docs/COPYRIGHT.md`](docs/COPYRIGHT.md) | Ownership notice |
 
@@ -62,6 +63,15 @@ Then open `http://localhost:8000`.
 ## Release rule
 
 Future changes should be incremental. Preserve working features, meaningful reading data, Firebase/local behavior, PWA support and mobile usability. Export a JSON backup before destructive data-model/backend changes.
+
+## V7.0.12 — Low-read Hybrid Sync
+
+- Local book, session, cover, goal, genre and theme changes are still sent automatically after a short debounce.
+- Automatic saves check only the changed book/deletion document or settings document before writing, preserving timestamp conflict handling without re-reading the whole library.
+- Full two-way reconciliation runs once when the app opens while signed in, after sign-in, after a bulk backup restore, or when **Sync Now** is selected.
+- Removed the previous 60-second full-library poll and duplicate focus/visibility sync triggers that could exhaust Firestore's daily read quota.
+- Offline edits stay marked as pending and retry automatically when the connection returns.
+- The application UI and all existing Reading Room features remain unchanged.
 
 ## V7.0.11 — Final UI & Audiobook Polish
 

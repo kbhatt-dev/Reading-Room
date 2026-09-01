@@ -1,5 +1,15 @@
 # My Reading Room — Changelog
 
+## V7.0.12 — Low-read Hybrid Sync (2026-09-01)
+
+- Removed the 60-second full-library Firestore polling loop and duplicate focus/visibility reconciliation calls.
+- Local edits now debounce and push only changed book/deletion/settings records.
+- Changed-record pushes read only the affected cloud documents before writing, preserving timestamp conflict protection with bounded read usage.
+- Full two-way reconciliation now occurs on signed-in startup, sign-in, bulk restore and **Sync Now**.
+- Pending offline changes retry when the browser reconnects.
+- Hardened synchronization so edits made while a network request is in flight retain their newer dirty timestamps.
+- Preserved the complete V7.0.11 UI and reading feature set.
+
 ## V7.0.11 — Final UI & Audiobook Polish (2026-08-26)
 
 - Audiobook Reading Details now tracks total/current **time (HH:MM:SS)** instead of pages.

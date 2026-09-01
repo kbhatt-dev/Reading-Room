@@ -16,7 +16,7 @@ Browser / PWA
 
 ## Local-first behavior
 
-The browser remains the immediate working copy. UI actions save meaningful Reading Room state locally first so the app remains useful without an active network connection. Cloud synchronization reconciles persistent data when Firebase is configured and a user is signed in.
+The browser remains the immediate working copy. UI actions save meaningful Reading Room state locally first so the app remains useful without an active network connection. A debounced hybrid sync pushes only locally changed records. Full two-way cloud reconciliation is limited to signed-in startup, sign-in, bulk restore and manual **Sync Now**.
 
 ## Cloud organization
 
@@ -32,7 +32,7 @@ A book document contains the book's own meaningful fields, including embedded Re
 
 ## Cross-device safety
 
-The sync layer maintains per-book baselines/timestamps in local browser storage. Deletion markers prevent a clean device with an older local copy from resurrecting a book that was deleted on another device.
+The sync layer maintains per-book baselines/timestamps in local browser storage. Deletion markers prevent a clean device with an older local copy from resurrecting a book that was deleted on another device. Targeted pushes compare the changed cloud record's timestamp before writing, and newer local edits are preserved if they occur while an earlier network request is still running.
 
 ## What is intentionally not cloud data
 

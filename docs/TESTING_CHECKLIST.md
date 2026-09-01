@@ -62,12 +62,17 @@
 - [ ] Session changes sync both directions.
 - [ ] Cover changes sync both directions.
 - [ ] Goals/themes sync both directions.
+- [ ] Local edits upload automatically after the short debounce.
+- [ ] Another device receives changes after app startup or **Sync Now**.
+- [ ] Leaving an unchanged app open for several minutes performs no repeating full-library Firestore reads.
+- [ ] Repeated focus/visibility changes do not trigger full reconciliation.
 
 ## Offline
 
 - [ ] App opens with network unavailable after prior use.
 - [ ] Local edit works offline.
 - [ ] Reconnect and sync delivers the change.
+- [ ] A pending offline edit automatically retries when connectivity returns.
 
 ## Backup/data safety
 

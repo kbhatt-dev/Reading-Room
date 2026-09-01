@@ -7,6 +7,13 @@
 - Confirm the book/document exists in Firestore under the same UID.
 - Avoid making conflicting offline edits on both devices until the baseline is restored.
 
+## Firestore reads are unusually high
+
+- Confirm the deployed app is V7.0.12 or newer.
+- V7.0.12 does not run a one-minute full-library polling loop and does not sync merely because the tab receives focus.
+- Routine edits should access only the affected book/deletion/settings records; **Sync Now** intentionally performs a full two-way reconciliation.
+- Fully close older installed PWA/browser tabs after deploying V7.0.12 so an earlier build cannot continue polling.
+
 ## Login fails
 
 - Confirm Email/Password is enabled in Firebase Authentication.

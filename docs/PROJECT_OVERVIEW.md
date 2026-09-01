@@ -7,8 +7,8 @@
 ## Final release line
 
 - Release family: **V7 — Firebase Lifetime Release**
-- Current release: **V7.0.11 — Final UI & Audiobook Polish**
-- Documentation/ownership package: **V7.0.11**
+- Current release: **V7.0.12 — Hybrid Sync Reliability**
+- Documentation/ownership package: **V7.0.12**
 - Front end: HTML, CSS, vanilla JavaScript
 - Hosting target: static hosting such as GitHub Pages
 - Cloud backend: Firebase Authentication + Cloud Firestore

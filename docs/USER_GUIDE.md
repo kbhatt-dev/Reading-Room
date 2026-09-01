@@ -36,7 +36,7 @@ Yearly Reading Goals and monthly challenges are persistent reading data and sync
 
 ## Sync
 
-The Sync page shows whether cloud sync is active and which Firebase account is signed in. Use **Sync Now** when you want an immediate reconciliation. Normal app changes also mark meaningful persistent data for cloud synchronization.
+The Sync page shows whether cloud sync is active and which Firebase account is signed in. Local changes upload automatically using low-read targeted synchronization. To retrieve a change made on another device, open/reopen this app or select **Sync Now** for immediate two-way reconciliation.
 
 ## Backups
 

@@ -2,7 +2,7 @@
  * My Reading Room
  * Copyright © 2026 Krishna Bhatt. All rights reserved.
  */
-const APP_VERSION="7.0.11";
+const APP_VERSION="7.0.12";
 const icon=n=>`<svg class="ui-icon" aria-hidden="true"><use href="#i-${n}"></use></svg>`;
 const BOOK_KEY="readingRoomBooksV1";
 const GENRE_KEY="readingRoomGenresV1";
@@ -80,7 +80,7 @@ function saveYearlyGoal(year,target){
   if(!value)return false;
   goalSettings.yearly[String(year)]=value;
   localStorage.setItem(GOAL_KEY,JSON.stringify(goalSettings));
-  markSettingsChanged();renderAll();cloudSync();return true;
+  markSettingsChanged();renderAll();scheduleCloudPush();return true;
 }
 
 function readingSessionMinutes(s){
@@ -288,10 +288,10 @@ function markBookChanges(previous,current,{onlyExisting=false}={}){
 function markSettingsChanged(){localStorage.setItem(FB_SETTINGS_TIME_KEY,String(Date.now()));markChanged();}
 function saveBooks({sync=true}={}){
   let previous=[];try{previous=JSON.parse(localStorage.getItem(BOOK_KEY)||"[]")}catch{}
-  markBookChanges(previous,books);localStorage.setItem(BOOK_KEY,JSON.stringify(books));markChanged();renderAll();if(sync)cloudSync();
+  markBookChanges(previous,books);localStorage.setItem(BOOK_KEY,JSON.stringify(books));markChanged();renderAll();if(sync)scheduleCloudPush();
 }
 function saveGenres({sync=true}={}){
-  localStorage.setItem(GENRE_KEY,JSON.stringify(genres));markSettingsChanged();renderGenreOptions();renderAll();if(sync)cloudSync();
+  localStorage.setItem(GENRE_KEY,JSON.stringify(genres));markSettingsChanged();renderGenreOptions();renderAll();if(sync)scheduleCloudPush();
 }
 
 function routeTo(route,{replace=false}={}){
@@ -404,7 +404,7 @@ function saveDecorSettings({sync=true}={}){
   localStorage.setItem(DECOR_KEY,JSON.stringify(decorSettings));
   markSettingsChanged();
   applyDecorations();
-  if(sync)cloudSync();
+  if(sync)scheduleCloudPush();
 }
 
 
@@ -1198,10 +1198,11 @@ $("#resetDecorBtn").onclick=()=>{
   saveDecorSettings();
 };
 
-/* FIREBASE AUTH + FIRESTORE AUTO SYNC — V7.0.1
+/* FIREBASE AUTH + FIRESTORE HYBRID SYNC — V7.0.12
    Uses Firebase REST endpoints so the PWA keeps a small local app shell and does not
    depend on a third-party JavaScript SDK. Only the public Web API key + Project ID
-   are stored on-device. Firestore Security Rules must restrict users/{uid}/** to uid. */
+   are stored on-device. Local edits push only changed records; full cloud reads happen
+   on app startup, sign-in, and Sync Now. Firestore Rules must restrict users/{uid}/** to uid. */
 function configured(){return !!(syncSettings.apiKey&&syncSettings.projectId);}
 function signedIn(){return !!(syncSession?.idToken&&syncSession?.localId);}
 function firebaseAuthUrl(path){return `https://identitytoolkit.googleapis.com/v1/${path}?key=${encodeURIComponent(syncSettings.apiKey)}`;}
@@ -1362,6 +1363,19 @@ function docIdFromName(name=""){return decodeURIComponent(name.split("/").pop()|
 function settingsPayload(){return {genres,decorSettings,goalSettings,storageVersion:4};}
 function readJsonMap(key){try{return JSON.parse(localStorage.getItem(key)||"{}")}catch{return {}}}
 function writeJsonMap(key,value){localStorage.setItem(key,JSON.stringify(value));}
+function cloneSyncValue(value){return JSON.parse(JSON.stringify(value));}
+function sameSyncTime(a,b){return Number(a?.updatedAtMs||0)===Number(b?.updatedAtMs||0)&&Number(a?.deletedAtMs||0)===Number(b?.deletedAtMs||0);}
+function clearBookTimeIfUnchanged(id,expected){
+  const latest=readBookTimes();if(!sameSyncTime(latest[id],expected))return false;delete latest[id];writeBookTimes(latest);return true;
+}
+function clearSettingsTimeIfUnchanged(expected){
+  if(Number(localStorage.getItem(FB_SETTINGS_TIME_KEY)||0)!==Number(expected||0))return false;
+  localStorage.removeItem(FB_SETTINGS_TIME_KEY);return true;
+}
+function refreshDirtyFlag(){
+  if(Object.keys(readBookTimes()).length||Number(localStorage.getItem(FB_SETTINGS_TIME_KEY)||0)>0)localStorage.setItem(SYNC_DIRTY_KEY,"1");
+  else localStorage.removeItem(SYNC_DIRTY_KEY);
+}
 function updateLocalPersistentStorage(){
   localStorage.setItem(BOOK_KEY,JSON.stringify(books));localStorage.setItem(GENRE_KEY,JSON.stringify(genres));localStorage.setItem(DECOR_KEY,JSON.stringify(decorSettings));localStorage.setItem(GOAL_KEY,JSON.stringify(goalSettings));
 }
@@ -1380,12 +1394,13 @@ async function deleteCloudReadingData(){
   localStorage.setItem(SYNCED_KEY,String(Date.now()));return true;
 }
 async function resetReadingRoomData(){
+  clearTimeout(cloudPushTimer);cloudPushTimer=null;
   const wasSignedIn=configured()&&signedIn();
   /* Delete cloud first while the local IDs are still available, then clear local. */
-  if(wasSignedIn)await deleteCloudReadingData();resetLocalReadingData();return wasSignedIn;
+  if(wasSignedIn)await queueCloudTask(()=>deleteCloudReadingData());resetLocalReadingData();return wasSignedIn;
 }
 
-let cloudSyncQueue=Promise.resolve();
+let cloudSyncQueue=Promise.resolve(),cloudPushTimer=null;
 function canonicalJSONStringify(value){
   if(value===null||typeof value!=="object")return JSON.stringify(value);
   if(Array.isArray(value))return `[${value.map(canonicalJSONStringify).join(",")}]`;
@@ -1402,7 +1417,7 @@ async function performCloudSync(){
     const remoteBooks=new Map(),remoteDeletes=new Map(),cloudInitialized=!!stateDoc||bookDocs.length>0||deletionDocs.length>0||!!settingsDoc;
     for(const doc of bookDocs){const parsed=firestoreParseDoc(doc),id=docIdFromName(doc.name);if(id&&parsed.data)remoteBooks.set(id,{book:parsed.data,updatedAtMs:parsed.updatedAtMs});}
     for(const doc of deletionDocs){const parsed=firestoreParseDoc(doc),id=docIdFromName(doc.name);if(id)remoteDeletes.set(id,parsed.updatedAtMs);}
-    const baseline=readJsonMap(FB_BOOK_BASELINE_KEY),times=readBookTimes(),localMap=new Map(books.map(b=>[String(b.id),b]));
+    const baseline=readJsonMap(FB_BOOK_BASELINE_KEY),times=readBookTimes(),syncStartTimes=cloneSyncValue(times),localMap=new Map(books.map(b=>[String(b.id),b]));
     const ids=new Set([...Object.keys(baseline),...Object.keys(times),...localMap.keys(),...remoteBooks.keys(),...remoteDeletes.keys()]);
     let changedLocal=false,uploaded=0,downloaded=0,deleted=0;
 
@@ -1451,11 +1466,22 @@ async function performCloudSync(){
       if(baseHash&&!remoteEntry&&!remoteDeleteAt&&localHash===baseHash){localMap.delete(id);delete baseline[id];delete times[id];localStorage.setItem(FB_RESET_HOLD_KEY,"1");changedLocal=true;deleted++;}
     }
 
-    books=[...localMap.values()];writeJsonMap(FB_BOOK_BASELINE_KEY,baseline);writeBookTimes(times);
+    /* Preserve edits made while a network request was in flight. Those newer edits
+       keep their dirty timestamps and will be sent by the queued hybrid push. */
+    const latestTimes=readBookTimes(),currentLocalMap=new Map(books.map(b=>[String(b.id),b]));
+    for(const [id,entry] of Object.entries(latestTimes)){
+      if(sameSyncTime(entry,syncStartTimes[id]))continue;
+      if(currentLocalMap.has(id))localMap.set(id,currentLocalMap.get(id));else localMap.delete(id);
+    }
+    for(const [id,startEntry] of Object.entries(syncStartTimes)){
+      if(!sameSyncTime(latestTimes[id],startEntry))continue;
+      if(times[id])latestTimes[id]=times[id];else delete latestTimes[id];
+    }
+    books=[...localMap.values()];writeJsonMap(FB_BOOK_BASELINE_KEY,baseline);writeBookTimes(latestTimes);
 
     const localSettings=settingsPayload(),localSettingsHash=syncPayloadHash(localSettings),settingsBaseline=localStorage.getItem(FB_SETTINGS_BASELINE_KEY)||"",settingsTime=Number(localStorage.getItem(FB_SETTINGS_TIME_KEY)||0);
     const remoteSettings=settingsDoc?firestoreParseDoc(settingsDoc):null,remoteSettingsHash=remoteSettings?.data?syncPayloadHash(remoteSettings.data):"",remoteSettingsTime=Number(remoteSettings?.updatedAtMs||0);
-    if(remoteSettings?.data&&localSettingsHash===remoteSettingsHash){localStorage.setItem(FB_SETTINGS_BASELINE_KEY,localSettingsHash);localStorage.removeItem(FB_SETTINGS_TIME_KEY);}
+    if(remoteSettings?.data&&localSettingsHash===remoteSettingsHash){localStorage.setItem(FB_SETTINGS_BASELINE_KEY,localSettingsHash);clearSettingsTimeIfUnchanged(settingsTime);}
     else if(!settingsBaseline){
       if(remoteSettings?.data&&settingsTime<=0){applyRemoteSettings(remoteSettings.data);localStorage.setItem(FB_SETTINGS_BASELINE_KEY,remoteSettingsHash);downloaded++;}
       else{
@@ -1464,7 +1490,7 @@ async function performCloudSync(){
         const resetHold=localStorage.getItem(FB_RESET_HOLD_KEY)==="1";
         if(!resetHold&&(!cloudInitialized||settingsTime>0)&&(books.length>0||settingsTime>0||meaningfulSettings)){const stamp=settingsTime||Date.now();await firestorePut(`users/${uid}/settings/app`,localSettings,stamp);localStorage.setItem(FB_SETTINGS_BASELINE_KEY,localSettingsHash);uploaded++;}
       }
-      localStorage.removeItem(FB_SETTINGS_TIME_KEY);
+      clearSettingsTimeIfUnchanged(settingsTime);
     }else{
       const localSettingsChanged=localSettingsHash!==settingsBaseline,remoteSettingsChanged=remoteSettingsHash!==settingsBaseline;
       if(!remoteSettings?.data&&!localSettingsChanged){
@@ -1472,24 +1498,96 @@ async function performCloudSync(){
       }else if(localSettingsChanged&&!remoteSettingsChanged){await firestorePut(`users/${uid}/settings/app`,localSettings,settingsTime||Date.now());localStorage.setItem(FB_SETTINGS_BASELINE_KEY,localSettingsHash);uploaded++;}
       else if(remoteSettingsChanged&&!localSettingsChanged&&remoteSettings?.data){applyRemoteSettings(remoteSettings.data);localStorage.setItem(FB_SETTINGS_BASELINE_KEY,remoteSettingsHash);downloaded++;}
       else if(localSettingsChanged&&remoteSettingsChanged){if((settingsTime||0)>remoteSettingsTime){await firestorePut(`users/${uid}/settings/app`,localSettings,settingsTime||Date.now());localStorage.setItem(FB_SETTINGS_BASELINE_KEY,localSettingsHash);uploaded++;}else if(remoteSettings?.data){applyRemoteSettings(remoteSettings.data);localStorage.setItem(FB_SETTINGS_BASELINE_KEY,remoteSettingsHash);downloaded++;}}
-      localStorage.removeItem(FB_SETTINGS_TIME_KEY);
+      clearSettingsTimeIfUnchanged(settingsTime);
     }
 
     if(changedLocal){updateLocalPersistentStorage();renderGenreOptions();renderAll();applyDecorations();if(lastRoute==="stats")renderStats();}
     if(!stateDoc&&(uploaded>0||bookDocs.length>0||settingsDoc))await firestorePut(`users/${uid}/meta/state`,{schemaVersion:7,backend:"firestore"},Date.now());
     if(uploaded>0)localStorage.removeItem(FB_RESET_HOLD_KEY);
-    localStorage.removeItem(SYNC_DIRTY_KEY);localStorage.setItem(SYNCED_KEY,String(Date.now()));
+    refreshDirtyFlag();localStorage.setItem(SYNCED_KEY,String(Date.now()));
     const pieces=[];if(uploaded)pieces.push(`${uploaded} uploaded`);if(downloaded)pieces.push(`${downloaded} downloaded`);if(deleted)pieces.push(`${deleted} deleted`);
     $("#lastSyncText")&&($("#lastSyncText").textContent=`${pieces.length?pieces.join(" · "):"Up to date"} · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);
     return true;
   }catch(e){console.warn("Reading Room Firebase sync:",e);$("#lastSyncText")&&($("#lastSyncText").textContent=`Sync failed — ${e.message||"check Firebase configuration/rules."}`);return false;}
 }
-function cloudSync(){const run=()=>performCloudSync(),task=cloudSyncQueue.then(run,run);cloudSyncQueue=task.catch(()=>false);return task;}
+async function performCloudPush(){
+  if(!configured()||!signedIn())return false;
+  const syncStartTimes=cloneSyncValue(readBookTimes()),settingsTime=Number(localStorage.getItem(FB_SETTINGS_TIME_KEY)||0),dirtyIds=Object.keys(syncStartTimes);
+  if(!dirtyIds.length&&!settingsTime){refreshDirtyFlag();return true;}
+  if(!(await refreshSession()))return false;
+  try{
+    $("#lastSyncText")&&($("#lastSyncText").textContent="Saving local changes…");
+    const uid=encodeURIComponent(syncSession.localId),bookPath=`users/${uid}/books`,deletePath=`users/${uid}/deletions`,baseline=readJsonMap(FB_BOOK_BASELINE_KEY);
+    let uploaded=0,downloaded=0,deleted=0,changedLocal=false;
+
+    for(const id of dirtyIds){
+      const expected=syncStartTimes[id],localStamp=Math.max(Number(expected?.updatedAtMs||0),Number(expected?.deletedAtMs||0));
+      if(!localStamp||!sameSyncTime(readBookTimes()[id],expected))continue;
+      const localBook=books.find(b=>String(b.id)===id),localSnapshot=localBook?cloneSyncValue(localBook):null;
+      const [remoteBookDoc,remoteDeleteDoc]=await Promise.all([
+        firestoreGet(`${bookPath}/${encodeURIComponent(id)}`),
+        firestoreGet(`${deletePath}/${encodeURIComponent(id)}`)
+      ]);
+      if(!sameSyncTime(readBookTimes()[id],expected))continue;
+      const remoteBook=remoteBookDoc?firestoreParseDoc(remoteBookDoc):null,remoteDelete=remoteDeleteDoc?firestoreParseDoc(remoteDeleteDoc):null,
+            remoteUpdated=Number(remoteBook?.updatedAtMs||0),remoteDeleted=Number(remoteDelete?.updatedAtMs||0),remoteStamp=Math.max(remoteUpdated,remoteDeleted);
+
+      if(remoteStamp>localStamp){
+        if(remoteDeleted>remoteUpdated){
+          books=books.filter(b=>String(b.id)!==id);delete baseline[id];deleted++;
+        }else if(remoteBook?.data){
+          const index=books.findIndex(b=>String(b.id)===id);
+          if(index>=0)books[index]=remoteBook.data;else books.push(remoteBook.data);
+          baseline[id]=bookContentHash(remoteBook.data);downloaded++;
+        }
+        changedLocal=true;clearBookTimeIfUnchanged(id,expected);continue;
+      }
+
+      if(localSnapshot&&Number(expected.updatedAtMs||0)>0){
+        await firestorePut(`${bookPath}/${encodeURIComponent(id)}`,localSnapshot,localStamp);
+        if(remoteDeleteDoc)await firestoreDelete(`${deletePath}/${encodeURIComponent(id)}`);
+        baseline[id]=bookContentHash(localSnapshot);uploaded++;
+      }else{
+        if(remoteBookDoc)await firestoreDelete(`${bookPath}/${encodeURIComponent(id)}`);
+        await firestorePut(`${deletePath}/${encodeURIComponent(id)}`,{deleted:true},localStamp);
+        delete baseline[id];deleted++;
+      }
+      clearBookTimeIfUnchanged(id,expected);
+    }
+
+    if(settingsTime&&Number(localStorage.getItem(FB_SETTINGS_TIME_KEY)||0)===settingsTime){
+      const localSettings=cloneSyncValue(settingsPayload()),localHash=syncPayloadHash(localSettings),remoteDoc=await firestoreGet(`users/${uid}/settings/app`);
+      if(Number(localStorage.getItem(FB_SETTINGS_TIME_KEY)||0)===settingsTime){
+        const remote=remoteDoc?firestoreParseDoc(remoteDoc):null,remoteHash=remote?.data?syncPayloadHash(remote.data):"";
+        if(remote?.data&&Number(remote.updatedAtMs||0)>settingsTime){
+          applyRemoteSettings(remote.data);localStorage.setItem(FB_SETTINGS_BASELINE_KEY,remoteHash);downloaded++;changedLocal=true;
+        }else{
+          await firestorePut(`users/${uid}/settings/app`,localSettings,settingsTime);localStorage.setItem(FB_SETTINGS_BASELINE_KEY,localHash);uploaded++;
+        }
+        clearSettingsTimeIfUnchanged(settingsTime);
+      }
+    }
+
+    writeJsonMap(FB_BOOK_BASELINE_KEY,baseline);
+    if(changedLocal){updateLocalPersistentStorage();renderGenreOptions();renderAll();applyDecorations();if(lastRoute==="stats")renderStats();}
+    refreshDirtyFlag();localStorage.setItem(SYNCED_KEY,String(Date.now()));localStorage.removeItem(FB_RESET_HOLD_KEY);
+    const pieces=[];if(uploaded)pieces.push(`${uploaded} uploaded`);if(downloaded)pieces.push(`${downloaded} downloaded`);if(deleted)pieces.push(`${deleted} deleted`);
+    $("#lastSyncText")&&($("#lastSyncText").textContent=`${pieces.length?pieces.join(" · "):"Up to date"} · ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`);
+    return true;
+  }catch(e){console.warn("Reading Room Firebase push:",e);refreshDirtyFlag();$("#lastSyncText")&&($("#lastSyncText").textContent=`Sync failed — ${e.message||"check Firebase configuration/rules."}`);return false;}
+}
+function queueCloudTask(run){const task=cloudSyncQueue.then(run,run);cloudSyncQueue=task.catch(()=>false);return task;}
+function cloudSync(){clearTimeout(cloudPushTimer);cloudPushTimer=null;return queueCloudTask(()=>performCloudSync());}
+function cloudPush(){return queueCloudTask(()=>performCloudPush());}
+function scheduleCloudPush(){
+  if(!configured()||!signedIn())return;clearTimeout(cloudPushTimer);
+  cloudPushTimer=setTimeout(()=>{cloudPushTimer=null;cloudPush();},750);
+}
 
 $("#saveSyncSettings").onclick=()=>{if(FILE_FIREBASE_READY)return alert("Firebase is configured in firebase-config.js. Edit that file to change the project connection.");const apiKey=$("#firebaseApiKey").value.trim(),projectId=$("#firebaseProjectId").value.trim();if(!apiKey||!projectId)return alert("Enter Firebase Web API Key and Project ID.");syncSettings={apiKey,projectId};localStorage.setItem(SYNC_KEY,JSON.stringify(syncSettings));renderSyncStatus();alert("Firebase connection saved.");};
 $("#clearSyncSettings").onclick=()=>{if(FILE_FIREBASE_READY)return alert("Firebase is configured in firebase-config.js. Clear the values in that file if you want local-only mode.");if(!confirm("Clear Firebase connection from this device?"))return;syncSettings={apiKey:"",projectId:""};syncSession=null;localStorage.removeItem(SYNC_KEY);localStorage.removeItem(SESSION_KEY);renderSyncStatus();};
 $("#signInBtn").onclick=async()=>{const email=$("#syncEmail").value.trim(),password=$("#syncPassword").value;if(!email||!password)return alert("Enter email and password.");const b=$("#signInBtn"),t=b.textContent;b.disabled=true;b.textContent="Signing in…";try{await signIn(email,password);$("#syncPassword").value="";await cloudSync();alert("Signed in successfully. Firebase cloud sync is active.");}catch(e){alert(e.message);}finally{b.disabled=false;b.textContent=t;}};
-$("#signOutBtn").onclick=()=>{syncSession=null;localStorage.removeItem(SESSION_KEY);renderSyncStatus();};
+$("#signOutBtn").onclick=()=>{clearTimeout(cloudPushTimer);cloudPushTimer=null;syncSession=null;localStorage.removeItem(SESSION_KEY);renderSyncStatus();};
 $("#syncNowBtn").onclick=()=>cloudSync();
 
 $("#exportBackup").onclick=()=>{
@@ -1499,13 +1597,13 @@ $("#exportBackup").onclick=()=>{
 };
 $("#exportJournal").onclick=()=>downloadTextFile(createReadingJournalHTML(),`reading-room-journal-${todayISO()}.html`,"text/html");
 $("#importBackupBtn").onclick=()=>$("#importBackupInput").click();
-$("#importBackupInput").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!Array.isArray(d.books))throw Error();if(!confirm(`Restore ${d.books.length} books? This replaces current local data.`))return;books=unpackBooksFromStorage(d);if(Array.isArray(d.genres))genres=d.genres;if(d.decorSettings?.themes){decorSettings=d.decorSettings;localStorage.setItem(DECOR_KEY,JSON.stringify(decorSettings));}if(d.goalSettings?.yearly){goalSettings=d.goalSettings;localStorage.setItem(GOAL_KEY,JSON.stringify(goalSettings));}const previousBooks=JSON.parse(localStorage.getItem(BOOK_KEY)||"[]");markBookChanges(previousBooks,books);localStorage.setItem(BOOK_KEY,JSON.stringify(books));localStorage.setItem(GENRE_KEY,JSON.stringify(genres));markSettingsChanged();renderAll();applyDecorations();cloudSync();alert("Backup restored.");}catch{alert("Invalid Reading Room backup.");}e.target.value="";};
+$("#importBackupInput").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!Array.isArray(d.books))throw Error();if(!confirm(`Restore ${d.books.length} books? This replaces current local data.`))return;books=unpackBooksFromStorage(d);if(Array.isArray(d.genres))genres=d.genres;if(d.decorSettings?.themes){decorSettings=d.decorSettings;localStorage.setItem(DECOR_KEY,JSON.stringify(decorSettings));}if(d.goalSettings?.yearly){goalSettings=d.goalSettings;localStorage.setItem(GOAL_KEY,JSON.stringify(goalSettings));}const previousBooks=JSON.parse(localStorage.getItem(BOOK_KEY)||"[]");markBookChanges(previousBooks,books);localStorage.setItem(BOOK_KEY,JSON.stringify(books));localStorage.setItem(GENRE_KEY,JSON.stringify(genres));markSettingsChanged();renderAll();applyDecorations();await cloudSync();alert("Backup restored.");}catch{alert("Invalid Reading Room backup.");}e.target.value="";};
 
 $("#readingFunDetails")?.addEventListener("toggle",e=>{const hint=e.currentTarget.querySelector(".reading-fun-hint");if(hint)hint.textContent=e.currentTarget.open?"Close":"Open";if(e.currentTarget.open)renderReadingExtras();});
 $("#editMonthlyChallenge").onclick=()=>{const key=currentMonthKey(),d=new Date();$("#monthlyChallengeLabel").textContent=d.toLocaleDateString([],{month:"long",year:"numeric"});$("#monthlyChallengeTarget").value=goalSettings.monthly[key]||"";$("#monthlyChallengeDialog").showModal();setDialogOpen(true);};
 $("#closeMonthlyChallenge").onclick=()=>$("#monthlyChallengeDialog").close();
-$("#monthlyChallengeForm").addEventListener("submit",e=>{e.preventDefault();const value=Math.max(1,Math.min(99,Math.round(Number($("#monthlyChallengeTarget").value)||0)));if(!value)return;goalSettings.monthly[currentMonthKey()]=value;localStorage.setItem(GOAL_KEY,JSON.stringify(goalSettings));markSettingsChanged();$("#monthlyChallengeDialog").close();renderReadingExtras();cloudSync();});
-$("#removeMonthlyChallenge").onclick=()=>{delete goalSettings.monthly[currentMonthKey()];localStorage.setItem(GOAL_KEY,JSON.stringify(goalSettings));markSettingsChanged();$("#monthlyChallengeDialog").close();renderReadingExtras();cloudSync();};
+$("#monthlyChallengeForm").addEventListener("submit",e=>{e.preventDefault();const value=Math.max(1,Math.min(99,Math.round(Number($("#monthlyChallengeTarget").value)||0)));if(!value)return;goalSettings.monthly[currentMonthKey()]=value;localStorage.setItem(GOAL_KEY,JSON.stringify(goalSettings));markSettingsChanged();$("#monthlyChallengeDialog").close();renderReadingExtras();scheduleCloudPush();});
+$("#removeMonthlyChallenge").onclick=()=>{delete goalSettings.monthly[currentMonthKey()];localStorage.setItem(GOAL_KEY,JSON.stringify(goalSettings));markSettingsChanged();$("#monthlyChallengeDialog").close();renderReadingExtras();scheduleCloudPush();};
 $("#pickNextBook").onclick=()=>{chooseRandomTbr();if(randomPickedBookId){$("#randomPickDialog").showModal();setDialogOpen(true);}};
 $("#pickAgain").onclick=chooseRandomTbr;
 $("#closeRandomPick").onclick=()=>$("#randomPickDialog").close();
@@ -1573,10 +1671,7 @@ initializeReadingRoom().catch(e=>{
 });
 let shelfResizeTimer=null;
 window.addEventListener("resize",()=>{clearTimeout(shelfResizeTimer);shelfResizeTimer=setTimeout(queueShelfRowLayout,90);});
-window.addEventListener("focus",()=>{if(signedIn())cloudSync();});
-document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&signedIn())cloudSync();});
-window.addEventListener("online",()=>{if(signedIn())cloudSync();});
-setInterval(()=>{if(document.visibilityState==="visible"&&signedIn())cloudSync();},60000);
+window.addEventListener("online",()=>{if(signedIn()&&localStorage.getItem(SYNC_DIRTY_KEY)==="1")scheduleCloudPush();});
 
 /* PWA auto-update without stale app-shell cache */
 if("serviceWorker" in navigator){
