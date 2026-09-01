@@ -83,11 +83,25 @@ function saveYearlyGoal(year,target){
   markSettingsChanged();renderAll();cloudSync();return true;
 }
 
-function sessionMinutes(b){return (Array.isArray(b.sessions)?b.sessions:[]).reduce((n,s)=>n+(Number(s.minutes)||0),0);}
+function readingSessionMinutes(s){
+  const saved=Number(s?.minutes)||0;
+  if(saved>0)return Math.max(1,Math.round(saved));
+  const start=Number(s?.startTimeSeconds)||0,end=Number(s?.endTimeSeconds)||0;
+  return end>start?Math.max(1,Math.round((end-start)/60)):0;
+}
+function sessionMinutes(b){return (Array.isArray(b.sessions)?b.sessions:[]).reduce((n,s)=>n+readingSessionMinutes(s),0);}
+function formatDurationMinutes(value){
+  const total=Math.max(0,Math.round(Number(value)||0));
+  if(total<60)return `${total} min`;
+  const hours=Math.floor(total/60),minutes=total%60;
+  return `${hours} hr${minutes?` ${minutes} min`:""}`;
+}
 function moodLabel(value=""){
   const map={
-    loved:"Loved it",intense:"Intense","mind-blown":"Mind blown",emotional:"Emotional",cozy:"Cozy",neutral:"Neutral",
-    "😍":"Loved it","😱":"Intense","🤯":"Mind blown","😭":"Emotional","😌":"Cozy","😐":"Neutral"
+    loved:"😍 Loved it",intense:"😱 Intense","mind-blown":"🤯 Mind blown",emotional:"😭 Emotional",cozy:"😌 Cozy",neutral:"😐 Neutral",
+    disappointed:"😞 Disappointed",angry:"😠 Angry",sad:"😢 Sad",bored:"😴 Bored",
+    "😍":"😍 Loved it","😱":"😱 Intense","🤯":"🤯 Mind blown","😭":"😭 Emotional","😌":"😌 Cozy","😐":"😐 Neutral",
+    "😞":"😞 Disappointed","😠":"😠 Angry","😢":"😢 Sad","😴":"😴 Bored"
   };
   return map[value]||value||"No mood";
 }
@@ -516,7 +530,7 @@ function renderTbr(){
 function readingCard(b){const sessions=Array.isArray(b.sessions)?b.sessions:[];return `<article class="reading-card">
   <div class="reading-card-top">${coverHTML(b)}<div><p class="eyebrow">Reading</p><h3>${escapeHtml(b.title)}</h3><p class="meta">${escapeHtml(b.author||"Unknown author")}</p>
   ${progressHTML(b)}
-  <p class="meta">Started ${b.dateStarted||"not set"} · ${sessionMinutes(b)} min logged · ${sessions.length} ${sessions.length===1?"session":"sessions"}</p></div></div>
+  <p class="meta">Started ${b.dateStarted||"not set"} · ${formatDurationMinutes(sessionMinutes(b))} logged · ${sessions.length} ${sessions.length===1?"session":"sessions"}</p></div></div>
   <div class="card-actions three-actions">
     <button class="secondary" onclick="editBook('${b.id}')">${icon("edit")} Edit Book</button>
     <button class="primary" onclick="openSession('${b.id}')">${icon("session")} Add Session</button>
@@ -575,7 +589,7 @@ function sessionDateValue(s){return s?.date||s?.sessionDate||s?.createdDate||s?.
 function sessionsForYear(year){
   const rows=[];books.forEach(b=>(Array.isArray(b.sessions)?b.sessions:[]).forEach(s=>{const date=sessionDateValue(s);if(/^\d{4}-\d{2}-\d{2}$/.test(date)&&Number(date.slice(0,4))===Number(year))rows.push({...s,_date:date,_bookId:b.id});}));return rows;
 }
-function activityByDate(year){const map={};sessionsForYear(year).forEach(s=>{map[s._date]=(map[s._date]||0)+(Number(s.minutes)||0);});return map;}
+function activityByDate(year){const map={};sessionsForYear(year).forEach(s=>{map[s._date]=(map[s._date]||0)+readingSessionMinutes(s);});return map;}
 function streakStats(activity,year){
   const dates=Object.keys(activity).filter(d=>activity[d]>0).sort();if(!dates.length)return {current:0,longest:0};
   const ord=d=>Math.floor(new Date(d+"T12:00:00").getTime()/86400000);let longest=1,run=1;
@@ -613,12 +627,12 @@ function renderMonthlyReadingCalendar(year){
   for(let day=1;day<=daysInMonth;day++){
     const date=`${year}-${String(month+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`,
           sessions=byDate[date]||[],
-          minutes=sessions.reduce((n,s)=>n+(Number(s.minutes)||0),0),
+          minutes=sessions.reduce((n,s)=>n+readingSessionMinutes(s),0),
           isToday=date===todayISO(),
           active=sessions.length>0;
     cells.push(`<button type="button" class="calendar-day ${active?"has-reading":""} ${isToday?"today":""}" data-calendar-date="${date}">
       <span class="calendar-date-number">${day}</span>
-      ${active?`<span class="calendar-minutes">${minutes} min</span><span class="calendar-session-count">${sessions.length} ${sessions.length===1?"session":"sessions"}</span>`:`<span class="calendar-add-hint">+</span>`}
+      ${active?`<span class="calendar-minutes">${formatDurationMinutes(minutes)}</span><span class="calendar-session-count">${sessions.length} ${sessions.length===1?"session":"sessions"}</span>`:`<span class="calendar-add-hint">+</span>`}
     </button>`);
   }
   $("#readingCalendarGrid").innerHTML=cells.join("");
@@ -635,14 +649,14 @@ function calendarDaySessions(date){
 }
 function openCalendarDay(date){
   calendarSelectedDate=date;
-  const rows=calendarDaySessions(date),minutes=rows.reduce((n,s)=>n+(Number(s.minutes)||0),0);
+  const rows=calendarDaySessions(date),minutes=rows.reduce((n,s)=>n+readingSessionMinutes(s),0);
   $("#calendarDayTitle").textContent=new Date(date+"T12:00:00").toLocaleDateString([],{weekday:"long",month:"long",day:"numeric",year:"numeric"});
-  $("#calendarDaySummary").innerHTML=`<strong>${rows.length} ${rows.length===1?"session":"sessions"} · ${minutes} min</strong><p class="meta">${rows.length?"Edit, delete, or add another session for this date.":"No reading logged yet. Add a session for this date."}</p>`;
+  $("#calendarDaySummary").innerHTML=`<strong>${rows.length} ${rows.length===1?"session":"sessions"} · ${formatDurationMinutes(minutes)}</strong><p class="meta">${rows.length?"Edit, delete, or add another session for this date.":"No reading logged yet. Add a session for this date."}</p>`;
   $("#calendarDaySessionList").innerHTML=rows.length?rows.map(s=>`
     <article class="session-manager-item">
       <div>
         <strong>${escapeHtml(s._book.title)} · ${escapeHtml(moodLabel(s.mood))}</strong>
-        <div class="session-manager-meta">Page ${s.startPage||0} → ${s.endPage||s.startPage||0} · ${s.minutes||0} min</div>
+        <div class="session-manager-meta">${isAudiobookBook(s._book)?`Time ${formatAudioTime(s.startTimeSeconds||0)} → ${formatAudioTime(s.endTimeSeconds||s.startTimeSeconds||0)}`:`Page ${s.startPage||0} → ${s.endPage||s.startPage||0}`} · ${formatDurationMinutes(readingSessionMinutes(s))}</div>
       </div>
       <div class="session-manager-actions">
         <button type="button" class="secondary compact" onclick="editCalendarDaySession('${s._book.id}',${s._index},'${date}')">${icon("edit")} Edit</button>
@@ -657,8 +671,13 @@ window.deleteCalendarDaySession=(bookId,index,date)=>{
   const b=books.find(x=>x.id===bookId);if(!b||!Array.isArray(b.sessions)||!b.sessions[index])return;
   if(!confirm("Delete this reading session?"))return;
   b.sessions.splice(index,1);
-  const positions=b.sessions.map(s=>Number(s.endPage)||Number(s.startPage)||0).filter(Boolean);
-  b.currentPage=positions.length?positions[positions.length-1]:0;
+  if(isAudiobookBook(b)){
+    const positions=b.sessions.map(s=>Number(s.endTimeSeconds)||Number(s.startTimeSeconds)||0).filter(Boolean);
+    b.audioCurrentSeconds=positions.length?positions[positions.length-1]:0;
+  }else{
+    const positions=b.sessions.map(s=>Number(s.endPage)||Number(s.startPage)||0).filter(Boolean);
+    b.currentPage=positions.length?positions[positions.length-1]:0;
+  }
   saveBooks();
   renderStats();
   openCalendarDay(date);
@@ -679,19 +698,19 @@ function renderStats(){
   $("#statBooks").textContent=list.length;$("#statPages").textContent=list.reduce((n,b)=>n+(Number(b.pages)||0),0).toLocaleString();
   $("#statRating").textContent=rated.length?(rated.reduce((n,b)=>n+Number(b.rating),0)/rated.length).toFixed(1):"—";
   $("#statGenre").textContent=topKey(countBy(list,"genre"));$("#statAuthor").textContent=topKey(countBy(list,"author"));
-  $("#statMinutes").textContent=list.reduce((n,b)=>n+sessionMinutes(b),0).toLocaleString();
+  const yearSessions=sessionsForYear(year),activity=activityByDate(year),streak=streakStats(activity,year),totalSessionMinutes=yearSessions.reduce((n,s)=>n+readingSessionMinutes(s),0);
+  $("#statMinutes").textContent=formatDurationMinutes(totalSessionMinutes);
   const withDays=list.map(b=>({b,d:dateDiffDays(b.dateStarted,b.dateFinished)})).filter(x=>x.d!==null).sort((a,b)=>a.d-b.d);
-  $("#statFastest").textContent=withDays.length?`${withDays[0].d}d`:"—";
+  $("#statFastest").textContent=withDays.length?(withDays[0].d===0?"Same day":`${withDays[0].d} ${withDays[0].d===1?"day":"days"}`):"—";
   const longest=[...list].sort((a,b)=>(Number(b.pages)||0)-(Number(a.pages)||0))[0];$("#statLongest").textContent=longest?.pages?`${longest.pages}p`:"—";
   const months=Array(12).fill(0);list.forEach(b=>{if(b.dateFinished){const d=new Date(b.dateFinished+"T00:00:00");if(!Number.isNaN(d))months[d.getMonth()]++;}});
   const max=Math.max(1,...months),names=["J","F","M","A","M","J","J","A","S","O","N","D"];
   $("#monthlyBars").innerHTML=months.map((n,i)=>`<div class="bar-col"><div class="bar-fill" style="height:${Math.max(2,n/max*100)}%"><b>${n||""}</b></div><small>${names[i]}</small></div>`).join("");
   renderStatRows("#genreStats",countBy(list,"genre"));renderStatRows("#formatStats",countBy(list,"format"));
   const rc={};rated.forEach(b=>rc[String(b.rating)]=(rc[String(b.rating)]||0)+1);renderStatRows("#ratingStats",rc);
-  const yearSessions=sessionsForYear(year),activity=activityByDate(year),streak=streakStats(activity,year),totalSessionMinutes=yearSessions.reduce((n,s)=>n+(Number(s.minutes)||0),0);
   $("#statActiveDays").textContent=Object.keys(activity).length;
   $("#statSessions").textContent=yearSessions.length;
-  $("#statAvgSession").textContent=yearSessions.length?`${Math.round(totalSessionMinutes/yearSessions.length)} min`:`—`;
+  $("#statAvgSession").textContent=yearSessions.length?formatDurationMinutes(totalSessionMinutes/yearSessions.length):`—`;
   $("#statCurrentStreak").textContent=`${streak.current} ${streak.current===1?"day":"days"}`;
   $("#statLongestStreak").textContent=`${streak.longest} ${streak.longest===1?"day":"days"}`;
   renderMonthlyReadingCalendar(year);
@@ -838,7 +857,7 @@ window.openBook=id=>{
     extra=`<div class="reading-time-card"><strong>${icon("tbr")} TBR</strong><p class="meta">Move this book to Reading when you start it.</p></div>`;
     actions=`<button class="primary" onclick="editBook('${b.id}')">${icon("reading")} Start / Edit</button>`;
   }else if(b.status==="reading"){
-    extra=`<div class="reading-time-card"><strong>Reading progress</strong>${progressHTML(b)}<p class="meta">Started ${b.dateStarted||"—"} · ${mins} min logged</p></div>
+    extra=`<div class="reading-time-card"><strong>Reading progress</strong>${progressHTML(b)}<p class="meta">Started ${b.dateStarted||"—"} · ${formatDurationMinutes(mins)} logged</p></div>
       ${b.prediction?`<div class="detail-section"><h3>${icon("note")} My Prediction</h3><p>${escapeHtml(b.prediction)}</p></div>`:""}`;
     actions=`<button class="secondary" onclick="editBook('${b.id}')">${icon("edit")} Edit Book</button>
       <button class="primary" onclick="openSession('${b.id}')">${icon("session")} Add Session</button>
@@ -846,7 +865,7 @@ window.openBook=id=>{
   }else if(b.status==="finished"){
     detailClass="finished-compact";
     extra=`<div class="reading-time-card"><strong>Reading time</strong>
-      <p class="finished-compact-copy meta">${days===null?"—":days+" "+(days===1?"day":"days")} · ${mins} min logged</p>
+      <p class="finished-compact-copy meta">${days===null?"—":days===0?"Same day":days+" "+(days===1?"day":"days")} · ${formatDurationMinutes(mins)} logged</p>
       <p class="meta">${b.dateStarted||"—"} → ${b.dateFinished||"—"}</p>
     </div>`;
     actions=`<button class="primary read-more-btn" onclick="openFullBook('${b.id}')">${icon("reading")} Read More</button>
@@ -891,7 +910,7 @@ function renderFullBookDetail(b){
           <span class="pill">${stars(b.rating)}</span>
         </div>
         ${b.pages?`<p class="meta">${b.pages} pages</p>`:""}
-        <div class="reading-time-card"><strong>Reading time</strong><p class="meta">${days===null?"—":days+" "+(days===1?"day":"days")} · ${mins} min logged</p><p class="meta">${b.dateStarted||"—"} → ${b.dateFinished||"—"}</p></div>
+        <div class="reading-time-card"><strong>Reading time</strong><p class="meta">${days===null?"—":days===0?"Same day":days+" "+(days===1?"day":"days")} · ${formatDurationMinutes(mins)} logged</p><p class="meta">${b.dateStarted||"—"} → ${b.dateFinished||"—"}</p></div>
       </div>
     </div>
 
@@ -908,7 +927,7 @@ function renderFullBookDetail(b){
 
     ${b.spoilers?`<div class="detail-section"><h3>Story Memory</h3><button class="secondary compact" onclick="this.nextElementSibling.classList.toggle('hidden')">Reveal / Hide</button><p class="hidden">${escapeHtml(b.spoilers).replace(/\n/g,"<br>")}</p></div>`:""}
 
-    ${sessions.length?`<div class="detail-section"><h3>Reading Sessions</h3><div class="session-list">${sessions.map((s,i)=>`<div class="session-item">${escapeHtml(moodLabel(s.mood))} · ${b.format==="Audiobook"?`Time ${formatAudioTime(s.startTimeSeconds||0)} → ${formatAudioTime(s.endTimeSeconds||s.startTimeSeconds||0)}`:`Page ${s.startPage||0} → ${s.endPage||s.startPage||0}`} · ${s.minutes||0} min · ${s.date||""}</div>`).join("")}</div></div>`:""}
+    ${sessions.length?`<div class="detail-section"><h3>Reading Sessions</h3><div class="session-list">${sessions.map((s,i)=>`<div class="session-item">${escapeHtml(moodLabel(s.mood))} · ${b.format==="Audiobook"?`Time ${formatAudioTime(s.startTimeSeconds||0)} → ${formatAudioTime(s.endTimeSeconds||s.startTimeSeconds||0)}`:`Page ${s.startPage||0} → ${s.endPage||s.startPage||0}`} · ${formatDurationMinutes(readingSessionMinutes(s))} · ${s.date||""}</div>`).join("")}</div></div>`:""}
 
     ${b.favoriteBook?`<div class="detail-section"><span class="pill">${icon("heart")} Hall of Fame</span></div>`:""}
 
@@ -956,6 +975,7 @@ window.openSession=(id,index=-1,preferredDate="")=>{
   setSessionTimeFields("sessionEnd",existing?.endTimeSeconds ?? 0);
   updateSessionFormatFields(b);
   $("#sessionMinutes").value=existing?.minutes ?? "";
+  if(audio&&existing&&!(Number(existing.minutes)>0))syncAudioSessionMinutes();
   $("#sessionMood").value=normalizeMoodValue(existing?.mood||"");
 
   const bookWrap=$("#calendarSessionBookWrap");
@@ -980,7 +1000,7 @@ window.openCalendarSession=date=>{
 };
 
 function normalizeMoodValue(value=""){
-  const legacy={"😍":"loved","😱":"intense","🤯":"mind-blown","😭":"emotional","😌":"cozy","😐":"neutral"};
+  const legacy={"😍":"loved","😱":"intense","🤯":"mind-blown","😭":"emotional","😌":"cozy","😐":"neutral","😞":"disappointed","😠":"angry","😢":"sad","😴":"bored"};
   return legacy[value]||value||"";
 }
 
@@ -996,12 +1016,12 @@ window.openSessionsManager=id=>{
 function renderSessionsManager(b){
   const sessions=Array.isArray(b.sessions)?b.sessions:[];
   $("#sessionsTitle").textContent=`Reading Sessions — ${b.title}`;
-  $("#sessionsSummary").innerHTML=`<strong>${sessions.length} ${sessions.length===1?"session":"sessions"}</strong><p class="meta">${sessionMinutes(b)} total minutes logged · ${b.format==="Audiobook"?`Current time ${formatAudioTime(b.audioCurrentSeconds||0)}`:`Current page ${b.currentPage||0}`}</p>`;
+  $("#sessionsSummary").innerHTML=`<strong>${sessions.length} ${sessions.length===1?"session":"sessions"}</strong><p class="meta">${formatDurationMinutes(sessionMinutes(b))} logged · ${b.format==="Audiobook"?`Current time ${formatAudioTime(b.audioCurrentSeconds||0)}`:`Current page ${b.currentPage||0}`}</p>`;
   $("#sessionsManagerList").innerHTML=sessions.length?sessions.map((s,i)=>`
     <article class="session-manager-item">
       <div>
         <strong>Session ${i+1} · ${escapeHtml(moodLabel(s.mood))}</strong>
-        <div class="session-manager-meta">${b.format==="Audiobook"?`Time ${formatAudioTime(s.startTimeSeconds||0)} → ${formatAudioTime(s.endTimeSeconds||s.startTimeSeconds||0)}`:`Page ${s.startPage||0} → ${s.endPage||s.startPage||0}`} · ${s.minutes||0} min · ${s.date||"No date"}</div>
+        <div class="session-manager-meta">${b.format==="Audiobook"?`Time ${formatAudioTime(s.startTimeSeconds||0)} → ${formatAudioTime(s.endTimeSeconds||s.startTimeSeconds||0)}`:`Page ${s.startPage||0} → ${s.endPage||s.startPage||0}`} · ${formatDurationMinutes(readingSessionMinutes(s))} · ${s.date||"No date"}</div>
       </div>
       <div class="session-manager-actions">
         <button type="button" class="secondary compact" onclick="editReadingSession('${b.id}',${i})">${icon("edit")} Edit</button>
@@ -1039,6 +1059,18 @@ function closeSessionEditor(){
 }
 $("#closeSessionDialog").onclick=closeSessionEditor;
 $("#cancelSessionBtn").onclick=closeSessionEditor;
+function calculatedAudioSessionMinutes(){
+  const start=sessionTimeFieldsToSeconds("sessionStart"),end=sessionTimeFieldsToSeconds("sessionEnd");
+  return end>start?Math.max(1,Math.round((end-start)/60)):0;
+}
+function syncAudioSessionMinutes(){
+  const b=books.find(x=>x.id===$("#sessionBookId").value);
+  if(!isAudiobookBook(b))return;
+  const minutes=calculatedAudioSessionMinutes();
+  if(minutes)$("#sessionMinutes").value=String(minutes);
+  else if(sessionTimeFieldsToSeconds("sessionEnd")>0)$("#sessionMinutes").value="";
+}
+["sessionStartHours","sessionStartMinutes","sessionStartSeconds","sessionEndHours","sessionEndMinutes","sessionEndSeconds"].forEach(id=>$("#"+id)?.addEventListener("change",syncAudioSessionMinutes));
 $("#calendarSessionBook").addEventListener("change",e=>{
   if(!sessionOpenedFromCalendar||Number($("#sessionIndex").value)>=0)return;
   const b=books.find(x=>x.id===e.target.value);if(!b)return;
@@ -1047,6 +1079,7 @@ $("#calendarSessionBook").addEventListener("change",e=>{
   $("#sessionEnd").value="";
   setSessionTimeFields("sessionStart",0);
   setSessionTimeFields("sessionEnd",0);
+  $("#sessionMinutes").value="";
   updateSessionFormatFields(b);
 });
 
@@ -1059,7 +1092,9 @@ $("#sessionForm").addEventListener("submit",e=>{
   const endPage=audio?0:(Number($("#sessionEnd").value)||0);
   const startTimeSeconds=audio?sessionTimeFieldsToSeconds("sessionStart"):0;
   const endTimeSeconds=audio?sessionTimeFieldsToSeconds("sessionEnd"):0;
-  const minutes=Number($("#sessionMinutes").value)||0;
+  const enteredMinutes=Number($("#sessionMinutes").value)||0;
+  const calculatedMinutes=audio?calculatedAudioSessionMinutes():0;
+  const minutes=calculatedMinutes||enteredMinutes;
   const mood=$("#sessionMood").value;
   const date=$("#sessionDate").value||todayISO();
 
@@ -1244,7 +1279,7 @@ function createReadingJournalHTML(){
         ${journalField("Genre",b.genre)}${journalField("Format",b.format)}${journalField("Pages",b.pages||"")}
         ${journalField("Started",b.dateStarted)}${journalField("Finished",b.dateFinished)}
         ${b.rating?journalField("Rating",stars(b.rating)):""}${journalField("Current page",b.currentPage||"")}
-        ${journalField("Reading time",sessionMinutes(b)?sessionMinutes(b)+" minutes":"")}
+        ${journalField("Reading time",sessionMinutes(b)?formatDurationMinutes(sessionMinutes(b)):"")}
       </div>
       ${journalField("My thoughts",b.review)}
       ${journalField("Story memory / spoiler notes",b.spoilers)}
@@ -1253,13 +1288,13 @@ function createReadingJournalHTML(){
       ${journalField("Favourite quote",b.favoriteQuote)}
       ${journalField("Prediction / theory",b.prediction)}
       ${journalField("Prediction result",b.predictionResult)}
-      ${sessions.length?`<div class="field"><b>Reading Sessions</b><div class="sessions">${sessions.map(s=>`<div>${escapeHtml(sessionDateValue(s)||"Undated")} · pages ${escapeHtml(s.startPage??s.start??"—")}–${escapeHtml(s.endPage??s.end??"—")} · ${escapeHtml(s.minutes||0)} min${s.mood?` · ${escapeHtml(moodLabel(s.mood))}`:""}</div>`).join("")}</div></div>`:""}
+      ${sessions.length?`<div class="field"><b>Reading Sessions</b><div class="sessions">${sessions.map(s=>`<div>${escapeHtml(sessionDateValue(s)||"Undated")} · ${b.format==="Audiobook"?`time ${escapeHtml(formatAudioTime(s.startTimeSeconds||0))}–${escapeHtml(formatAudioTime(s.endTimeSeconds||s.startTimeSeconds||0))}`:`pages ${escapeHtml(s.startPage??s.start??"—")}–${escapeHtml(s.endPage??s.end??"—")}`} · ${escapeHtml(formatDurationMinutes(readingSessionMinutes(s)))}${s.mood?` · ${escapeHtml(moodLabel(s.mood))}`:""}</div>`).join("")}</div></div>`:""}
     </article>`;
   };
   const group=(title,list)=>list.length?`<section><h1>${escapeHtml(title)} <small>${list.length}</small></h1>${list.map(bookSection).join("")}</section>`:"";
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>My Reading Room Journal</title>
   <style>body{font-family:Georgia,serif;max-width:980px;margin:auto;padding:36px;color:#34261f;background:#fbf6ef}header{border-bottom:2px solid #8b674c;padding-bottom:20px;margin-bottom:28px}h1,h2{margin:.2em 0}.summary{display:flex;flex-wrap:wrap;gap:10px}.summary span,.status{background:#efe3d5;border-radius:999px;padding:6px 10px;font:600 13px system-ui}.book{background:white;border:1px solid #e6d7c8;border-radius:20px;padding:20px;margin:18px 0;page-break-inside:avoid}.book-head{display:flex;gap:18px;align-items:flex-start}.book-head img{width:90px;height:135px;object-fit:cover;border-radius:8px}.book-head p{margin:.3em 0;color:#74645a}.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:18px 0}.field{margin:12px 0;line-height:1.5}.field b{display:block;font:700 12px system-ui;text-transform:uppercase;letter-spacing:.08em;color:#7a685c;margin-bottom:4px}.sessions{font-family:system-ui;font-size:14px}.sessions div{padding:5px 0;border-bottom:1px solid #eee}section>h1{margin-top:40px;border-bottom:1px solid #d9c7b7;padding-bottom:8px}small{font-size:.6em;color:#806e61}@media print{body{background:white;padding:0}.book{box-shadow:none}}</style></head>
-  <body><header><p>YOUR PRIVATE READING JOURNAL</p><h1>My Reading Room</h1><p>Exported ${escapeHtml(new Date().toLocaleString())}</p><div class="summary"><span>${books.length} total books</span><span>${finished.length} finished</span><span>${reading.length} reading</span><span>${tbr.length} TBR</span><span>${totalMinutes.toLocaleString()} logged minutes</span></div></header>
+  <body><header><p>YOUR PRIVATE READING JOURNAL</p><h1>My Reading Room</h1><p>Exported ${escapeHtml(new Date().toLocaleString())}</p><div class="summary"><span>${books.length} total books</span><span>${finished.length} finished</span><span>${reading.length} reading</span><span>${tbr.length} TBR</span><span>${formatDurationMinutes(totalMinutes)} logged</span></div></header>
   ${group("Finished Library",finished)}${group("Currently Reading",reading)}${group("TBR",tbr)}${group("DNF Archive",dnf)}
   </body></html>`;
 }

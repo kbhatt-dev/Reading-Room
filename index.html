@@ -315,8 +315,8 @@
         <article class="stat-card"><span class="stat-icon"><svg class="ui-icon"><use href="#i-star"></use></svg></span><strong id="statRating">—</strong><small>Average rating</small></article>
         <article class="stat-card"><span class="stat-icon"><svg class="ui-icon"><use href="#i-genre"></use></svg></span><strong id="statGenre">—</strong><small>Top genre</small></article>
         <article class="stat-card"><span class="stat-icon"><svg class="ui-icon"><use href="#i-note"></use></svg></span><strong id="statAuthor">—</strong><small>Top author</small></article>
-        <article class="stat-card"><span class="stat-icon"><svg class="ui-icon"><use href="#i-session"></use></svg></span><strong id="statMinutes">0</strong><small>Logged minutes</small></article>
-        <article class="stat-card"><span class="stat-icon"><svg class="ui-icon"><use href="#i-stats"></use></svg></span><strong id="statFastest">—</strong><small>Fastest read</small></article>
+        <article class="stat-card" title="All reading-session time logged in the selected year."><span class="stat-icon"><svg class="ui-icon"><use href="#i-session"></use></svg></span><strong id="statMinutes">0 min</strong><small>Logged time</small></article>
+        <article class="stat-card" title="The shortest time between a book's start and finish dates."><span class="stat-icon"><svg class="ui-icon"><use href="#i-stats"></use></svg></span><strong id="statFastest">—</strong><small>Fastest read</small></article>
         <article class="stat-card"><span class="stat-icon"><svg class="ui-icon"><use href="#i-reading"></use></svg></span><strong id="statLongest">—</strong><small>Longest book</small></article>
       </div>
 
@@ -751,12 +751,16 @@
         <label>Mood
           <select id="sessionMood">
             <option value="">Choose mood…</option>
-            <option value="loved">Loved it</option>
-            <option value="intense">Intense</option>
-            <option value="mind-blown">Mind blown</option>
-            <option value="emotional">Emotional</option>
-            <option value="cozy">Cozy</option>
-            <option value="neutral">Neutral</option>
+            <option value="loved">😍 Loved it</option>
+            <option value="intense">😱 Intense</option>
+            <option value="mind-blown">🤯 Mind blown</option>
+            <option value="emotional">😭 Emotional</option>
+            <option value="cozy">😌 Cozy</option>
+            <option value="neutral">😐 Neutral</option>
+            <option value="disappointed">😞 Disappointed</option>
+            <option value="angry">😠 Angry</option>
+            <option value="sad">😢 Sad</option>
+            <option value="bored">😴 Bored</option>
           </select>
         </label>
       </div>
