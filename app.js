@@ -2,7 +2,7 @@
  * My Reading Room
  * Copyright © 2026 Krishna Bhatt. All rights reserved.
  */
-const APP_VERSION="7.0.12";
+const APP_VERSION="7.0.13";
 const icon=n=>`<svg class="ui-icon" aria-hidden="true"><use href="#i-${n}"></use></svg>`;
 const BOOK_KEY="readingRoomBooksV1";
 const GENRE_KEY="readingRoomGenresV1";
@@ -1597,7 +1597,48 @@ $("#exportBackup").onclick=()=>{
 };
 $("#exportJournal").onclick=()=>downloadTextFile(createReadingJournalHTML(),`reading-room-journal-${todayISO()}.html`,"text/html");
 $("#importBackupBtn").onclick=()=>$("#importBackupInput").click();
-$("#importBackupInput").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!Array.isArray(d.books))throw Error();if(!confirm(`Restore ${d.books.length} books? This replaces current local data.`))return;books=unpackBooksFromStorage(d);if(Array.isArray(d.genres))genres=d.genres;if(d.decorSettings?.themes){decorSettings=d.decorSettings;localStorage.setItem(DECOR_KEY,JSON.stringify(decorSettings));}if(d.goalSettings?.yearly){goalSettings=d.goalSettings;localStorage.setItem(GOAL_KEY,JSON.stringify(goalSettings));}const previousBooks=JSON.parse(localStorage.getItem(BOOK_KEY)||"[]");markBookChanges(previousBooks,books);localStorage.setItem(BOOK_KEY,JSON.stringify(books));localStorage.setItem(GENRE_KEY,JSON.stringify(genres));markSettingsChanged();renderAll();applyDecorations();await cloudSync();alert("Backup restored.");}catch{alert("Invalid Reading Room backup.");}e.target.value="";};
+$("#importBackupInput").onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;
+  let d;
+  try{d=JSON.parse(await f.text());if(!d||typeof d!=="object"||!Array.isArray(d.books))throw Error();}
+  catch{alert("Invalid Reading Room backup. Please select an exported Reading Room JSON backup.");e.target.value="";return;}
+  if(!confirm(`Restore ${d.books.length} books? This replaces current local data.`)){e.target.value="";return;}
+
+  const previous={
+    books:localStorage.getItem(BOOK_KEY),genres:localStorage.getItem(GENRE_KEY),decor:localStorage.getItem(DECOR_KEY),goals:localStorage.getItem(GOAL_KEY),
+    baseline:localStorage.getItem(FB_BOOK_BASELINE_KEY),times:localStorage.getItem(FB_BOOK_TIME_KEY),settingsBaseline:localStorage.getItem(FB_SETTINGS_BASELINE_KEY),settingsTime:localStorage.getItem(FB_SETTINGS_TIME_KEY),dirty:localStorage.getItem(SYNC_DIRTY_KEY)
+  };
+  try{
+    const restoredBooks=unpackBooksFromStorage(d),restoredGenres=Array.isArray(d.genres)?d.genres:genres,
+          restoredDecor=d.decorSettings?.themes?d.decorSettings:decorSettings,
+          restoredGoals=d.goalSettings?.yearly?d.goalSettings:goalSettings,
+          stamp=Date.now(),restoredTimes={};
+    for(const b of restoredBooks)restoredTimes[String(b.id)]={updatedAtMs:stamp};
+
+    /* A large backup can sit close to Safari/PWA localStorage's quota. Remove the
+       replaceable old payload and sync metadata first so an overwrite does not
+       temporarily require room for both libraries. Cloud reconciliation is also
+       reset so the restored library is treated as the authoritative local edit. */
+    [BOOK_KEY,GENRE_KEY,DECOR_KEY,GOAL_KEY,FB_BOOK_BASELINE_KEY,FB_BOOK_TIME_KEY,FB_SETTINGS_BASELINE_KEY,FB_SETTINGS_TIME_KEY,SYNC_DIRTY_KEY].forEach(k=>localStorage.removeItem(k));
+    localStorage.setItem(BOOK_KEY,JSON.stringify(restoredBooks));
+    localStorage.setItem(GENRE_KEY,JSON.stringify(restoredGenres));
+    localStorage.setItem(DECOR_KEY,JSON.stringify(restoredDecor));
+    localStorage.setItem(GOAL_KEY,JSON.stringify(restoredGoals));
+    localStorage.setItem(FB_BOOK_TIME_KEY,JSON.stringify(restoredTimes));
+    localStorage.setItem(FB_SETTINGS_TIME_KEY,String(stamp));
+    localStorage.setItem(SYNC_DIRTY_KEY,"1");localStorage.removeItem(FB_RESET_HOLD_KEY);localStorage.setItem(CHANGE_KEY,String(stamp));
+
+    books=restoredBooks;genres=restoredGenres;decorSettings=restoredDecor;goalSettings=restoredGoals;
+    renderGenreOptions();renderAll();applyDecorations();renderSyncStatus();
+    const synced=await cloudSync();
+    alert(synced?`Backup restored. ${books.length} books are now on this device.`:`Backup restored locally with ${books.length} books. Cloud sync could not finish (for example, if the Firebase quota is exhausted). Your restored books are safe on this device; try Sync Now after the quota resets.`);
+  }catch(err){
+    const restore=(key,value)=>value===null?localStorage.removeItem(key):localStorage.setItem(key,value);
+    try{restore(BOOK_KEY,previous.books);restore(GENRE_KEY,previous.genres);restore(DECOR_KEY,previous.decor);restore(GOAL_KEY,previous.goals);restore(FB_BOOK_BASELINE_KEY,previous.baseline);restore(FB_BOOK_TIME_KEY,previous.times);restore(FB_SETTINGS_BASELINE_KEY,previous.settingsBaseline);restore(FB_SETTINGS_TIME_KEY,previous.settingsTime);restore(SYNC_DIRTY_KEY,previous.dirty);}catch{}
+    alert(err?.name==="QuotaExceededError"||String(err?.message||"").toLowerCase().includes("quota")?"This backup is valid, but this installed app does not currently have enough device storage to restore it. Close other Reading Room tabs, restart the app, and try again. Your previous local data was kept.":`The backup could not be restored: ${err?.message||"device storage error"}. Your previous local data was kept.`);
+  }
+  e.target.value="";
+};
 
 $("#readingFunDetails")?.addEventListener("toggle",e=>{const hint=e.currentTarget.querySelector(".reading-fun-hint");if(hint)hint.textContent=e.currentTarget.open?"Close":"Open";if(e.currentTarget.open)renderReadingExtras();});
 $("#editMonthlyChallenge").onclick=()=>{const key=currentMonthKey(),d=new Date();$("#monthlyChallengeLabel").textContent=d.toLocaleDateString([],{month:"long",year:"numeric"});$("#monthlyChallengeTarget").value=goalSettings.monthly[key]||"";$("#monthlyChallengeDialog").showModal();setDialogOpen(true);};

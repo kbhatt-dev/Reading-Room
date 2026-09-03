@@ -74,3 +74,8 @@ Copyright © 2026 Krishna Bhatt. All rights reserved.
 - Fixed iPhone/iOS Safari behavior where a Finished year shelf could widen the whole page and make the entire screen scroll horizontally.
 - Horizontal swiping is now contained inside each Finished shelf row, matching the Room/TBR shelf behavior.
 - Native shelf scrollbars remain hidden while touch scrolling stays enabled.
+# V7.0.13
+
+- Fixed large valid backups being reported as invalid in installed iPhone/PWA mode.
+- Backup restore now safely replaces local storage, preserves the prior local library if storage fails, and distinguishes local restore success from Firebase sync failure.
+- A restored library remains marked for a later Sync Now attempt when Firebase quota is temporarily exhausted.
