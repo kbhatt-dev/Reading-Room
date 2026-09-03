@@ -2,7 +2,7 @@
  * My Reading Room
  * Copyright © 2026 Krishna Bhatt. All rights reserved.
  */
-const APP_VERSION="7.0.13";
+const APP_VERSION="7.0.14";
 const icon=n=>`<svg class="ui-icon" aria-hidden="true"><use href="#i-${n}"></use></svg>`;
 const BOOK_KEY="readingRoomBooksV1";
 const GENRE_KEY="readingRoomGenresV1";
@@ -258,7 +258,7 @@ async function optimizeExistingCovers(){
       if(newBytes&&newBytes<oldBytes&&newBytes<COVER_HARD_MAX_BYTES){b.cover=optimized;changed++;after+=newBytes;}else after+=oldBytes;
     }catch{after+=oldBytes;}
   }
-  if(changed){localStorage.setItem(BOOK_KEY,JSON.stringify(books));markBookChanges([],books,{onlyExisting:true});markChanged();renderAll();}
+  if(changed){await persistBooksLocal();markBookChanges([],books,{onlyExisting:true});markChanged();renderAll();}
   return {changed,before,after};
 }
 function coverKey(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return `c${(h>>>0).toString(36)}_${s.length}`;}
@@ -271,6 +271,19 @@ function unpackBooksFromStorage(payload){
   const list=Array.isArray(payload?.books)?payload.books:[];const covers=payload?.covers&&typeof payload.covers==="object"?payload.covers:{};
   return list.map(b=>b.coverRef?{...b,cover:covers[b.coverRef]||""}:{...b});
 }
+const COVER_DB_NAME="readingRoomMediaV1",COVER_STORE="covers";
+function openCoverDB(){return new Promise((resolve,reject)=>{const request=indexedDB.open(COVER_DB_NAME,1);request.onupgradeneeded=()=>{if(!request.result.objectStoreNames.contains(COVER_STORE))request.result.createObjectStore(COVER_STORE,{keyPath:"id"});};request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error||new Error("Cover storage could not be opened."));});}
+function booksWithoutLocalCovers(source=books){return source.map(b=>{const copy={...b};delete copy.cover;return copy;});}
+async function saveBookCoversToDB(source=books,{replaceAll=true}={}){
+  const db=await openCoverDB();
+  try{await new Promise((resolve,reject)=>{const tx=db.transaction(COVER_STORE,"readwrite"),store=tx.objectStore(COVER_STORE);if(replaceAll)store.clear();for(const b of source)if(b.cover)store.put({id:String(b.id),cover:b.cover});tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error||new Error("Covers could not be saved."));tx.onabort=()=>reject(tx.error||new Error("Cover storage was interrupted."));});}finally{db.close();}
+}
+async function hydrateBookCoversFromDB(){
+  if(!books.length)return;
+  const db=await openCoverDB();
+  try{const rows=await new Promise((resolve,reject)=>{const request=db.transaction(COVER_STORE,"readonly").objectStore(COVER_STORE).getAll();request.onsuccess=()=>resolve(request.result||[]);request.onerror=()=>reject(request.error);}),map=new Map(rows.map(row=>[String(row.id),row.cover]));books=books.map(b=>map.has(String(b.id))?{...b,cover:map.get(String(b.id))}:b);}finally{db.close();}
+}
+function persistBooksLocal({replaceCovers=true}={}){localStorage.setItem(BOOK_KEY,JSON.stringify(booksWithoutLocalCovers()));return saveBookCoversToDB(books,{replaceAll:replaceCovers});}
 function persistentSyncPayload(){const packed=packBooksForStorage(books);return {books:packed.books,covers:packed.covers,genres,decorSettings,goalSettings,storageVersion:3};}
 
 function markChanged(){localStorage.removeItem(FB_RESET_HOLD_KEY);localStorage.setItem(CHANGE_KEY,String(Date.now()));localStorage.setItem(SYNC_DIRTY_KEY,"1");}
@@ -288,7 +301,7 @@ function markBookChanges(previous,current,{onlyExisting=false}={}){
 function markSettingsChanged(){localStorage.setItem(FB_SETTINGS_TIME_KEY,String(Date.now()));markChanged();}
 function saveBooks({sync=true}={}){
   let previous=[];try{previous=JSON.parse(localStorage.getItem(BOOK_KEY)||"[]")}catch{}
-  markBookChanges(previous,books);localStorage.setItem(BOOK_KEY,JSON.stringify(books));markChanged();renderAll();if(sync)scheduleCloudPush();
+  markBookChanges(previous,books);persistBooksLocal().catch(e=>console.warn("Cover storage:",e));markChanged();renderAll();if(sync)scheduleCloudPush();
 }
 function saveGenres({sync=true}={}){
   localStorage.setItem(GENRE_KEY,JSON.stringify(genres));markSettingsChanged();renderGenreOptions();renderAll();if(sync)scheduleCloudPush();
@@ -339,7 +352,7 @@ window.renameGenre=i=>{
   const input=document.querySelector(`[data-genre-index="${i}"]`);const next=(input?.value||"").trim().replace(/\s+/g," ");const old=genres[i];
   if(!next)return alert("Genre name cannot be empty.");
   if(genres.some((g,j)=>j!==i&&g.toLowerCase()===next.toLowerCase()))return alert("That genre already exists.");
-  genres[i]=next;books=books.map(b=>b.genre===old?{...b,genre:next}:b);localStorage.setItem(BOOK_KEY,JSON.stringify(books));saveGenres();
+  genres[i]=next;books=books.map(b=>b.genre===old?{...b,genre:next}:b);persistBooksLocal().catch(e=>console.warn("Cover storage:",e));saveGenres();
 };
 window.deleteGenre=i=>{const name=genres[i];if(!confirm(`Remove "${name}" from future choices? Existing books keep it.`))return;genres.splice(i,1);saveGenres();};
 
@@ -1334,7 +1347,7 @@ async function signIn(email,password){
 
 function resetLocalReadingData(){
   books=[];genres=[...DEFAULT_GENRES];decorSettings={themes:{home:"classic",tbr:"classic",finished:"classic"}};goalSettings={yearly:{},monthly:{}};
-  localStorage.setItem(BOOK_KEY,JSON.stringify(books));localStorage.setItem(GENRE_KEY,JSON.stringify(genres));localStorage.setItem(DECOR_KEY,JSON.stringify(decorSettings));localStorage.setItem(GOAL_KEY,JSON.stringify(goalSettings));
+  persistBooksLocal().catch(e=>console.warn("Cover storage:",e));localStorage.setItem(GENRE_KEY,JSON.stringify(genres));localStorage.setItem(DECOR_KEY,JSON.stringify(decorSettings));localStorage.setItem(GOAL_KEY,JSON.stringify(goalSettings));
   localStorage.removeItem(LAST_BACKUP_KEY);localStorage.removeItem(FB_BOOK_BASELINE_KEY);localStorage.removeItem(FB_BOOK_TIME_KEY);localStorage.removeItem(FB_SETTINGS_BASELINE_KEY);localStorage.removeItem(FB_SETTINGS_TIME_KEY);localStorage.removeItem(SYNC_DIRTY_KEY);localStorage.setItem(FB_RESET_HOLD_KEY,"1");
   localStorage.setItem(CHANGE_KEY,String(Date.now()));renderGenreOptions();renderAll();applyDecorations();renderSyncStatus();
 }
@@ -1377,7 +1390,7 @@ function refreshDirtyFlag(){
   else localStorage.removeItem(SYNC_DIRTY_KEY);
 }
 function updateLocalPersistentStorage(){
-  localStorage.setItem(BOOK_KEY,JSON.stringify(books));localStorage.setItem(GENRE_KEY,JSON.stringify(genres));localStorage.setItem(DECOR_KEY,JSON.stringify(decorSettings));localStorage.setItem(GOAL_KEY,JSON.stringify(goalSettings));
+  persistBooksLocal().catch(e=>console.warn("Cover storage:",e));localStorage.setItem(GENRE_KEY,JSON.stringify(genres));localStorage.setItem(DECOR_KEY,JSON.stringify(decorSettings));localStorage.setItem(GOAL_KEY,JSON.stringify(goalSettings));
 }
 function applyRemoteSettings(data){
   if(Array.isArray(data?.genres))genres=data.genres;
@@ -1606,7 +1619,7 @@ $("#importBackupInput").onchange=async e=>{
 
   const previous={
     books:localStorage.getItem(BOOK_KEY),genres:localStorage.getItem(GENRE_KEY),decor:localStorage.getItem(DECOR_KEY),goals:localStorage.getItem(GOAL_KEY),
-    baseline:localStorage.getItem(FB_BOOK_BASELINE_KEY),times:localStorage.getItem(FB_BOOK_TIME_KEY),settingsBaseline:localStorage.getItem(FB_SETTINGS_BASELINE_KEY),settingsTime:localStorage.getItem(FB_SETTINGS_TIME_KEY),dirty:localStorage.getItem(SYNC_DIRTY_KEY)
+    baseline:localStorage.getItem(FB_BOOK_BASELINE_KEY),times:localStorage.getItem(FB_BOOK_TIME_KEY),settingsBaseline:localStorage.getItem(FB_SETTINGS_BASELINE_KEY),settingsTime:localStorage.getItem(FB_SETTINGS_TIME_KEY),dirty:localStorage.getItem(SYNC_DIRTY_KEY),bookObjects:books
   };
   try{
     const restoredBooks=unpackBooksFromStorage(d),restoredGenres=Array.isArray(d.genres)?d.genres:genres,
@@ -1620,21 +1633,22 @@ $("#importBackupInput").onchange=async e=>{
        temporarily require room for both libraries. Cloud reconciliation is also
        reset so the restored library is treated as the authoritative local edit. */
     [BOOK_KEY,GENRE_KEY,DECOR_KEY,GOAL_KEY,FB_BOOK_BASELINE_KEY,FB_BOOK_TIME_KEY,FB_SETTINGS_BASELINE_KEY,FB_SETTINGS_TIME_KEY,SYNC_DIRTY_KEY].forEach(k=>localStorage.removeItem(k));
-    localStorage.setItem(BOOK_KEY,JSON.stringify(restoredBooks));
+    localStorage.setItem(BOOK_KEY,JSON.stringify(booksWithoutLocalCovers(restoredBooks)));
     localStorage.setItem(GENRE_KEY,JSON.stringify(restoredGenres));
     localStorage.setItem(DECOR_KEY,JSON.stringify(restoredDecor));
     localStorage.setItem(GOAL_KEY,JSON.stringify(restoredGoals));
     localStorage.setItem(FB_BOOK_TIME_KEY,JSON.stringify(restoredTimes));
     localStorage.setItem(FB_SETTINGS_TIME_KEY,String(stamp));
     localStorage.setItem(SYNC_DIRTY_KEY,"1");localStorage.removeItem(FB_RESET_HOLD_KEY);localStorage.setItem(CHANGE_KEY,String(stamp));
+    await saveBookCoversToDB(restoredBooks,{replaceAll:true});
 
     books=restoredBooks;genres=restoredGenres;decorSettings=restoredDecor;goalSettings=restoredGoals;
     renderGenreOptions();renderAll();applyDecorations();renderSyncStatus();
-    const synced=await cloudSync();
-    alert(synced?`Backup restored. ${books.length} books are now on this device.`:`Backup restored locally with ${books.length} books. Cloud sync could not finish (for example, if the Firebase quota is exhausted). Your restored books are safe on this device; try Sync Now after the quota resets.`);
+    const canSync=configured()&&signedIn(),synced=canSync?await cloudSync():false;
+    alert(synced?`Backup restored. ${books.length} books are now on this device.`:canSync?`Backup restored locally with ${books.length} books. Cloud sync could not finish (for example, if the Firebase quota is exhausted). Your restored books are safe on this device; try Sync Now after the quota resets.`:`Backup restored locally with ${books.length} books. Sign in when you are ready to sync them.`);
   }catch(err){
     const restore=(key,value)=>value===null?localStorage.removeItem(key):localStorage.setItem(key,value);
-    try{restore(BOOK_KEY,previous.books);restore(GENRE_KEY,previous.genres);restore(DECOR_KEY,previous.decor);restore(GOAL_KEY,previous.goals);restore(FB_BOOK_BASELINE_KEY,previous.baseline);restore(FB_BOOK_TIME_KEY,previous.times);restore(FB_SETTINGS_BASELINE_KEY,previous.settingsBaseline);restore(FB_SETTINGS_TIME_KEY,previous.settingsTime);restore(SYNC_DIRTY_KEY,previous.dirty);}catch{}
+    try{restore(BOOK_KEY,previous.books);restore(GENRE_KEY,previous.genres);restore(DECOR_KEY,previous.decor);restore(GOAL_KEY,previous.goals);restore(FB_BOOK_BASELINE_KEY,previous.baseline);restore(FB_BOOK_TIME_KEY,previous.times);restore(FB_SETTINGS_BASELINE_KEY,previous.settingsBaseline);restore(FB_SETTINGS_TIME_KEY,previous.settingsTime);restore(SYNC_DIRTY_KEY,previous.dirty);await saveBookCoversToDB(previous.bookObjects,{replaceAll:true});}catch{}
     alert(err?.name==="QuotaExceededError"||String(err?.message||"").toLowerCase().includes("quota")?"This backup is valid, but this installed app does not currently have enough device storage to restore it. Close other Reading Room tabs, restart the app, and try again. Your previous local data was kept.":`The backup could not be restored: ${err?.message||"device storage error"}. Your previous local data was kept.`);
   }
   e.target.value="";
@@ -1683,6 +1697,11 @@ $("#closeAdvancedSearch").onclick=()=>$("#advancedSearchDialog").close();
 $("#clearAdvancedSearch").onclick=()=>{$("#advancedSearchQuery").value="";$("#advancedSearchStatus").value="all";$("#advancedSearchGenre").value="all";$("#advancedSearchYear").value="all";$("#advancedSearchRating").value="all";renderAdvancedSearch();};
 
 async function initializeReadingRoom(){
+  try{
+    const legacyHasCovers=books.some(b=>b.cover);
+    if(legacyHasCovers){await saveBookCoversToDB(books,{replaceAll:true});localStorage.setItem(BOOK_KEY,JSON.stringify(booksWithoutLocalCovers()));}
+    else await hydrateBookCoversFromDB();
+  }catch(e){console.warn("Cover storage initialization:",e);}
   renderGenreOptions();
   renderAll();
   applyDecorations();

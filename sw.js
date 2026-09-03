@@ -2,7 +2,7 @@
  * My Reading Room — Service Worker
  * Copyright © 2026 Krishna Bhatt. All rights reserved.
  */
-const VERSION="reading-room-v7-0-13-backup-import-fix";
+const VERSION="reading-room-v7-0-14-indexeddb-covers";
 self.addEventListener("install",()=>self.skipWaiting());
 self.addEventListener("activate",event=>{
   event.waitUntil(caches.keys().then(keys=>Promise.all(keys.map(k=>caches.delete(k)))).then(()=>self.clients.claim()));
